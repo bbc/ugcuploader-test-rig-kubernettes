@@ -179,15 +179,19 @@ https://grafana.com/grafana/dashboards/1152
 
 
 
+![JmeterDashboard](JmeterDashboard.png)
+
+
+
 ## Add Tennant To Cluster
 
 In the folder *kubernetes-artefacts/tennant* There file *add-tennat-to-cluster.sh* can be used to add a tenant's test environment to the cluster. Usage: `add-tennat-to-cluster.sh <namespace> <aws_account_number> <aws_region>`
 
-eg. *./add-tennat-to-cluster.sh one 546933502184 eu-west-2*
+eg. *./add-tennat-to-cluster.sh bbcradio 546933502184 eu-west-2*
 
 The file `un-do.sh` can be used to remove the tennant from the cluster.
 
-Eg. *./un-do.sh one*
+Eg. *./un-do.sh bbcradio*
 
 
 
