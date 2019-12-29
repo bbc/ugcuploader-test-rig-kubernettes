@@ -105,7 +105,7 @@ Following command can then be issued to set the AWS environmental variables.
 
 # Create Test Rig Cluster
 
-The document in this link [CreateCluster](#CreateClusterSteps.md) outlines the steps for creating the cluster.
+The document in this link [CreateCluster](CreateClusterSteps.md) outlines the steps for creating the cluster.
 
 
 
