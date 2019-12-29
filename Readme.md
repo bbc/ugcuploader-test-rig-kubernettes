@@ -1,4 +1,4 @@
-# Distributed Jmeter Test Rig Using Kubernettes
+# Distributed Jmeter Test Rig Using Kubernetes
 
 
 
@@ -45,6 +45,8 @@ The following is the process that should be followed to create test and deploy t
    + Test should be stored in the folder `src/test`
 2. Containerize the test by re-building the *master* jmeter image. Follow the instructions outlined here [Containerize And Upload to ECR(AWS Docker Repo)](#containerize--and--upload--to--ecr)
 3. Provision tennant: If tennant is already provisioned undo first: Follow instructions outlined here  [#Add Tennant To Cluster](#add--tennant--to--cluster)
+
+4. Copy user.properties to jmeter-slaves<br>In the folder *kubernetes-util* the script *update-slaves-user-properties.sh* can be used. Usage: *update-slaves-user-properties.sh <tennant>* <br> Eg. Copy to all jmeter slaves of bbcradio: ```./test-scripts/update-slaves-user-properties.sh bbcradio```
 
 
 
