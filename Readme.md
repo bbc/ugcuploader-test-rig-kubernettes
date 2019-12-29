@@ -58,7 +58,9 @@ The following scripts can be found in the folder *test-scripts*
 
    Eg.  ```./test-scripts/start_test ugcupload/upload.jmx children```
 
-2. Stop Test
+2. Stop Test for a Tenant <br> *stop_test <tennent>*<br> Eg. ```./test-scripts/stop_test children```
+
+
 
 ## Generate Jmeter Report
 

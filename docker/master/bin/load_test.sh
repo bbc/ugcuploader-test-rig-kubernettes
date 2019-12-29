@@ -23,8 +23,6 @@ echo 2
         fi
 
         rm /tmp/start
-    else
-        echo "\$PID is NOT empty"
     fi
 
 fi
