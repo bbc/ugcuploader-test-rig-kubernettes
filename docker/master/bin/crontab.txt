@@ -1,0 +1,1 @@
+* * * * * /home/jmeter/bin/check_if_ended.sh >> /home/jmeter/somethingwentwrong.txt 2>&1

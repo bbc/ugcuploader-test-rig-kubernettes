@@ -1,0 +1,28 @@
+apiVersion: apps/v1beta2 # for versions before 1.9.0 use apps/v1beta2
+kind: Deployment
+metadata:
+  name: jmeter-master
+  labels:
+    jmeter_mode: master
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      jmeter_mode: master
+  template:
+    metadata:
+      labels:
+        jmeter_mode: master
+    spec:
+      serviceAccountName: ugcupload-jmeter
+      containers:
+      - name: jmmaster
+        image: 546933502184.dkr.ecr.eu-west-2.amazonaws.com/ugcloadtest/jmeter-master:latest
+        imagePullPolicy: Always
+        args: [ "/bin/bash", "-c", "--", "while true; do sleep 30; done;" ]
+        ports:
+        - containerPort: 60000
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+          

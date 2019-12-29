@@ -1,0 +1,95 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: ugcloadtest
+  region: eu-west-2
+
+iam:
+  withOIDC: true
+ # serviceAccounts:
+ # - metadata:
+ #     name: ugcupload-jmeter
+ #     # if no namespace is set, "default" will be used;
+ #     # the namespace will be created if it doesn't exist already
+ #     namespace: ugcloadtest-jmeter-ns
+ #     labels: {aws-usage: "application"}
+ #   attachPolicyARNs:
+ #   - "arn:aws:iam::546933502184:policy/ugcupload-eks-jmeter-policy"
+
+nodeGroups:
+  - name: jmeter-slaves
+    instanceType: t2.medium
+    minSize: 2
+    maxSize: 50
+    volumeSize: 50
+    volumeType: gp2
+    ssh:
+      allow: true
+      publicKeyName: 'cosmos'
+    iam:
+      withAddonPolicies:
+        imageBuilder: true
+        autoScaler: true
+        externalDNS: true
+        ebs: true
+
+  - name: jmeter-master
+    instanceType: t2.micro
+    minSize: 1
+    maxSize: 25
+    volumeSize: 50
+    volumeType: gp2
+    ssh:
+      allow: true
+      publicKeyName: 'cosmos'
+    iam:
+      withAddonPolicies:
+        imageBuilder: true
+        autoScaler: true
+        externalDNS: true
+        ebs: true
+
+  - name: grafana
+    instanceType: t2.medium
+    minSize: 1
+    volumeSize: 50
+    volumeType: gp2
+    ssh:
+      allow: true
+      publicKeyName: 'cosmos'
+    iam:
+      withAddonPolicies:
+        imageBuilder: true
+        autoScaler: true
+        externalDNS: true
+        ebs: true
+    kubeletExtraConfig:
+         featureGates:
+            CSINodeInfo: true
+            CSIDriverRegistry: true
+            CSIBlockVolume: true
+            RotateKubeletServerCertificate: true # according to this must always be included: https://eksctl.io/usage/customizing-the-kubelet/
+
+  - name: influxdb
+    instanceType: t2.micro
+    minSize: 1
+    volumeSize: 50
+    volumeType: gp2
+    ssh:
+      allow: true
+      publicKeyName: 'cosmos'
+    iam:
+      withAddonPolicies:
+        imageBuilder: true
+        autoScaler: true
+        externalDNS: true
+        ebs: true
+
+cloudWatch:
+  clusterLogging:
+    # enable specific types of cluster control plane logs
+    enableTypes: ["all"]
+    # all supported types: "api", "audit", "authenticator", "controllerManager", "scheduler"
+    # supported special values: "*" and "all"
+
