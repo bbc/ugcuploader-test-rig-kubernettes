@@ -11,7 +11,8 @@ Table of Contents
     
     
 
-#Create Cluster
+
+# Create Cluster
 
 The following steps should be followed to create the Test Rig cluster.
 
