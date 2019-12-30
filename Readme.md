@@ -70,7 +70,7 @@ The test artefacts are stored in s3 bucket
 
 Use the following command to convert  to jmeter report.
 
-```$JMETER_HOME/bin/jmeter -g resutls.jtl -o <report-folder>``
+```$JMETER_HOME/bin/jmeter -g resutls.jtl -o <report-folder>```
 
 # Dependencies
 
@@ -210,3 +210,7 @@ Run the script *install-weavescope.sh* which can be found in *kubernetes-util* f
 To view the state of the cluster within a browser run the script *proxy-forward-weavescope.sh* which can be found in *kubernetes-util* folder
 
 You can then view the cluster using: http://127.0.0.1:4040
+
+Below is the output:
+
+![Monitor Dashboard](WeaveScope.png)
