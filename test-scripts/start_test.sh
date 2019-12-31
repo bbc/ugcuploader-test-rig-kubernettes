@@ -25,4 +25,4 @@ master_pod=`kubectl get po -n $2 | grep jmeter-master | awk '{print $1}'`
 
 echo "Starting Jmeter load test $test_name for $2 running on $master_pod  "
 
-kubectl exec -ti -n $2 $master_pod -- /bin/bash /home/jmeter/bin/load_test.sh "/home/jmeter/test/$test_name" $2 &
+kubectl exec -ti -n $2 $master_pod -- /bin/bash /home/jmeter/bin/load_test.sh "/home/jmeter/test/$test_name" $2 

@@ -4,7 +4,7 @@
     <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Upload" enabled="true">
       <stringProp name="TestPlan.comments"></stringProp>
       <boolProp name="TestPlan.functional_mode">false</boolProp>
-      <boolProp name="TestPlan.serialize_threadgroups">true</boolProp>
+      <boolProp name="TestPlan.serialize_threadgroups">false</boolProp>
       <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
         <collectionProp name="Arguments.arguments">
           <elementProp name="campaignId" elementType="Argument">
@@ -25,14 +25,14 @@
             <stringProp name="Argument.desc">The id of the campaign</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
-          <elementProp name="campaignId2" elementType="Argument">
-            <stringProp name="Argument.name">campaignId2</stringProp>
+          <elementProp name="campaignId" elementType="Argument">
+            <stringProp name="Argument.name">campaignId</stringProp>
             <stringProp name="Argument.value">u22417071</stringProp>
             <stringProp name="Argument.desc">anonymous</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
-          <elementProp name="campaignId" elementType="Argument">
-            <stringProp name="Argument.name">campaignId</stringProp>
+          <elementProp name="campaignId3" elementType="Argument">
+            <stringProp name="Argument.name">campaignId3</stringProp>
             <stringProp name="Argument.value">u16720794</stringProp>
             <stringProp name="Argument.desc">not working</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
@@ -79,7 +79,7 @@
         <stringProp name="filename"></stringProp>
       </ResultCollector>
       <hashTree/>
-      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Upload File - Login" enabled="true">
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="manage test duration" enabled="false">
         <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
         <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller" enabled="true">
           <boolProp name="LoopController.continue_forever">false</boolProp>
@@ -88,21 +88,243 @@
         <stringProp name="ThreadGroup.num_threads">1</stringProp>
         <stringProp name="ThreadGroup.ramp_time">1</stringProp>
         <boolProp name="ThreadGroup.scheduler">true</boolProp>
-        <stringProp name="ThreadGroup.duration">600</stringProp>
-        <stringProp name="ThreadGroup.delay">1</stringProp>
+        <stringProp name="ThreadGroup.duration">${__P(dRation)}</stringProp>
+        <stringProp name="ThreadGroup.delay"></stringProp>
       </ThreadGroup>
       <hashTree>
+        <JSR223Sampler guiclass="TestBeanGUI" testclass="JSR223Sampler" testname="calculate timings" enabled="true">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">/* Function to calculate seconds to a particular time on the current day */
+public long currentDayMilliCount(int dayOfMonth, int hourOfDay) {
+	/* Return the number of milliseconds from the current time to a particular hour of the day */ 
+	Calendar c = Calendar.getInstance();
+	c.add(Calendar.DAY_OF_MONTH, dayOfMonth);
+	c.set(Calendar.HOUR_OF_DAY, hourOfDay);
+	c.set(Calendar.MINUTE, 0);
+	c.set(Calendar.SECOND, 0);
+	c.set(Calendar.MILLISECOND, 0);
+	long howMany = (c.getTimeInMillis()-System.currentTimeMillis());
+	return howMany;	
+}
+
+public long calculateMilliCount(int noHours) {
+	/* Return the number of milliseconds for any number of hours duration */
+	return noHours * 3600 * 1000; 	
+}
+
+public void manageSoakTestExecution(int noDaysExecution, int startTime, int dailyDuration) {
+
+	/* We will build an execution schedule for the Soak Test which will manage the test */
+	/* Firstly we need to determine how long the test needs to run for on the current day */
+	/* The test could be started at a any time of the day and in our example we want it to */
+	/* stop before midnight and not start again before a certain time on the following day */
+	/* Using our functions we calculate how much time between now and our desired end time */
+	long milliToTestStopDayOne = currentDayMilliCount(0, 23);
+
+	/* We also need to determine how long until midnight so we can calculate the sleep time */
+	/* for the test on the first day, we use the same function with alternative parameters */
+	long milliToMidnightDayOne = currentDayMilliCount(1, 0);
+
+	/* We calculate the sleep time for our test from midnight each day until the desired start time */
+	long milliStartOfDay = calculateMilliCount(startTime);
+
+	/* We calculate the execution time for the test */
+	long milliOnDayExecutionTime = calculateMilliCount(dailyDuration);
+
+	/* We calculate the remaining sleep time for the test */
+	long milliEndOfDay = calculateMilliCount(24 - (startTime + dailyDuration));
+
+	/* We calculate the duration of the whole day element of the test */
+	long milliAllDaysDuration = calculateMilliCount(24 * noDaysExecution);
+
+	/* Now we have our basic calculations we can manage the test */
+	/* We firstly set the duration of the soak test by changing the dRation parameter */
+	/* The first thing we do is set the test duration for the whole test day */
+	/* This is effectively the time to midnight on the start day of the test plus the number of days */
+	/* of solid execution we wish to run for */
+	
+	/* We do this by overwriting the dRation property that manages the execution time */
+	long soakTestDuration = milliToMidnightDayOne + milliAllDaysDuration;
+
+	props.put(&quot;dRation&quot;, soakTestDuration.toString());
+
+	/* We now pause our manage-test-duration sampler, until it is required to change further parameters*/
+	/* The next action will be to pause the test when we have executed for the time set in the milliToTestStopDayOne variable */
+Thread.sleep(milliToTestStopDayOne);
+Thread.sleep(1);
+
+	/* We iterate our noDaysExeuction variable here and follow the same pattern for each day */
+	for(i=1; i&lt;=noDaysExecution; i++) {
+
+		/* Once we have waited for the end of the test we need to pause our */
+		/* octo-perf-soak sampler until it starts again which */
+		/* is effectively the remaining sleep time for the test for a day plus the sleep time for the next day when */
+		/* the test starts again*/
+		/* We overwrite the threadSleep variable in the manage-sleep-time sampler */
+		props.put(&quot;threadSleep&quot;, milliEndOfDay + milliStartOfDay);
+		
+		/* And we pause our manage-test-duration sampler until we need to perform another action */
+		/* This is effectively the time when the next days tests needs to stop */
+		Thread.sleep(milliEndOfDay + milliStartOfDay + milliOnDayExecutionTime);
+	}
+}
+
+log.info(&quot;-----jUST&quot;)
+	/* Call the function to manage the soak test */
+manageSoakTestExecution(1, 8, 15);
+</stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223Sampler>
+        <hashTree/>
+      </hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Upload File -No Login" enabled="true">
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller" enabled="true">
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+          <intProp name="LoopController.loops">-1</intProp>
+        </elementProp>
+        <stringProp name="ThreadGroup.num_threads">1</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">0</stringProp>
+        <boolProp name="ThreadGroup.scheduler">true</boolProp>
+        <stringProp name="ThreadGroup.duration">3600</stringProp>
+        <stringProp name="ThreadGroup.delay"></stringProp>
+      </ThreadGroup>
+      <hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Upload-No Login" enabled="true">
+          <elementProp name="HTTPsampler.Files" elementType="HTTPFileArgs">
+            <collectionProp name="HTTPFileArgs.files">
+              <elementProp name="${__P(test.data,&quot;hmm&quot;)}/1600px-Snake_River_5MB.jpg" elementType="HTTPFileArg">
+                <stringProp name="File.path">${__P(test.data,&quot;hmm&quot;)}/1600px-Snake_River_5MB.jpg</stringProp>
+                <stringProp name="File.paramname">data</stringProp>
+                <stringProp name="File.mimetype">image/jpeg</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="Variables pré-définies" enabled="true">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="txt10930738" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.value">email</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+                <boolProp name="HTTPArgument.use_equals">true</boolProp>
+                <stringProp name="Argument.name">txt10930738</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+          <stringProp name="HTTPSampler.domain">www.int.bbc.co.uk</stringProp>
+          <stringProp name="HTTPSampler.port"></stringProp>
+          <stringProp name="HTTPSampler.protocol">https</stringProp>
+          <stringProp name="HTTPSampler.contentEncoding"></stringProp>
+          <stringProp name="HTTPSampler.path">ugc/send/${campaignId}</stringProp>
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.DO_MULTIPART_POST">true</boolProp>
+          <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
+          <stringProp name="HTTPSampler.implementation">HttpClient4</stringProp>
+          <stringProp name="HTTPSampler.connect_timeout"></stringProp>
+          <stringProp name="HTTPSampler.response_timeout"></stringProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <JSONPostProcessor guiclass="JSONPostProcessorGui" testclass="JSONPostProcessor" testname="Extract SubmissionId" enabled="true">
+            <stringProp name="JSONPostProcessor.referenceNames">subId</stringProp>
+            <stringProp name="JSONPostProcessor.jsonPathExprs">$.submissionId</stringProp>
+            <stringProp name="JSONPostProcessor.match_numbers">1</stringProp>
+            <stringProp name="Sample.scope">variable</stringProp>
+            <stringProp name="Scope.variable"></stringProp>
+            <boolProp name="JSONPostProcessor.compute_concat">true</boolProp>
+          </JSONPostProcessor>
+          <hashTree/>
+          <ResultSaver guiclass="ResultSaverGui" testclass="ResultSaver" testname="Save Responses to a file" enabled="true">
+            <stringProp name="FileSaver.filename">${__P(test.results,&quot;hmm&quot;)}/upload.json</stringProp>
+            <boolProp name="FileSaver.errorsonly">false</boolProp>
+            <boolProp name="FileSaver.successonly">false</boolProp>
+            <boolProp name="FileSaver.skipsuffix">false</boolProp>
+            <boolProp name="FileSaver.skipautonumber">false</boolProp>
+          </ResultSaver>
+          <hashTree/>
+          <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname=" PreProcessor-AddAuthenticationCookies" enabled="false">
+            <stringProp name="scriptLanguage">groovy</stringProp>
+            <stringProp name="parameters"></stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="cacheKey">true</stringProp>
+            <stringProp name="script">//sampler.setProtocol(vars.get(&quot;LOGION_PROTOCOL&quot;))
+//sampler.setDomain(vars.get(&quot;LOGIN_DOMAIN&quot;))
+//sampler.setPath(vars.get(&quot;LOGIN_PATH&quot;))
+//log.info(&quot;----- BEFORE LOGIN ${__property(UGC_CKNS_MVT)}&quot;)
+import org.apache.jmeter.protocol.http.control.CookieManager;
+
+import org.apache.jmeter.protocol.http.control.Cookie;
+import org.apache.jmeter.testelement.property.JMeterProperty;
+CookieManager manager = ctx.getCurrentSampler().getProperty(&quot;HTTPSampler.cookie_manager&quot;).getObjectValue();
+count = Integer.parseInt(props.getProperty(&quot;cookiecount&quot;));
+
+       Cookie cknsIdtkCookie = new
+		Cookie(
+			props.getProperty(&quot;cookie_name_ckns_idtkn&quot;),
+			props.getProperty(&quot;cookie_value_ckns_idtkn&quot;), 
+			props.getProperty(&quot;cookie_domain_ckns_idtkn&quot;),
+			props.getProperty(&quot;cookie_path_ckns_idtkn&quot;), 
+			Boolean.parseBoolean(props.getProperty(&quot;cookie_secure_ckns_idtkn&quot;)), 
+			Long.parseLong(props.getProperty(&quot;cookie_expires_ckns_idtkn&quot;))
+			);
+
+	
+	manager.add(cknsIdtkCookie);
+
+	      Cookie cknsAtknCookie = new
+		Cookie(
+			props.getProperty(&quot;cookie_name_ckns_atkn&quot;),
+			props.getProperty(&quot;cookie_value_ckns_atkn&quot;), 
+			props.getProperty(&quot;cookie_domain_ckns_atkn&quot;),
+			props.getProperty(&quot;cookie_path_ckns_atkn&quot;), 
+			Boolean.parseBoolean(props.getProperty(&quot;cookie_secure_ckns_atkn&quot;)), 
+			Long.parseLong(props.getProperty(&quot;cookie_expires_ckns_atkn&quot;))
+			);
+
+	
+	manager.add(cknsAtknCookie);
+	
+JMeterProperty cookieprop = 
+ctx.getCurrentSampler().getProperty(&quot;HTTPSampler.cookie_manager&quot;);
+cookieprop.setObjectValue(manager);
+
+//ctx.getCurrentSampler().setProperty(myprop);</stringProp>
+          </JSR223PreProcessor>
+          <hashTree/>
+        </hashTree>
+        <JSR223Timer guiclass="TestBeanGUI" testclass="JSR223Timer" testname="manage sleep time" enabled="false">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">/* Manage the sleep time for all threads */
+Thread.sleep(${__P(threadSleep)})</stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223Timer>
+        <hashTree/>
+        <ConstantThroughputTimer guiclass="TestBeanGUI" testclass="ConstantThroughputTimer" testname="Constant Throughput Timer" enabled="true">
+          <intProp name="calcMode">0</intProp>
+          <doubleProp>
+            <name>throughput</name>
+            <value>60.0</value>
+            <savedValue>0.0</savedValue>
+          </doubleProp>
+        </ConstantThroughputTimer>
+        <hashTree/>
         <CookieManager guiclass="CookiePanel" testclass="CookieManager" testname="HTTP Cookie Manager" enabled="true">
           <collectionProp name="CookieManager.cookies"/>
           <boolProp name="CookieManager.clearEachIteration">true</boolProp>
         </CookieManager>
         <hashTree/>
-        <LoopController guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller" enabled="true">
+        <LoopController guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller" enabled="false">
           <boolProp name="LoopController.continue_forever">true</boolProp>
-          <stringProp name="LoopController.loops">100</stringProp>
+          <stringProp name="LoopController.loops">1</stringProp>
         </LoopController>
         <hashTree>
-          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Session" enabled="true">
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Session" enabled="false">
             <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="Variables pré-définies" enabled="true">
               <collectionProp name="Arguments.arguments"/>
             </elementProp>
@@ -196,7 +418,7 @@ sampler.getCookieManager().getCookies().clear();
             </ConfigTestElement>
             <hashTree/>
           </hashTree>
-          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Login" enabled="true">
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Login" enabled="false">
             <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="Variables pré-définies" enabled="true">
               <collectionProp name="Arguments.arguments">
                 <elementProp name="username" elementType="HTTPArgument">
@@ -289,110 +511,6 @@ for(i =0; i &lt; cc; i++) {
               <boolProp name="Assertion.assume_success">true</boolProp>
               <intProp name="Assertion.test_type">2</intProp>
             </ResponseAssertion>
-            <hashTree/>
-          </hashTree>
-          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Upload-Login" enabled="false">
-            <elementProp name="HTTPsampler.Files" elementType="HTTPFileArgs">
-              <collectionProp name="HTTPFileArgs.files">
-                <elementProp name="${__P(test.data,&quot;hmm&quot;)}/1600px-Snake_River_5MB.jpg" elementType="HTTPFileArg">
-                  <stringProp name="File.path">${__P(test.data,&quot;hmm&quot;)}/1600px-Snake_River_5MB.jpg</stringProp>
-                  <stringProp name="File.paramname">data</stringProp>
-                  <stringProp name="File.mimetype">image/jpeg</stringProp>
-                </elementProp>
-              </collectionProp>
-            </elementProp>
-            <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="Variables pré-définies" enabled="true">
-              <collectionProp name="Arguments.arguments">
-                <elementProp name="txt10930738" elementType="HTTPArgument">
-                  <boolProp name="HTTPArgument.always_encode">false</boolProp>
-                  <stringProp name="Argument.value">email</stringProp>
-                  <stringProp name="Argument.metadata">=</stringProp>
-                  <boolProp name="HTTPArgument.use_equals">true</boolProp>
-                  <stringProp name="Argument.name">txt10930738</stringProp>
-                </elementProp>
-              </collectionProp>
-            </elementProp>
-            <stringProp name="HTTPSampler.domain">www.int.bbc.co.uk</stringProp>
-            <stringProp name="HTTPSampler.port"></stringProp>
-            <stringProp name="HTTPSampler.protocol">https</stringProp>
-            <stringProp name="HTTPSampler.contentEncoding"></stringProp>
-            <stringProp name="HTTPSampler.path">ugc/send/${campaignId}</stringProp>
-            <stringProp name="HTTPSampler.method">POST</stringProp>
-            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
-            <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
-            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
-            <boolProp name="HTTPSampler.DO_MULTIPART_POST">true</boolProp>
-            <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
-            <stringProp name="HTTPSampler.implementation">Java</stringProp>
-            <stringProp name="HTTPSampler.connect_timeout"></stringProp>
-            <stringProp name="HTTPSampler.response_timeout"></stringProp>
-          </HTTPSamplerProxy>
-          <hashTree>
-            <JSONPostProcessor guiclass="JSONPostProcessorGui" testclass="JSONPostProcessor" testname="Extract SubmissionId" enabled="true">
-              <stringProp name="JSONPostProcessor.referenceNames">subId</stringProp>
-              <stringProp name="JSONPostProcessor.jsonPathExprs">$.submissionId</stringProp>
-              <stringProp name="JSONPostProcessor.match_numbers">1</stringProp>
-              <stringProp name="Sample.scope">variable</stringProp>
-              <stringProp name="Scope.variable"></stringProp>
-              <boolProp name="JSONPostProcessor.compute_concat">true</boolProp>
-            </JSONPostProcessor>
-            <hashTree/>
-            <ResultSaver guiclass="ResultSaverGui" testclass="ResultSaver" testname="Save Responses to a file" enabled="true">
-              <stringProp name="FileSaver.filename">${__P(test.results,&quot;hmm&quot;)}/upload.json</stringProp>
-              <boolProp name="FileSaver.errorsonly">false</boolProp>
-              <boolProp name="FileSaver.successonly">false</boolProp>
-              <boolProp name="FileSaver.skipsuffix">false</boolProp>
-              <boolProp name="FileSaver.skipautonumber">false</boolProp>
-            </ResultSaver>
-            <hashTree/>
-            <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname=" PreProcessor-AddAuthenticationCookies" enabled="true">
-              <stringProp name="scriptLanguage">groovy</stringProp>
-              <stringProp name="parameters"></stringProp>
-              <stringProp name="filename"></stringProp>
-              <stringProp name="cacheKey">true</stringProp>
-              <stringProp name="script">//sampler.setProtocol(vars.get(&quot;LOGION_PROTOCOL&quot;))
-//sampler.setDomain(vars.get(&quot;LOGIN_DOMAIN&quot;))
-//sampler.setPath(vars.get(&quot;LOGIN_PATH&quot;))
-//log.info(&quot;----- BEFORE LOGIN ${__property(UGC_CKNS_MVT)}&quot;)
-import org.apache.jmeter.protocol.http.control.CookieManager;
-
-import org.apache.jmeter.protocol.http.control.Cookie;
-import org.apache.jmeter.testelement.property.JMeterProperty;
-CookieManager manager = ctx.getCurrentSampler().getProperty(&quot;HTTPSampler.cookie_manager&quot;).getObjectValue();
-count = Integer.parseInt(props.getProperty(&quot;cookiecount&quot;));
-
-       Cookie cknsIdtkCookie = new
-		Cookie(
-			props.getProperty(&quot;cookie_name_ckns_idtkn&quot;),
-			props.getProperty(&quot;cookie_value_ckns_idtkn&quot;), 
-			props.getProperty(&quot;cookie_domain_ckns_idtkn&quot;),
-			props.getProperty(&quot;cookie_path_ckns_idtkn&quot;), 
-			Boolean.parseBoolean(props.getProperty(&quot;cookie_secure_ckns_idtkn&quot;)), 
-			Long.parseLong(props.getProperty(&quot;cookie_expires_ckns_idtkn&quot;))
-			);
-
-	
-	manager.add(cknsIdtkCookie);
-
-	      Cookie cknsAtknCookie = new
-		Cookie(
-			props.getProperty(&quot;cookie_name_ckns_atkn&quot;),
-			props.getProperty(&quot;cookie_value_ckns_atkn&quot;), 
-			props.getProperty(&quot;cookie_domain_ckns_atkn&quot;),
-			props.getProperty(&quot;cookie_path_ckns_atkn&quot;), 
-			Boolean.parseBoolean(props.getProperty(&quot;cookie_secure_ckns_atkn&quot;)), 
-			Long.parseLong(props.getProperty(&quot;cookie_expires_ckns_atkn&quot;))
-			);
-
-	
-	manager.add(cknsAtknCookie);
-	
-JMeterProperty cookieprop = 
-ctx.getCurrentSampler().getProperty(&quot;HTTPSampler.cookie_manager&quot;);
-cookieprop.setObjectValue(manager);
-
-//ctx.getCurrentSampler().setProperty(myprop);</stringProp>
-            </JSR223PreProcessor>
             <hashTree/>
           </hashTree>
         </hashTree>

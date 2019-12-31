@@ -5,8 +5,10 @@ MAINTAINER Kodjo Baah<kafriyie01@bbc.co.uk>
 # Ports to be exposed from the container for JMeter Slaves/Server
 EXPOSE 1099 50000
 
+RUN mkdir /data
+COPY data/ /data
 COPY entrypoint.sh /
-COPY user.properties /opt/apache-jmeter-5.1.1/bin/
+
 
 # Application to run on starting the container
 #ENTRYPOINT $JMETER_HOME/bin/jmeter-server \

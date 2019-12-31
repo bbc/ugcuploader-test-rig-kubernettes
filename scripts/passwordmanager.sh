@@ -1,1 +1,1 @@
-keytool -importkeystore -srckeystore /Users/baahk01/workspace/bbc_cert.p12 -srcstoretype PKCS12 -srcstorepass xxxx -keystore bbc.jks -storepass xxxx
+keytool -importkeystore -srckeystore client.p12 -srcstoretype PKCS12 -srcstorepass client -keystore client.jks -storepass client

@@ -44,7 +44,6 @@ spec:
 
            /opt/apache-jmeter-5.1.1/bin/jmeter-server -Dserver.rmi.localport=50000 -Dserver_port=1099
           EOF
-        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 1099
         - containerPort: 50000

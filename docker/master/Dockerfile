@@ -38,9 +38,9 @@ USER root
 RUN chmod 0644 /home/jmeter/bin//crontab.txt
 RUN crontab -u jmeter /home/jmeter/bin//crontab.txt
 RUN chown -R jmeter:jmeter bin
-RUN chown jmeter:jmeter $TEST_HOME
+RUN chown -R jmeter:jmeter $TEST_HOME
 
 
 USER 1000
-ENTRYPOINT ["/home/jmeter/bin/entrypoint.sh"]
+RUN mkdir /home/jmeter/graphs
 EXPOSE 60000

@@ -29,3 +29,4 @@ RUN    apk update \
 ENV PATH $PATH:$JMETER_BIN
 COPY plugins/* /opt/apache-jmeter-$JMETER_VERSION/lib/ext/
 COPY conf/* /opt/apache-jmeter-$JMETER_VERSION/bin/
+copy client.jks /

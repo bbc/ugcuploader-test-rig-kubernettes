@@ -6,7 +6,7 @@ working_dir=`pwd`
 echo "Creating Influxdb jmeter Database"
 
 ##Wait until Influxdb Deployment is up and running
-##influxdb_status=`kubectl get po -n $tenant | grep influxdb-jmeter | awk '{print $2}' | grep Running
+##influxdb_status=`kubectl get po -n ugcload-reporter | grep influxdb-jmeter | awk '{print $2}' | grep Running
 
 influxdb_pod=`kubectl get po -n ugcload-reporter | grep influxdb-jmeter | awk '{print $1}'`
 kubectl exec -ti -n ugcload-reporter $influxdb_pod -- influx -execute 'CREATE DATABASE ugcloadtest'

@@ -6,6 +6,6 @@ for i in "${var[@]}"
 do
    if [[ $i == "jmeter-slaves"* ]]; then
      echo "hmm $i"
-      kubectl cp "$working_dir/docker/base/conf/user.properties" "$1/$i:/opt/apache-jmeter/bin"
+      kubectl cp "$working_dir/config/$1/$2/user.properties" "$1/$i:/opt/apache-jmeter/bin"
    fi
 done
