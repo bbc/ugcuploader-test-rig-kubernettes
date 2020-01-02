@@ -54,36 +54,29 @@ The following is the process that should be followed to create test and deploy t
 
 The following scripts can be found in the folder *test-scripts*
 
-1. Start Test:
+1. Start Test:<br> Usage:`start_test <location_of_test> <tennant> <bandwidth> <number-of-nodes>` <br> Eg: To start the  *ugcupload/upload.jmx* test for *national-moments* using *adsl* and *2* slave node:<br> `./test-scripts/start_test ugcupload/upload.jmx national-moments adsl 2`
+2. Stop Test for a Tenant <br> `stop_test <tennent>`<br> Eg. ```./test-scripts/stop_test children```
 
-   Usage:` start_test <location_of_test> <tennant> <bandwidth> <number-of-nodes>`
+Table below shows the possible values accepted for bandwidth.
 
-   Eg:To start the  *ugcupload/upload.jmx* test for *national-moments* using *adsl* and *2* slave node:<br> `./test-scripts/start_test ugcupload/upload.jmx national-moments adsl 2`
-
-   Table below shows the possible values accepted for bandwidth.
-
-   | Bandwidth            |                             | Description                       |
-   | -------------------- | --------------------------- | --------------------------------- |
-   | 10gigabitEthernet    | 1280000000                  | 10 Gigabit Ethernet : 10 Gbit/s   |
-   | 100gigabitEthernet   | 12800000000                 | 100 Gigabit Ethernet : 100 Gbit/s |
-   | adsl                 | ADSL : 8 Mbit/s             | 1024000                           |
-   | adsl2                | ADSL2 : 12 Mbit/s           | 1536000                           |
-   | adsl2Plus            | ADSL2+ : 24 Mbit/s          | 3072000                           |
-   | ethernetLan          | Ethernet LAN ; 10 Mbit/s    | 1280000                           |
-   | fastEthernet         | Fast Ethernet :  100 Mbit/s | 12800000                          |
-   | gigabitEthernet      | Gigabit Ethernet : 1 Gbit/s | 128000000                         |
-   | mobileDataEdge       | 49152                       | Mobile data EDGE : 384 kbit/s     |
-   | mobileDataHspa       | 1843200                     | Mobile data HSPA : 14,4 Mbp/s     |
-   | mobileDatacHspaPlus  | 2688000                     | Mobile data HSPA+ : 21 Mbp/s      |
-   | mobileDataDcHspaPlus | 5376000                     | Mobile data DC-HSPA+ : 42 Mbps    |
-   | mobileDataLte        | 19200000                    | Mobile data LTE : 150 Mbp/s       |
-   | mobileDataGprs       | 21888                       | Mobile data GPRS : 171 kbit/s     |
-   | wifi80211a           | 6912000                     | WIFI 802.11a/g : 54 Mbit/s        |
-   | wifi80211n           | 76800000                    | WIFI 802.11n : 600 Mbit/s         |
-
-   
-
-   1. Stop Test for a Tenant <br> `stop_test <tennent>`<br> Eg. ```./test-scripts/stop_test children```
+| Bandwidth            | Value       | Description                       |
+| -------------------- | ----------- | --------------------------------- |
+| 10gigabitEthernet    | 1280000000  | 10 Gigabit Ethernet : 10 Gbit/s   |
+| 100gigabitEthernet   | 12800000000 | 100 Gigabit Ethernet : 100 Gbit/s |
+| adsl                 | 1024000     | ADSL : 8 Mbit/s                   |
+| adsl2                | 1536000     | ADSL2 : 12 Mbit/s                 |
+| adsl2Plus            | 3072000     | ADSL2+ : 24 Mbit/s                |
+| ethernetLan          | 1280000     | Ethernet LAN ; 10 Mbit/s          |
+| fastEthernet         | 12800000    | Fast Ethernet :  100 Mbit/s       |
+| gigabitEthernet      | 128000000   | Gigabit Ethernet : 1 Gbit/s       |
+| mobileDataEdge       | 49152       | Mobile data EDGE : 384 kbit/s     |
+| mobileDataHspa       | 1843200     | Mobile data HSPA : 14,4 Mbp/s     |
+| mobileDatacHspaPlus  | 2688000     | Mobile data HSPA+ : 21 Mbp/s      |
+| mobileDataDcHspaPlus | 5376000     | Mobile data DC-HSPA+ : 42 Mbps    |
+| mobileDataLte        | 19200000    | Mobile data LTE : 150 Mbp/s       |
+| mobileDataGprs       | 21888       | Mobile data GPRS : 171 kbit/s     |
+| wifi80211a           | 6912000     | WIFI 802.11a/g : 54 Mbit/s        |
+| wifi80211n           | 76800000    | WIFI 802.11n : 600 Mbit/s         |
 
 
 
