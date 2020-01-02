@@ -49,11 +49,11 @@ The following is the process that should be followed to create test and deploy t
 
 3. Provision tennant: If tennant is already provisioned undo first: Follow instructions outlined here  [#Add Tennant To Cluster](#add--tennant--to--cluster)
 
-4. jmeter variables:<br> The test is dependant on the following jmeter variables: <br>
+4. jmeter variables:<br> The test are dependant on the following jmeter variables: <br>
 
    | Variable     | Description                                         | Example      |
    | ------------ | --------------------------------------------------- | ------------ |
-   | test.data    | The is the location of the data used by by scripts  | /data        |
+   | test.data    | The is the location of the data used by the scripts | /data        |
    | test.results | This is where the reponse from the test are stored. | /test-output |
 
    
@@ -94,7 +94,13 @@ The test artefacts are stored in s3 bucket
 
 Use the following command to convert  to jmeter report.
 
-```$JMETER_HOME/bin/jmeter -g resutls.jtl -o <report-folder>```
+`gen_report.py <items>`
+
+Where `items` is a comma separated list of tennet and date eg: `national-moments=202001020326PM,bbcradio=202001020326PM`
+
+This will generate the following folder:` /tmp/ugcupload/graphs` which 
+
+
 
 # Dependencies
 
