@@ -42,13 +42,21 @@ The diagram below depicts the scenario when 2 tenants are being simulated.
 The following is the process that should be followed to create test and deploy to the cluster.
 
 1. Create test. 
+   
    + Test should be stored in the folder `src/test`
+   
 2. Containerize the test by re-building the *master* jmeter image. Follow the instructions outlined here [Containerize And Upload to ECR(AWS Docker Repo)](#containerize--and--upload--to--ecr)
+
 3. Provision tennant: If tennant is already provisioned undo first: Follow instructions outlined here  [#Add Tennant To Cluster](#add--tennant--to--cluster)
 
-4. jmeter variables:Copy user.properties to jmeter-slaves<br>In the folder *kubernetes-util* the script *update-slaves-user-properties.sh* can be used. Usage: *update-slaves-user-properties.sh <tennant>* <br> Eg. Copy to all jmeter slaves of bbcradio: ```./test-scripts/update-slaves-user-properties.sh bbcradio```
+4. jmeter variables:<br> The test is dependant on the following jmeter variables: <br>
 
+   | Variable     | Description                                         | Example      |
+   | ------------ | --------------------------------------------------- | ------------ |
+   | test.data    | The is the location of the data used by by scripts  | /data        |
+   | test.results | This is where the reponse from the test are stored. | /test-output |
 
+   
 
 ## Running Tests
 
