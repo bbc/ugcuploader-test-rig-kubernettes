@@ -1,6 +1,25 @@
-export AWS_DEFAULT_REGION=eu-west-2
+#!/usr/bin/env bash
+
+declare RESULT=($(eksctl utils describe-stacks --cluster ugcloadtest | grep StackId))  
+for i in "${RESULT[@]}"
+do
+    var="${i%\"}"
+    var="${var#\"}"
+    if [[ $var == "arn:aws:cloudformation"* ]]; then
+        arrIN=(${var//:/ })
+        region=${arrIN[3]}
+        aws_acnt_num=${arrIN[4]}
+    fi
+   # do whatever on $i
+done
+
+echo $region
+echo $aws_acnt_num
+
+REPO="$aws_acnt_num.dkr.ecr.$region.amazonaws.com/ugcloadtest/jmeter-slave:latest"
+echo "Repo: $REPO"
 aws ecr delete-repository --force --repository-name ugcloadtest/jmeter-slave
-aws ecr create-repository --repository-name ugcloadtest/jmeter-slave 
+aws ecr create-repository --repository-name ugcloadtest/jmeter-slave
 docker build --pull --no-cache  -t ugcloadtest/jmeter-slave .
-docker -v tag  ugcloadtest/jmeter-slave:latest 546933502184.dkr.ecr.eu-west-2.amazonaws.com/ugcloadtest/jmeter-slave:latest
-docker -v push  546933502184.dkr.ecr.eu-west-2.amazonaws.com/ugcloadtest/jmeter-slave:latest
+docker tag ugcloadtest/jmeter-slave:latest $REPO
+docker push $REPO 

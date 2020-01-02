@@ -46,7 +46,7 @@ The following is the process that should be followed to create test and deploy t
 2. Containerize the test by re-building the *master* jmeter image. Follow the instructions outlined here [Containerize And Upload to ECR(AWS Docker Repo)](#containerize--and--upload--to--ecr)
 3. Provision tennant: If tennant is already provisioned undo first: Follow instructions outlined here  [#Add Tennant To Cluster](#add--tennant--to--cluster)
 
-4. Copy user.properties to jmeter-slaves<br>In the folder *kubernetes-util* the script *update-slaves-user-properties.sh* can be used. Usage: *update-slaves-user-properties.sh <tennant>* <br> Eg. Copy to all jmeter slaves of bbcradio: ```./test-scripts/update-slaves-user-properties.sh bbcradio```
+4. jmeter variables:Copy user.properties to jmeter-slaves<br>In the folder *kubernetes-util* the script *update-slaves-user-properties.sh* can be used. Usage: *update-slaves-user-properties.sh <tennant>* <br> Eg. Copy to all jmeter slaves of bbcradio: ```./test-scripts/update-slaves-user-properties.sh bbcradio```
 
 
 
@@ -54,13 +54,36 @@ The following is the process that should be followed to create test and deploy t
 
 The following scripts can be found in the folder *test-scripts*
 
-1. Starting a Test for a Tennant
+1. Start Test:
 
-   *start_test <path-to-test> <tennent>*<br>
+   Usage:` start_test <location_of_test> <tennant> <bandwidth> <number-of-nodes>`
 
-   Eg.  ```./test-scripts/start_test ugcupload/upload.jmx children```
+   Eg:To start the  *ugcupload/upload.jmx* test for *national-moments* using *adsl* and *2* slave node:<br> `./test-scripts/start_test ugcupload/upload.jmx national-moments adsl 2`
 
-2. Stop Test for a Tenant <br> *stop_test <tennent>*<br> Eg. ```./test-scripts/stop_test children```
+   Table below shows the possible values accepted for bandwidth.
+
+   | Bandwidth            |                             | Description                       |
+   | -------------------- | --------------------------- | --------------------------------- |
+   | 10gigabitEthernet    | 1280000000                  | 10 Gigabit Ethernet : 10 Gbit/s   |
+   | 100gigabitEthernet   | 12800000000                 | 100 Gigabit Ethernet : 100 Gbit/s |
+   | adsl                 | ADSL : 8 Mbit/s             | 1024000                           |
+   | adsl2                | ADSL2 : 12 Mbit/s           | 1536000                           |
+   | adsl2Plus            | ADSL2+ : 24 Mbit/s          | 3072000                           |
+   | ethernetLan          | Ethernet LAN ; 10 Mbit/s    | 1280000                           |
+   | fastEthernet         | Fast Ethernet :  100 Mbit/s | 12800000                          |
+   | gigabitEthernet      | Gigabit Ethernet : 1 Gbit/s | 128000000                         |
+   | mobileDataEdge       | 49152                       | Mobile data EDGE : 384 kbit/s     |
+   | mobileDataHspa       | 1843200                     | Mobile data HSPA : 14,4 Mbp/s     |
+   | mobileDatacHspaPlus  | 2688000                     | Mobile data HSPA+ : 21 Mbp/s      |
+   | mobileDataDcHspaPlus | 5376000                     | Mobile data DC-HSPA+ : 42 Mbps    |
+   | mobileDataLte        | 19200000                    | Mobile data LTE : 150 Mbp/s       |
+   | mobileDataGprs       | 21888                       | Mobile data GPRS : 171 kbit/s     |
+   | wifi80211a           | 6912000                     | WIFI 802.11a/g : 54 Mbit/s        |
+   | wifi80211n           | 76800000                    | WIFI 802.11n : 600 Mbit/s         |
+
+   
+
+   1. Stop Test for a Tenant <br> `stop_test <tennent>`<br> Eg. ```./test-scripts/stop_test children```
 
 
 
@@ -89,7 +112,7 @@ The following modifications were done to fetch-aws-creds:
 
 ```
 
-with open(home + '/workspace/isite-testing-tools/jmeter/ugc/kubernetes/setup-aws-env.sh', 'w') as f:
+with open(home + '/workspace/ugcuploader-test-kubernettes/setup-aws-env.sh', 'w') as f:
     f.write('export AWS_ACCESS_KEY_ID={accessKeyId}\n'.format(**creds))
     f.write('export AWS_SECRET_ACCESS_KEY={secretAccessKey}\n'.format(**creds))
     f.write('export AWS_SESSION_TOKEN={sessionToken}\n'.format(**creds))
@@ -121,9 +144,9 @@ The following command can be used to get the docker login command:
 
 In the folder **docker** There are three sub folders **base**, **master** and **slave**
 
-In each of these sub folders run the command:  *deploy.sh <aws-account-number> <aws-region>* 
+In each of these sub folders run the command:  `deploy.sh`
 
-Eg.`deploy.sh 546933502184 eu-west-2`
+Eg.`deploy.sh`
 
 ### Building JMETER base Image:
 
@@ -141,7 +164,7 @@ In the folder *kubernetes-artefacts/reporter*
 
 There are two scripts:
 
-1. *create-report-env.sh* Used to create the reporting virtual environmnt in the cluster. <br> Usage:  `create-report-env.sh <aws-account-number>`  eg. *./create-report-env.sh 546933502184* <br>Used the following to command to verify that the instances have succesfully started before moving to the next step. `kubectl get pods --all-namespaces`
+1. *create-report-env.sh* Used to create the reporting virtual environmnt in the cluster. <br> Usage:  `create-report-env.sh`  eg. *./create-report-env.sh* <br>Used the following to command to verify that the instances have succesfully started before moving to the next step. `kubectl get pods --all-namespaces`
 2. *configure-reporting.sh* Used to setup grafana and influxes. <br> Usage: `./configure-reporting.sh` <br> If you see the following error. It is safe to ignore<br>```wget: can't open 'datasources': Permission denied
    command terminated with exit code 1```
 3. *un-do.sh* Used to remove the reporting virtual environment from the cluster.<br>NOTE: Currently the PVC( Persistent Volume Claim) is also removed, which causes the associated volume to be also deleted.
@@ -187,9 +210,9 @@ https://grafana.com/grafana/dashboards/1152
 
 ## Add Tennant To Cluster
 
-In the folder *kubernetes-artefacts/tennant* There file *add-tennat-to-cluster.sh* can be used to add a tenant's test environment to the cluster. Usage: `add-tennat-to-cluster.sh <namespace> <aws_account_number> <aws_region>`
+In the folder *kubernetes-artefacts/tennant* There file *add-tennat-to-cluster.sh* can be used to add a tenant's test environment to the cluster. Usage: `add-tennat-to-cluster.sh <namespace>`
 
-eg. *./add-tennat-to-cluster.sh bbcradio 546933502184 eu-west-2*
+eg. *./add-tennat-to-cluster.sh bbcradio*
 
 The file `un-do.sh` can be used to remove the tennant from the cluster.
 

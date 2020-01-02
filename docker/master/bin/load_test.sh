@@ -1,5 +1,6 @@
 #!/bin/bash
 
+export TENNANT="$(cut -d'-' -f1 <<<"$2")"
 TEST_RUNNING="$(pidof jmeter)"
 echo "JMETER_PID=$TEST_RUNNING"
 if [ -z "$TEST_RUNNING" ]; then
@@ -23,8 +24,8 @@ echo 2
             export AWS_SESSION_TOKEN="\$(cat /tmp/irp-cred.txt | jq -r ".Credentials.SessionToken")"
             now=$(date +"%Y%m%d%I%M%p")
             jmeter -g /home/jmeter/results.jtl -o /home/jmeter/graphs
-            aws s3 sync  /home/jmeter/graphs "s3://ugcupload-jmeter/$2/\$now/$HOSTNAME/graphs"
-            aws s3api put-object --bucket ugcupload-jmeter --key "$2/\$now/$HOSTNAME/results.jtl" --body /home/jmeter/results.jtl
+            aws s3 sync  /home/jmeter/graphs "s3://ugcupload-jmeter/$TENNANT/\$now/$HOSTNAME/graphs"
+            aws s3api put-object --bucket ugcupload-jmeter --key "$TENNANT/\$now/$HOSTNAME/results.jtl" --body /home/jmeter/results.jtl
             echo "\$PID is empty"
         else
             echo "Report file not created"
@@ -40,7 +41,7 @@ EOF
     mkdir /home/jmeter/graphs
     rm -rf /home/jmeter/results.jtl
     touch /home/jmeter/results.jtl
-    nohup bash -c "jmeter -n -t $1 -l /home/jmeter/results.jtl -Dserver.rmi.ssl.disable=true -R $(getent ahostsv4 jmeter-slaves-svc | cut -d' ' -f1 | sort -u | awk -v ORS=, '{print $1}' | sed 's/,$//')  >/home/jmeter/start.log 2>&1 &"
+    nohup bash -c "jmeter -n -GTENNANT=$TENNANT -t $1 -l /home/jmeter/results.jtl -Dserver.rmi.ssl.disable=true -R $(getent ahostsv4 jmeter-slaves-svc | cut -d' ' -f1 | sort -u | awk -v ORS=, '{print $1}' | sed 's/,$//')  >/home/jmeter/start.log 2>&1 &"
     echo "started test $1"
 else
     echo "Test already running"

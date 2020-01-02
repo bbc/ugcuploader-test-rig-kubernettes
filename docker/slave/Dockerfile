@@ -7,6 +7,7 @@ EXPOSE 1099 50000
 
 RUN mkdir /data
 COPY data/ /data
+RUN mkdir /config
 COPY entrypoint.sh /
 
 
