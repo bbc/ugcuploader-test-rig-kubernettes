@@ -1,0 +1,2 @@
+httpclient.socket.http.cps,1024000
+httpclient.socket.https.cps,1024000

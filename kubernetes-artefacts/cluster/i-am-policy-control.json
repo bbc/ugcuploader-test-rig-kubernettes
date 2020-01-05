@@ -1,0 +1,104 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "VisualEditor0",
+            "Effect": "Allow",
+            "Action": [
+                "iam:CreateInstanceProfile",
+                "cloudformation:ListStackSetOperations",
+                "cloudformation:ListStackInstances",
+                "iam:RemoveRoleFromInstanceProfile",
+                "iam:CreateRole",
+                "iam:AttachRolePolicy",
+                "iam:PutRolePolicy",
+                "iam:AddRoleToInstanceProfile",
+                "cloudformation:ListStackSetOperationResults",
+                "iam:ListInstanceProfilesForRole",
+                "iam:PassRole",
+                "iam:DetachRolePolicy",
+                "iam:DeleteRolePolicy",
+                "s3:DeleteObject",
+                "cloudformation:ListStackResources",
+                "iam:DeleteInstanceProfile",
+                "iam:GetRole",
+                "iam:GetInstanceProfile",
+                "iam:DeleteRole",
+                "iam:ListInstanceProfiles",
+                "cloudformation:DescribeStacks",
+                "s3:PutObject",
+                "s3:GetObject",
+                "cloudformation:ListStackSets",
+                "iam:GetRolePolicy",
+                "cloudformation:ListChangeSets"
+            ],
+            "Resource": [
+                "arn:aws:s3:::ugcupload-jmeter/*",
+                "arn:aws:iam::546933502184:role/eksctl-*",
+                "arn:aws:iam::546933502184:instance-profile/eksctl-*",
+                "arn:aws:cloudformation:*:*:stack/*/*",
+                "arn:aws:cloudformation:*:*:stackset/*:*"
+            ]
+        },
+        {
+            "Sid": "VisualEditor1",
+            "Effect": "Allow",
+            "Action": [
+                "sts:AssumeRole",
+                "s3:ListBucket"
+            ],
+            "Resource": [
+                "arn:aws:s3:::ugcupload-jmeter",
+                "arn:aws:iam::*:role/*"
+            ]
+        },
+        {
+            "Sid": "VisualEditor2",
+            "Effect": "Allow",
+            "Action": [
+                "ec2:DetachVolume",
+                "ec2:AttachVolume",
+                "cloudformation:ListExports",
+                "cloudtrail:LookupEvents",
+                "cloudformation:ListStacks",
+                "ec2:DescribeInstances",
+                "ec2:DeleteSnapshot",
+                "cloudformation:ListImports",
+                "ec2:DeleteTags",
+                "ec2:DescribeTags",
+                "ec2:CreateTags",
+                "ec2:DescribeSnapshots",
+                "ec2:CreateVolume",
+                "ec2:DeleteVolume",
+                "s3:ListAllMyBuckets",
+                "ec2:DescribeVolumes",
+                "ec2:CreateSnapshot",
+                "ecr:*",
+                "eks:ListClusters",
+                "eks:CreateCluster"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "VisualEditor3",
+            "Effect": "Allow",
+            "Action": "eks:*",
+            "Resource": "arn:aws:eks:*:*:cluster/*"
+        },
+        {
+            "Sid": "VisualEditor4",
+            "Effect": "Allow",
+            "Action": "iam:GetOpenIDConnectProvider",
+            "Resource": "arn:aws:iam::*:*"
+        },
+        {
+            "Sid": "VisualEditor6",
+            "Effect": "Allow",
+            "Action": [
+                "cloudformation:CreateStack",
+                "cloudformation:DeleteStack"
+            ],
+            "Resource": "arn:aws:cloudformation:*:*:*"
+        }
+    ]
+}

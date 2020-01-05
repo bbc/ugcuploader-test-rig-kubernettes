@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: admin-controller
+  labels:
+    control: admin
+spec:
+  ports:
+    - name: ssh
+      port: 22
+      targetPort: 22
+    - name: weavescope
+      port: 4040
+      targetPort: 4040
+  selector:
+    control: admin
+  type: LoadBalancer
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: admin-controller
+  labels:
+    control: admin
+
+spec:
+  affinity:
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 1
+        preference:
+          matchExpressions:
+          - key: control
+            operator: In
+            values:
+            - admin
+  serviceAccountName: ugcupload-control
+  securityContext:
+      fsGroup: 1000
+  containers:
+  - name: control
+    image: 546933502184.dkr.ecr.eu-west-2.amazonaws.com/ugcloadtest/control:latest
+    imagePullPolicy: Always
+    args: [ "/bin/bash", "-c", "--", "while true; do sleep 30; done;" ]
+    ports:
+    - containerPort: 60000
+    securityContext:
+      "privileged": true
+      runAsUser: 1000
+      runAsGroup: 1000

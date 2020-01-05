@@ -18,31 +18,27 @@ iam:
  #   - "arn:aws:iam::546933502184:policy/ugcupload-eks-jmeter-policy"
 
 nodeGroups:
-  - name: jmeter-slaves
-    instanceType: t2.medium
+  - name: jmeter-slaves-v3
+    labels: { jmeter_mode : slaves }
     minSize: 2
     maxSize: 50
     volumeSize: 50
     volumeType: gp2
-    ssh:
-      allow: true
-      publicKeyName: 'cosmos'
     iam:
       withAddonPolicies:
         imageBuilder: true
         autoScaler: true
         externalDNS: true
         ebs: true
-
-  - name: jmeter-master
     instanceType: t2.micro
+
+  - name: jmeter-master-v3
+    labels: { jmeter_mode : master }
     minSize: 1
     maxSize: 25
     volumeSize: 50
     volumeType: gp2
-    ssh:
-      allow: true
-      publicKeyName: 'cosmos'
+    instanceType: t2.small
     iam:
       withAddonPolicies:
         imageBuilder: true
@@ -50,20 +46,18 @@ nodeGroups:
         externalDNS: true
         ebs: true
 
-  - name: grafana
-    instanceType: t2.medium
+  - name: grafana-v3
+    labels: { report : grafana }
     minSize: 1
     volumeSize: 50
     volumeType: gp2
-    ssh:
-      allow: true
-      publicKeyName: 'cosmos'
     iam:
       withAddonPolicies:
         imageBuilder: true
         autoScaler: true
         externalDNS: true
         ebs: true
+    instanceType: t2.micro
     kubeletExtraConfig:
          featureGates:
             CSINodeInfo: true
@@ -71,20 +65,34 @@ nodeGroups:
             CSIBlockVolume: true
             RotateKubeletServerCertificate: true # according to this must always be included: https://eksctl.io/usage/customizing-the-kubelet/
 
-  - name: influxdb
-    instanceType: t2.micro
+  - name: influxdb-v3
+    labels: { report : influxd }
     minSize: 1
     volumeSize: 50
     volumeType: gp2
-    ssh:
-      allow: true
-      publicKeyName: 'cosmos'
     iam:
       withAddonPolicies:
         imageBuilder: true
         autoScaler: true
         externalDNS: true
         ebs: true
+    instanceType: t2.micro
+
+  - name: admin-controller-v3
+    labels: { control : admin }
+    minSize: 1
+    volumeSize: 50
+    volumeType: gp2
+    ssh:
+      allow: true
+      publicKeyName: 'loadtest-controller'
+    iam:
+      withAddonPolicies:
+        imageBuilder: true
+        autoScaler: true
+        externalDNS: true
+        ebs: true
+    instanceType: t2.medium
 
 cloudWatch:
   clusterLogging:

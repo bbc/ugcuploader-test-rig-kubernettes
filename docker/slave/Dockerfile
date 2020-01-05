@@ -8,7 +8,9 @@ EXPOSE 1099 50000
 RUN mkdir /data
 COPY data/ /data
 RUN mkdir /config
+COPY config/ /config
 COPY entrypoint.sh /
+COPY client.jks /
 
 
 # Application to run on starting the container

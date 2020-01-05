@@ -20,13 +20,14 @@ In the folder *artefacts/cluster* The script *create-cluster.sh* can be run to c
 
 Below are the steps performed by the script.
 
-| Step | Type                        | Description                                                  | Action                                                       |
-| ---- | --------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| 1    | Create I am Policy          | This is the policy that gives the pods in the cluster access to AWS resources. [Policy Document](#i-am-policy-jmeter.json). The arn will be used when we are creating ServiceAccount's for the virtual clusters. | *aws iam create-policy --policy-name ugcupload-eks-jmeter-policy --policy-document file://i-am-policy-jmeter.json* |
-| 2    | Create cluster              | Create the Test Rig                                          | *eksctl create cluster -f cluster.yaml*                      |
-| 3    | EBS CSI driver Installation | Responsible for co-ordinating interactions with AWS volumes  | *kubectl apply -k "github.com/kubernetes-sigs/aws-ebs-csi-driver/deploy/kubernetes/overlays/stable/?ref=master"* |
-| 4    | Create a storage class      | The storage class used to access AWS EBS volumes             | *kubectl create -f csi-storage-class.yaml*                   |
-| 5    | Create snapshot class       | The class used to associate a snapshot with the storage class. | *kubectl create -f csi-snapshot-class.yaml*                  |
+| Step | Type                                        | Description                                                  | Action                                                       |
+| ---- | ------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| 1    | Create I am Policy for jmeter master        | This is the policy that gives the jmeter master pods in the cluster access to AWS resources. [Master Policy Document](#./kubernetes-artefacts/cluster/i-am-policy-jmeter.json). The arn will be used when we are creating ServiceAccount's for the virtual clusters. | *aws iam create-policy --policy-name ugcupload-eks-jmeter-policy --policy-document file://i-am-policy-jmeter.json* |
+| 2    | Create I am policy for the admin controller | This is the policy that gives the control pod in the cluster access to AWS resources. [Control Policy Document](#./kubernetes-artefacts/cluster/i-am-control.json). The arn will be used when we are creating ServiceAccount's for the virtual clusters. | *aws iam create-policy --policy-name ugcupload-eks-control-policy --policy-document file://i-am-policy-control.json* |
+| 2    | Create cluster                              | Create the Test Rig                                          | *eksctl create cluster -f cluster.yaml*                      |
+| 3    | EBS CSI driver Installation                 | Responsible for co-ordinating interactions with AWS volumes  | *kubectl apply -k "github.com/kubernetes-sigs/aws-ebs-csi-driver/deploy/kubernetes/overlays/stable/?ref=master"* |
+| 4    | Create a storage class                      | The storage class used to access AWS EBS volumes             | *kubectl create -f csi-storage-class.yaml*                   |
+| 5    | Create snapshot class                       | The class used to associate a snapshot with the storage class. | *kubectl create -f csi-snapshot-class.yaml*                  |
 
 
 

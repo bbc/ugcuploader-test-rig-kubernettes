@@ -1,0 +1,1 @@
+0 * * * * /usr/local/bin/start_weavescope.sh >> /home/control/weavescope.log 2>&1

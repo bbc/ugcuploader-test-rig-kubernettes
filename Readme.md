@@ -9,19 +9,30 @@ Table of Contents
     + [Jmeter Test Creation Process](#jmeter--test--creation)
     + [Running Tests](#running--tests)
     + [Generate Jmeter Report](#generate--jmeter--report)
+    
   - [Dependencies](#dependencies)
+    
     + [Prerequisite](#prerequisite)  
+    
   - [Create Test Rig Cluster](#create--test--rig--cluster)
+
   - [Containerize And Upload to ECR(AWS Docker Repo)](#containerize--and--upload--to--ecr)
+
   - [Provision Test Rig](#provision--test--rig)
     + [Create Reporting Virtual Cluster](#create--reporting--virtual--cluster)
        + [Acccess Grafana Dashboard](#acccess--grafana--dashboard)
        + [Install Jmeter Dashboard](#install--jmeter--dashboard)
     + [Add Tennant To Cluster](#add--tennant--to--cluster)
-  - [Monitor Cluster](#monitor-cluster)
+    
+- [Admin Controller](#admin--controller)
+  
+  + [Install](#install)
+  + [Grant Permissions](#grant--permissions)
+  + [Accessing Controller using SSH](#accessing--controller--using--ssh)
+   + [Initialize Kubernetes environment](#initialize--kubernetes--environment)
+  + [Monitor Cluster](#monitor-cluster)
     + [View In Browser](#view--in--browser)
     
-
 
 # Introduction
 
@@ -42,7 +53,7 @@ The diagram below depicts the scenario when 2 tenants are being simulated.
 The following is the process that should be followed to create test and deploy to the cluster.
 
 1. Create test. 
-   
+  
    + Test should be stored in the folder `src/test`
    
 2. Containerize the test by re-building the *master* jmeter image. Follow the instructions outlined here [Containerize And Upload to ECR(AWS Docker Repo)](#containerize--and--upload--to--ecr)
@@ -56,13 +67,19 @@ The following is the process that should be followed to create test and deploy t
    | test.data    | The is the location of the data used by the scripts | /data        |
    | test.results | This is where the reponse from the test are stored. | /test-output |
 
-   
+5. Move tests to the admin control.
+
+   Use the following commands to transfer your tests to the admin controller. Follow these instructions [Admin Controller](#admin--controller) to setup the admin controller.
+
+   1. Copy jmeter tests to the controller: <br>```rsync --rsync-path=/usr/bin/rsync -r -a -v -e ssh --delete /Users/baahk01/workspace/ugcuploader-test-kubernettes/src/test control@a4311e0802ffa11ea9697063911e70ec-1800792965.eu-west-2.elb.amazonaws.com:/home/control/src/```
+   2. Copy test data to controller:<br>```rsync --rsync-path=/usr/bin/rsync -r -a -v -e ssh --delete /Users/baahk01/workspace/ugcuploader-test-kubernettes/data/ control@a4311e0802ffa11ea9697063911e70ec-1800792965.eu-west-2.elb.amazonaws.com:/home/control/data/```
+
 
 ## Running Tests
 
 The following scripts can be found in the folder *test-scripts*
 
-1. Start Test:<br> Usage:`start_test <location_of_test> <tennant> <bandwidth> <number-of-nodes>` <br> Eg: To start the  *ugcupload/upload.jmx* test for *national-moments* using *adsl* and *2* slave node:<br> `./test-scripts/start_test ugcupload/upload.jmx national-moments adsl 2`
+1. Start Test:<br> Usage:`start_test <location_of_test> <tennant> <bandwidth> <number-of-nodes>` <br> Eg: To start the  *ugcupload/upload.jmx* test for *national-moments* using *adsl* and *2* slave node:<br> `./test-scripts/start_test upload/upload.jmx national-moments adsl 2`
 2. Stop Test for a Tenant <br> `stop_test <tennent>`<br> Eg. ```./test-scripts/stop_test children```
 
 Table below shows the possible values accepted for bandwidth.
@@ -96,7 +113,7 @@ Use the following command to convert  to jmeter report.
 
 `gen_report.py <items>`
 
-Where `items` is a comma separated list of tennet and date eg: `national-moments=202001020326PM,bbcradio=202001020326PM`
+Where `items` is a comma separated list of tennant and date eg: `national-moments=202001020326PM,bbcradio=202001020326PM`
 
 This will generate the following folder:` /tmp/ugcupload/graphs` which 
 
@@ -113,7 +130,7 @@ This will generate the following folder:` /tmp/ugcupload/graphs` which
 
 ### Tooling
 
-The *eksctl* tool does not work with *~/.aws/credential* file.
+The *eksctl* tool does not work with *~/.aws/credential* file unless you make  modifications to` ./kube/config`
 
 The following modifications were done to fetch-aws-creds:
 
@@ -161,9 +178,15 @@ This is located in `docker/base`.
 
 If your test utilises any plugins the corresponding jar(s) should be put in the folder *plugins*
 
+Issues with docker:
 
+The delete the following file or fo
 
 # Provision Test Rig
+
+If you want to provision multiple environments for a single tennat and want the results consolidated together then use the following naming convention: `tennant-<type>` as an example for `bbcradio` you want to create two enviroments for running two different jemeter tests. i.e one for adsl users and another for mobile gprs users. Eg. `bbcradio-adls` and ` bbcradio-mobile-gprs`.
+
+ 
 
 ## Create Reporting Virtual Cluster
 
@@ -227,19 +250,87 @@ Eg. *./un-do.sh bbcradio*
 
 
 
+# Admin Controller
+
+This is used to perform all test operations.
+
+## Install
+
+In the folder `kubernetes-artefacts/controller` use the script `add-control-to-cluster.sh`.
+
+e.g *./add-control-cluster.sh*
+
+## Grant Permissions
+
+The following steps gives the controller the permission to be able to manage the cluster.
+
+1. Configure SSH access using password:<br>You will need to log onto the container to configure it: use the following command<br>`kubectl exec -ti -n control admin-controller -- /bin/bash`
+
+   + Set the passwd for the control user
+
+     `sudo passwd control`
+
+2. Get arn for serviceaccount<br> Use the following comand to get the arn of the service account: <br>*kubectl get serviceaccount ugcupload-control -n control -o yaml*
+
+3. Add the serviceaccount as a user in the configmap/aws-auth<br>Use the following command to edit `configmap/aws-auth`:*kubectl edit -n tkube-system configmap/aws-auth*
+
+   + Add aws account: eg: <br>
+
+     ```
+     mapAccount |
+          "546933502184
+     ```
+
+     
+
+   + Add ServiceAccount role as a user: eg <br>
+
+     ```
+      mapUsers: |
+         - groups:
+           - system:masters
+           userarn: arn:aws:iam::546933502184:role/eksctl-ugcloadtest-addon-iamserviceaccount-c-Role1-1LCQ6ML5AZSTM
+           username: ugcupload-control
+           
+     ```
+
+## Accessing Controller using SSH
+
+Use the command below to get the public facing ip:
+
+`kubectl get svc admin-controller -n control`
+
+Then use the command below to login using the password you created for the control user.
+
+`ssh -o TCPKeepAlive=yes -o ServerAliveInterval=30 -o PreferredAuthentications=password -o PubkeyAuthentication=no control@<ADMIN-CONTROLLER-EXTERNAL-IP>`
+
+### Initialize Kubernetes environment
+
+To perform any operations on the environment you will need to run the following commands:
+
++ gen-env.py
+
++ source env.sh
+
++ aws eks --region eu-west-2 update-kubeconfig --name ugcloadtest
+
+
+
 # Monitor Cluster
 
 https://www.weave.works/docs/scope/latest/installing/#k8s This is used to monitor the state of the cluster.
 
-Run the script *install-weavescope.sh* which can be found in *kubernetes-util* folder
+To install run the script **install-weavescope.sh** which can be found in **kubernetes-util** folder
 
 
 
 ## View In Browser
 
-To view the state of the cluster within a browser run the script *proxy-forward-weavescope.sh* which can be found in *kubernetes-util* folder
+After installing the [Admin Controller](#admin-controller) it can be accessed using the following url:
 
-You can then view the cluster using: http://127.0.0.1:4040
+`http://<EXTERNAL-IP-OF-ADMIN-CONTROLLER>:4040`
+
+
 
 Below is the output:
 
