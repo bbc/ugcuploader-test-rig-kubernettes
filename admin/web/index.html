@@ -39,7 +39,7 @@
                     <div class="form-group">
                         <label for="context">Tennant</label>
                         <input type="text" class="form-control" id="context" aria-describedby="tennatHelp"
-                            placeholder="Enter Tennant">
+                        placeholder="Enter Tennant">
                         <small id="tennatHelp" class="form-text text-muted">This is the tennat in which you want to delete</small>
                     </div>
                   <button type="submit" class="btn btn-primary">Delete Tenant</button>
@@ -53,15 +53,25 @@
                     <div class="form-group">
                         <label for="context">Tennant</label>
                         <input type="text" class="form-control" name="context" id="context" aria-describedby="tennatHelp"
-                            placeholder="Enter Tennant">
+                        {{if .Context}} value={{ .Context }} {{ end}}  placeholder="Enter Tennant">
                         <small id="tennatHelp" class="form-text text-muted">This is the tennat in which you want to run
                             the tests</small>
                     </div>
+                    {{if .MissingTenant}}  
+                        <div class="alert alert-primary" role="alert">
+                            You need to enter the tenant details
+                        </div>
+                    {{end}}
 
                     <div class="form-group">
                         <label for="numberOfNodes">Number of Nodes</label>
-                        <input type="text" class="form-control" name="numberOfNodes" id="numberOfNodes" placeholder="Number of Nodes">
+                        <input {{if .NumberOfNodes}} value={{ .NumberOfNodes }} {{ end}}  type="text" class="form-control" name="numberOfNodes" id="numberOfNodes" placeholder="Number of Nodes">
                     </div>
+                    {{if .MissingNumberOfNodes}}  
+                        <div class="alert alert-primary" role="alert">
+                            You need to provide the number of nodes
+                        </div>
+                    {{end}}
   
                     <div class="form-group">
                         <label for="bandWidthSelection">Select the bandwidth</label>
@@ -90,12 +100,18 @@
                         <input name="jmeter" id="script-file-upload" type="file"  class="file-upload" />
                         <small id="dataHelp" class="form-text text-muted">This is the Jmeter script to upload</small>
                     </div>
+                    {{if .MissingJmeter}}  
+                        <div class="alert alert-primary" role="alert">
+                            You need to provide the jmeter script to test
+                         </div>
+                    {{end}}
 
                     <div class="form-group file-upload-wrapper">
                         <label for="data-file-upload">Data</label>
                         <input name="data" id="data-file-upload" type="file" class="file-upload" aria-describedby="jmeterHelp"/>
                         <small id="jmeterHelp" class="form-text text-muted">This is the data file used by the test</small>
                     </div>
+            
                 <button type="submit" class="btn btn-primary">Run Test</button>
             </form>
             </div>

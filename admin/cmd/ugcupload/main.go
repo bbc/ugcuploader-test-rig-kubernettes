@@ -10,10 +10,12 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
-	"runtime/debug"
 	"sync"
 	"text/template"
 
+	"github.com/bbc/ugcuploader-test-kubernettes/admin/internal/pkg/kubernetes"
+
+	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/magiconair/properties"
@@ -229,19 +231,53 @@ func (fop FileUploadOperations) processJmeter() (testFile string) {
 
 //UgcLoadRequest This is used to map to the form data.. seems to only work with firefox
 type UgcLoadRequest struct {
-	Context            string `json:"context" form:"context"`
-	NumberOfNodes      string `json:"numberOfNodes" form:"numberOfNodes"`
-	BandWidthSelection string `json:"bandWidthSelection" form:"bandWidthSelection"`
-	Jmeter             string `json:"jmeter" form:"jmeter"`
-	Data               string `json:"data" form:"data"`
+	Context              string `json:"context" form:"context" validate:"required"`
+	NumberOfNodes        string `json:"numberOfNodes" form:"numberOfNodes" validate:"numeric"`
+	BandWidthSelection   string `json:"bandWidthSelection" numericform:"bandWidthSelection" validate:"required"`
+	Jmeter               string `json:"jmeter" form:"jmeter" validate:"required"`
+	Data                 string `json:"data" form:"data"`
+	MissingTenant        bool
+	MissingNumberOfNodes bool
+	MissingJmeter        bool
+	ProblemsBinding      bool
+	MonitorUrl           string
+	DashboardUrl         string
+}
+
+//CustomValidator based on: https://echo.labstack.com/guide/request
+type CustomValidator struct {
+	validator *validator.Validate
+}
+
+func (cv *CustomValidator) Validate(i interface{}) error {
+	return cv.validator.Struct(i)
 }
 
 func upload(c echo.Context) error {
 
 	ugcLoadRequest := new(UgcLoadRequest)
 	if err := c.Bind(ugcLoadRequest); err != nil {
-		return err
+		ugcLoadRequest.ProblemsBinding = true
+		return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
 	}
+
+	if err := c.Validate(ugcLoadRequest); err != nil {
+		for _, err := range err.(validator.ValidationErrors) {
+
+			if err.Field() == "Context" {
+				ugcLoadRequest.MissingTenant = true
+			}
+			if err.Field() == "NumberOfNodes" {
+				ugcLoadRequest.MissingNumberOfNodes = true
+			}
+			if err.Field() == "Jmeter" {
+				ugcLoadRequest.MissingJmeter = true
+			}
+
+		}
+		return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+	}
+
 	fmt.Printf(fmt.Sprintf("a=%v b=%v", ugcLoadRequest.Context, ugcLoadRequest.NumberOfNodes))
 	var (
 		buf    bytes.Buffer
@@ -249,36 +285,34 @@ func upload(c echo.Context) error {
 	)
 
 	// Read form fields
-	tenant := c.FormValue("context")
-	fmt.Printf("This is the tennand %v \n", tenant)
-	noNodes := c.FormValue("numberOfNodes")
-	fmt.Printf("This is the noNodes %v \n", noNodes)
-	bandWidth := c.FormValue("bandWidthSelection")
-	fmt.Printf("This is the bandWidth %v \n", bandWidth)
+	fmt.Printf("This is the tennand %v \n", ugcLoadRequest.Context)
+	fmt.Printf("This is the noNodes %v \n", ugcLoadRequest.NumberOfNodes)
+	fmt.Printf("This is the bandWidth %v \n", ugcLoadRequest.BandWidthSelection)
+	fmt.Printf("This is the Jmeter %v \n", ugcLoadRequest.Jmeter)
+	fmt.Printf("This is the Data %v \n", ugcLoadRequest.Data)
 
 	form, err := c.MultipartForm()
 	if err != nil {
-		debug.PrintStack()
 		fmt.Println("Unable to get the multi part form")
 		return err
 	}
 
-	fop := FileUploadOperations{Form: form, Logger: logger}
-	fop.processData()
-	testPath := fop.processJmeter()
+	//fop := FileUploadOperations{Form: form, Logger: logger}
+	_ = FileUploadOperations{Form: form, Logger: logger}
+	//fop.processData()
+	//testPath := fop.processJmeter()
 
-	fmt.Println(fmt.Sprintf("testPath=%s, tennat=%s, bandwidht=%s nonodes=%s", testPath, tenant, bandWidth, noNodes))
-	ko := KubernetesOperations{TestPath: testPath, Tenant: tenant, Bandwidth: bandWidth, Nodes: noNodes}
-	res, resError := ko.startTest()
-	grafanaHost, ghe := ko.getGrafanaServiceHost()
-	fmt.Println(fmt.Sprintf("grafanaHost=%s: errorFetchingGrafanHost=%s", grafanaHost, ghe))
-	return c.HTML(http.StatusOK, fmt.Sprintf("res=%s and resError=%s", res, resError))
-}
+	//fmt.Println(fmt.Sprintf("testPath=%s, tennat=%s, bandwidht=%s nonodes=%s", testPath, tenant, bandWidth, noNodes))
+	//ko := KubernetesOperations{TestPath: testPath, Tenant: tenant, Bandwidth: bandWidth, Nodes: noNodes}
+	//res, resError := ko.startTest()
+	//grafanaHost, ghe := ko.getGrafanaServiceHost()
+	//fmt.Println(fmt.Sprintf("grafanaHost=%s: errorFetchingGrafanHost=%s", grafanaHost, ghe))
+	//return c.HTML(http.StatusOK, fmt.Sprintf("res=%s and resError=%s", res, resError))
 
-//FormData the data used in the form
-type FormData struct {
-	MonitorUrl   string
-	DashboardUrl string
+	kubctlOps := kubernetes.KubernetesOperations{}
+	kubctlOps.registerClient()
+	kubctlOps.listPods()
+	return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
 }
 
 func main() {
@@ -288,6 +322,8 @@ func main() {
 	// Middleware
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
+
+	e.Validator = &CustomValidator{validator: validator.New()}
 
 	//ko := KubernetesOperations{}
 	//response, err := ko.getGrafanaServiceHost()
@@ -302,7 +338,7 @@ func main() {
 	}
 	e.Renderer = renderer
 
-	formData := FormData{MonitorUrl: "http://monitor:8080", DashboardUrl: "http://dashboar"}
+	formData := UgcLoadRequest{MonitorUrl: "http://monitor:8080", DashboardUrl: "http://dashboar"}
 	// Named route "foobar"
 	e.GET("/", func(c echo.Context) error {
 		return c.Render(http.StatusOK, "index.html", formData)
