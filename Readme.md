@@ -67,20 +67,28 @@ The following is the process that should be followed to create test and deploy t
    | test.data    | The is the location of the data used by the scripts | /data        |
    | test.results | This is where the reponse from the test are stored. | /test-output |
 
-5. Move tests to the admin control.
+5. 
 
-   Use the following commands to transfer your tests to the admin controller. Follow these instructions [Admin Controller](#admin--controller) to setup the admin controller.
-
-   1. Copy jmeter tests to the controller: <br>```rsync --rsync-path=/usr/bin/rsync -r -a -v -e ssh --delete /Users/baahk01/workspace/ugcuploader-test-kubernettes/src/test control@a4311e0802ffa11ea9697063911e70ec-1800792965.eu-west-2.elb.amazonaws.com:/home/control/src/```
-   2. Copy test data to controller:<br>```rsync --rsync-path=/usr/bin/rsync -r -a -v -e ssh --delete /Users/baahk01/workspace/ugcuploader-test-kubernettes/data/ control@a4311e0802ffa11ea9697063911e70ec-1800792965.eu-west-2.elb.amazonaws.com:/home/control/data/```
+   2. 
 
 
 ## Running Tests
 
 The following scripts can be found in the folder *test-scripts*
 
-1. Start Test:<br> Usage:`start_test <location_of_test> <tennant> <bandwidth> <number-of-nodes>` <br> Eg: To start the  *ugcupload/upload.jmx* test for *national-moments* using *adsl* and *2* slave node:<br> `./test-scripts/start_test upload/upload.jmx national-moments adsl 2`
-2. Stop Test for a Tenant <br> `stop_test <tennent>`<br> Eg. ```./test-scripts/stop_test children```
+1. Move tests to the admin control.
+
+   Use the following commands to transfer your tests to the admin controller. Follow these instructions [Admin Controller](#admin--controller) to setup the admin controller.
+
+   1. Copy jmeter tests to the controller: <br>```rsync --rsync-path=/usr/bin/rsync -r -a -v -e ssh --delete /Users/baahk01/workspace/ugcuploader-test-kubernettes/src/test control@a4311e0802ffa11ea9697063911e70ec-1800792965.eu-west-2.elb.amazonaws.com:/home/control/src/```
+
+   2. Copy test data to controller:<br>```rsync --rsync-path=/usr/bin/rsync -r -a -v -e ssh --delete /Users/baahk01/workspace/ugcuploader-test-kubernettes/data/ control@a4311e0802ffa11ea9697063911e70ec-1800792965.eu-west-2.elb.amazonaws.com:/home/control/data/```
+
+      
+
+2. Start Test:<br> Usage:`start_test <location_of_test> <tennant> <bandwidth> <number-of-nodes>` <br> Eg: To start the  *ugcupload/upload.jmx* test for *national-moments* using *adsl* and *2* slave node:<br> `./test-scripts/start_test upload/upload.jmx national-moments adsl 2`
+
+3. Stop Test for a Tenant <br> `stop_test <tennent>`<br> Eg. ```./test-scripts/stop_test children```
 
 Table below shows the possible values accepted for bandwidth.
 

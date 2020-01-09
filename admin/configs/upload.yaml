@@ -1,0 +1,3 @@
+ugcpload:
+    data: "/Users/baahk01/workspace/ugcuploader-test-kubernettes/data"
+    jmeter: "/Users/baahk01/workspace/ugcuploader-test-kubernettes/src/test"

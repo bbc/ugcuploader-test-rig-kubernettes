@@ -26,11 +26,13 @@ rm -rf config
 cp -R ../../config .
 rm -rf data
 cp -R ../../data .
+rm -rf admin
+cp -R ../../admin .
 
 
 REPO="$aws_acnt_num.dkr.ecr.$region.amazonaws.com/ugcloadtest/control:latest"
 aws ecr delete-repository --force --repository-name ugcloadtest/control
 aws ecr create-repository --repository-name ugcloadtest/control
-docker build --no-cache -t ugcloadtest/control .
-docker tag ugcloadtest/control:latest $REPO
-docker push $REPO
+sudo docker build --no-cache -t ugcloadtest/control .
+sudo docker tag ugcloadtest/control:latest $REPO
+sudo docker push $REPO

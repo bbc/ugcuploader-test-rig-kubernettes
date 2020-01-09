@@ -12,6 +12,9 @@ spec:
     - name: weavescope
       port: 4040
       targetPort: 4040
+    - name: admin
+      port: 1323
+      targetPort: 1323
   selector:
     control: admin
   type: LoadBalancer

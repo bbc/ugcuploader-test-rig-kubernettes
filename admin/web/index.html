@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+        integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+
+    <title>UGCLoad Test Rig</title>
+</head>
+
+<body>
+
+    <div class="jumbotron text-center">
+        <h1>UgcUpLoad Test Rig</h1>      
+        <p>This is used to perform load Tests on a kubernetes cluster.</p>
+      </div>
+    
+    <div class="container">
+        <div class="row">
+            <div class="col">
+                <a href=" {{ .MonitorUrl }}">Weavescope</a> 
+            </div>
+
+            <div class="col">
+                <a href=" {{ .DashboardUrl }}">Grafana Dashboard</a> 
+            </div>
+        </div>
+        <div class="row">
+            <div class="col">&nbsp;
+                <div>
+                    <h1>Tennant Deletion</h1>
+                </div>
+                <form method="post" action="/start-test" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="context">Tennant</label>
+                        <input type="text" class="form-control" id="context" aria-describedby="tennatHelp"
+                            placeholder="Enter Tennant">
+                        <small id="tennatHelp" class="form-text text-muted">This is the tennat in which you want to delete</small>
+                    </div>
+                  <button type="submit" class="btn btn-primary">Delete Tenant</button>
+                </form>
+            </div>
+            <div class="col">
+                <div>
+                    <h1>Test Creation</h1>
+                </div>
+                <form method="post" action="/start-test" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="context">Tennant</label>
+                        <input type="text" class="form-control" name="context" id="context" aria-describedby="tennatHelp"
+                            placeholder="Enter Tennant">
+                        <small id="tennatHelp" class="form-text text-muted">This is the tennat in which you want to run
+                            the tests</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="numberOfNodes">Number of Nodes</label>
+                        <input type="text" class="form-control" name="numberOfNodes" id="numberOfNodes" placeholder="Number of Nodes">
+                    </div>
+  
+                    <div class="form-group">
+                        <label for="bandWidthSelection">Select the bandwidth</label>
+                        <select class="form-control" name="bandWidthSelection" id="bandWidthSelection">
+                          <option value="adsl">ADSL : 8 Mbit/s</option>
+                          <option value="adsl2">ADSL2 : 12 Mbit/s</option>
+                          <option value="adsl2Plus">ADSL2+ : 24 Mbit/s</option>
+                          <option value="ethernetLan">Ethernet LAN ; 10 Mbit/s</option>
+                          <option value="fastEthernet">Fast Ethernet :  100 Mbit/s</option>
+                          <option value="gigabitEthernet">Gigabit Ethernet : 1 Gbit/s</option>
+                          <option value="10gigabitEthernet">10 Gigabit Ethernet : 10 Gbit/s</option>
+                          <option value="100gigabitEthernet">100 Gigabit Ethernet : 100 Gbit/s</option>
+                          <option value="mobileDataEdge">Mobile data EDGE : 384 kbit/s</option>
+                          <option value="mobileDataHspa">Mobile data HSPA : 14,4 Mbp/s</option>
+                          <option value="mobileDatacHspaPlus">Mobile data HSPA+ : 21 Mbp/s</option>
+                          <option value="mobileDataDcHspaPlus">Mobile data DC-HSPA+ : 42 Mbps</option>
+                          <option value="mobileDataLte">Mobile data LTE : 150 Mbp/s</option>
+                          <option value="mobileDataGprs">Mobile data GPRS : 171 kbit/s</option>
+                          <option value="wifi80211a">WIFI 802.11a/g : 54 Mbit/s</option>
+                          <option value="wifi80211n">WIFI 802.11n : 600 Mbit/s</option>
+                        </select>
+                      </div>
+
+                    <div class="form-group file-upload-wrapper">
+                        <label for="script-file-upload">Jmeter Script</label>
+                        <input name="jmeter" id="script-file-upload" type="file"  class="file-upload" />
+                        <small id="dataHelp" class="form-text text-muted">This is the Jmeter script to upload</small>
+                    </div>
+
+                    <div class="form-group file-upload-wrapper">
+                        <label for="data-file-upload">Data</label>
+                        <input name="data" id="data-file-upload" type="file" class="file-upload" aria-describedby="jmeterHelp"/>
+                        <small id="jmeterHelp" class="form-text text-muted">This is the data file used by the test</small>
+                    </div>
+                <button type="submit" class="btn btn-primary">Run Test</button>
+            </form>
+            </div>
+            <div class="col">
+                <div>
+                    <h1>Test Manipulation</h1>
+                </div>
+                <form method="post" action="/start-test" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="context">Tennant</label>
+                        <input type="text" class="form-control" id="context" aria-describedby="tennatHelp"
+                            placeholder="Enter Tennant">
+                        <small id="tennatHelp" class="form-text text-muted">This is the tennat in which you want to stop the test for </small>
+                    </div>
+                <button type="submit" class="btn btn-primary">Stop Test</button>
+                </form>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+        integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+        integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+        crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+        integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+        crossorigin="anonymous"></script>
+</body>
+
+</html>

@@ -87,4 +87,4 @@ kubectl exec -it -n $2 $master_pod  -- bash -c "mkdir test/$path"
 kubectl cp "$working_dir/src/test/$test_to_run" "$master_pod:/home/jmeter/test/$path" -n $2
 echo "Starting Jmeter load test $test_to_run for $2 running on $master_pod  "
 
-kubectl exec -ti -n $2 $master_pod -- /bin/bash /home/jmeter/bin/load_test.sh "/home/jmeter/test/$test_to_run" $2 
+kubectl exec -ti -n $2 $master_pod -- bash -c "/home/jmeter/bin/load_test.sh /home/jmeter/test/$test_to_run $2" 
