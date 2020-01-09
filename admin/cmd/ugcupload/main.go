@@ -13,7 +13,7 @@ import (
 	"sync"
 	"text/template"
 
-	"github.com/bbc/ugcuploader-test-kubernettes/admin/internal/pkg/kubernetes"
+	"github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/kubernetes"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
