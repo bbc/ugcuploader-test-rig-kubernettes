@@ -42,14 +42,6 @@ var props = properties.MustLoadFile("/etc/ugcupload/loadtest.conf", properties.U
 //Init init
 func (kop *Operations) Init() (success bool) {
 
-	// creates the in-cluster config
-	/*
-		config, err := rest.InClusterConfig()
-		if err != nil {
-			panic(err.Error())
-		}
-	*/
-
 	var kubeconfig *string
 	if home := homeDir(); home != "" {
 		kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
@@ -159,6 +151,8 @@ func (kop *Operations) CreateJmeterSlaveDeployment(ns string, nbrnodes int32, aw
 					ServiceAccountName: "ugcupload-jmeter",
 					Containers: []v1.Container{
 						{
+							TTY:   true,
+							Stdin: true,
 							Name:  "jmmaster",
 							Image: fmt.Sprintf("%s.dkr.ecr.%s.amazonaws.com/ugcloadtest/jmeter-slave:latest", strconv.FormatInt(awsAcntNbr, 10), awsRegion),
 							Command: []string{"sh", "-c",
@@ -260,6 +254,8 @@ func (kop *Operations) CreateJmeterMasterDeployment(namespace string, awsAcntNbr
 					ServiceAccountName: "ugcupload-jmeter",
 					Containers: []v1.Container{
 						{
+							TTY:   true,
+							Stdin: true,
 							Name:  "jmmaster",
 							Image: fmt.Sprintf("%s.dkr.ecr.%s.amazonaws.com/ugcloadtest/jmeter-master:latest", strconv.FormatInt(awsAcntNbr, 10), awsRegion),
 							Args:  []string{"/bin/bash", "-c", "--", "while true; do sleep 30; done;"},
@@ -451,7 +447,8 @@ func (kop Operations) StopTest(ns string) (started bool, err string) {
 //StartTest starts the uploaded test
 func (kop Operations) StartTest(testPath string, ns string, bandwidth string, nbrnodes int) (started bool, err string) {
 	args := []string{testPath, ns, bandwidth, strconv.Itoa(nbrnodes)}
-	_, err = kop.executeCommand("start_test.controller.sh", args)
+	_, err = kop.executeCommand("start_test_controller.sh", args)
+
 	if err != "" {
 		log.WithFields(log.Fields{
 			"err": err,
@@ -513,7 +510,17 @@ func (kop Operations) executeCommand(command string, args []string) (outStr stri
 				"err": err.Error(),
 			}).Error("Error occured when logging the execution process")
 		}
-		outStr, errStr = string(stdout.Bytes()), string(stderr.Bytes())
+		os, te := string(stdout.Bytes()), string(stderr.Bytes())
+
+		if te != "" && strings.Contains(te, "TTY - input is not a terminal") {
+			log.WithFields(log.Fields{
+				"err": te,
+			}).Warn("TTY - input is not a terminal: %v", strings.Join(args, ","))
+		} else {
+			errStr = te
+		}
+		outStr = os
+
 	}
 	return
 

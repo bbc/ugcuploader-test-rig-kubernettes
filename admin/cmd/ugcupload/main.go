@@ -3,9 +3,11 @@ package main
 import (
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 	"text/template"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 
@@ -61,7 +63,7 @@ func stringInSlice(a string, list []string) bool {
 //UgcLoadRequest This is used to map to the form data.. seems to only work with firefox
 type UgcLoadRequest struct {
 	Context              string `json:"context" form:"context" validate:"required"`
-	NumberOfNodes        int    `json:"numberOfNodes" form:"numberOfNodes" validate:"numeric"`
+	NumberOfNodes        int    `json:"numberOfNodes" form:"numberOfNodes" validate:"numeric,min=1"`
 	BandWidthSelection   string `json:"bandWidthSelection" numericform:"bandWidthSelection" validate:"required"`
 	Jmeter               string `json:"jmeter" form:"jmeter"`
 	Data                 string `json:"data" form:"data"`
@@ -107,7 +109,7 @@ func stopTest(c echo.Context) error {
 	if err := c.Bind(ugcLoadRequest); err != nil {
 		addMonitorAndDashboard(ugcLoadRequest)
 		ugcLoadRequest.ProblemsBinding = true
-		return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+		return c.Render(http.StatusBadRequest, "index.html", ugcLoadRequest)
 	}
 	log.WithFields(log.Fields{
 		"StopContext": ugcLoadRequest.StopContext,
@@ -115,12 +117,12 @@ func stopTest(c echo.Context) error {
 
 	if ugcLoadRequest.StopContext == "" {
 		ugcLoadRequest.StopTenantMissing = true
-		return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+		return c.Render(http.StatusBadRequest, "index.html", ugcLoadRequest)
 	}
 
 	if stringInSlice(ugcLoadRequest.StopContext, nonValidNamespaces) {
 		ugcLoadRequest.InvalidTenantStop = strings.Join(nonValidNamespaces, ",")
-		return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+		return c.Render(http.StatusBadRequest, "index.html", ugcLoadRequest)
 	}
 	deleted, errStr := kubctlOps.StopTest(ugcLoadRequest.StopContext)
 	if deleted == false {
@@ -128,8 +130,8 @@ func stopTest(c echo.Context) error {
 			"Context": ugcLoadRequest.StopContext,
 			"err":     errStr,
 		}).Info("Unable to stop the test")
-		ugcLoadRequest.TennantNotStopped = fmt.Sprintf("Unable to stop tennat: %s", errStr)
-		return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+		ugcLoadRequest.TennantNotStopped = fmt.Sprintf("Unable to stop tenant: %s", errStr)
+		return c.Render(http.StatusBadRequest, "index.html", ugcLoadRequest)
 	}
 
 	ugcLoadRequest.TenantStopped = ugcLoadRequest.StopContext
@@ -145,7 +147,7 @@ func deleteTenant(c echo.Context) error {
 	if err := c.Bind(ugcLoadRequest); err != nil {
 		addMonitorAndDashboard(ugcLoadRequest)
 		ugcLoadRequest.ProblemsBinding = true
-		return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+		return c.Render(http.StatusBadRequest, "index.html", ugcLoadRequest)
 	}
 
 	log.WithFields(log.Fields{
@@ -154,12 +156,12 @@ func deleteTenant(c echo.Context) error {
 
 	if ugcLoadRequest.TenantContext == "" {
 		ugcLoadRequest.TenantMissing = true
-		return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+		return c.Render(http.StatusBadRequest, "index.html", ugcLoadRequest)
 	}
 
 	if stringInSlice(ugcLoadRequest.TenantContext, nonValidNamespaces) {
 		ugcLoadRequest.InvalidTenantDelete = strings.Join(nonValidNamespaces, ",")
-		return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+		return c.Render(http.StatusBadRequest, "index.html", ugcLoadRequest)
 	}
 
 	deleted, errStr := kubctlOps.DeleteServiceAccount(ugcLoadRequest.TenantContext)
@@ -173,15 +175,8 @@ func deleteTenant(c echo.Context) error {
 			"err":     errStr,
 		}).Info("UnableToDeleteServiceAccount")
 		ugcLoadRequest.TennantNotDeleted = fmt.Sprintf("Unable to delete service account: %s", errStr)
-		return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+		return c.Render(http.StatusBadRequest, "index.html", ugcLoadRequest)
 	}
-	/*
-		delns, errns := kubctlOps.DeleteNamespace(ugcLoadRequest.TenantContext)
-		if delns == false {
-			ugcLoadRequest.TennantNotDeleted = fmt.Sprintf("Unable to delete namespace: %s", errns)
-			return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
-		}
-	*/
 	ugcLoadRequest.TenantDeleted = ugcLoadRequest.TenantContext
 	ugcLoadRequest.TenantContext = ""
 	return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
@@ -196,7 +191,7 @@ func upload(c echo.Context) error {
 	ugcLoadRequest.DashboardURL = fmt.Sprintf("http://%s:3000", kubctlOps.LoadBalancerIP("ugcload-reporter"))
 	if err := c.Bind(ugcLoadRequest); err != nil {
 		ugcLoadRequest.ProblemsBinding = true
-		return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+		return c.Render(http.StatusBadRequest, "index.html", ugcLoadRequest)
 	}
 
 	if err := c.Validate(ugcLoadRequest); err != nil {
@@ -213,12 +208,12 @@ func upload(c echo.Context) error {
 			}
 
 		}
-		return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+		return c.Render(http.StatusBadRequest, "index.html", ugcLoadRequest)
 	}
 
 	if stringInSlice(ugcLoadRequest.Context, nonValidNamespaces) {
 		ugcLoadRequest.InvalidTenantName = strings.Join(nonValidNamespaces, ",")
-		return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+		return c.Render(http.StatusBadRequest, "index.html", ugcLoadRequest)
 	}
 
 	form, err := c.MultipartForm()
@@ -228,7 +223,7 @@ func upload(c echo.Context) error {
 		}).Info("Request Properties")
 		kubctlOps.RegisterClient()
 		ugcLoadRequest.MissingJmeter = true
-		return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+		return c.Render(http.StatusBadRequest, "index.html", ugcLoadRequest)
 	}
 
 	fop := ugl.FileUploadOperations{Form: form}
@@ -237,7 +232,7 @@ func upload(c echo.Context) error {
 		_ = fop.ProcessData()
 		kubctlOps.RegisterClient()
 		ugcLoadRequest.MissingJmeter = true
-		return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+		return c.Render(http.StatusBadRequest, "index.html", ugcLoadRequest)
 	}
 
 	nsExist := kubctlOps.CheckNamespaces(ugcLoadRequest.Context)
@@ -255,7 +250,7 @@ func upload(c echo.Context) error {
 				"err": err.Error(),
 			}).Error("Unable to Parse Integer")
 			ugcLoadRequest.GenericCreateTestMsg = err.Error()
-			return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+			return c.Render(http.StatusConflict, "index.html", ugcLoadRequest)
 		}
 		created, errNs := kubctlOps.CreateNamespace(ugcLoadRequest.Context)
 		if created == false {
@@ -263,7 +258,7 @@ func upload(c echo.Context) error {
 				"err": errNs,
 			}).Error("Unable to create namespace")
 			ugcLoadRequest.GenericCreateTestMsg = errNs
-			return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+			return c.Render(http.StatusBadRequest, "index.html", ugcLoadRequest)
 		}
 		policyArn := fmt.Sprintf("arn:aws:iam::%s:policy/ugcupload-eks-jmeter-policy", awsAcntNumber)
 		crtd, e := kubctlOps.CreateServiceaccount(ugcLoadRequest.Context, policyArn)
@@ -272,7 +267,7 @@ func upload(c echo.Context) error {
 				"err": e,
 			}).Error("Unable To Create ServiceAccount")
 			ugcLoadRequest.GenericCreateTestMsg = e
-			return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+			return c.Render(http.StatusBadRequest, "index.html", ugcLoadRequest)
 		}
 		crtd, e = kubctlOps.CreateJmeterMasterDeployment(ugcLoadRequest.Context, aan, awsRegion)
 		if crtd == false {
@@ -280,7 +275,7 @@ func upload(c echo.Context) error {
 				"err": e,
 			}).Error("Unable To Create Jmeter Master Deployment")
 			ugcLoadRequest.GenericCreateTestMsg = e
-			return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+			return c.Render(http.StatusBadRequest, "index.html", ugcLoadRequest)
 		}
 		crtd, e = kubctlOps.CreateJmeterSlaveService(ugcLoadRequest.Context)
 		if crtd == false {
@@ -288,7 +283,7 @@ func upload(c echo.Context) error {
 				"err": e,
 			}).Error("Unable To Create Jmeter Slave Service")
 			ugcLoadRequest.GenericCreateTestMsg = e
-			return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+			return c.Render(http.StatusBadRequest, "index.html", ugcLoadRequest)
 		}
 		crtd, e = kubctlOps.CreateJmeterSlaveDeployment(ugcLoadRequest.Context, int32(ugcLoadRequest.NumberOfNodes), aan, awsRegion)
 		if crtd == false {
@@ -296,7 +291,7 @@ func upload(c echo.Context) error {
 				"err": e,
 			}).Error("Unable To Create Jmeter Slave Deployment")
 			ugcLoadRequest.GenericCreateTestMsg = e
-			return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+			return c.Render(http.StatusBadRequest, "index.html", ugcLoadRequest)
 		}
 
 	}
@@ -309,18 +304,15 @@ func upload(c echo.Context) error {
 		"ugcLoadRequest.Data":               ugcLoadRequest.Data,
 	}).Info("Request Properties")
 
-	//ko := KubernetesOperations{TestPath: testPath, Tenant: tenant, Bandwidth: bandWidth, Nodes: noNodes}
-	//res, resError := ko.startTest()
-	//grafanaHost, ghe := ko.getGrafanaServiceHost()
-	//fmt.Println(fmt.Sprintf("grafanaHost=%s: errorFetchingGrafanHost=%s", grafanaHost, ghe))
-	//return c.HTML(http.StatusOK, fmt.Sprintf("res=%s and resError=%s", res, resError))
-
-	started, err := kubctlOps.StartTest(testPath, ugcLoadRequest.Context, ugcLoadRequest.BandWidthSelection, ugcLoadRequest.NumberOfNodes)
+	started, errStartTest := kubctlOps.StartTest(testPath, ugcLoadRequest.Context, ugcLoadRequest.BandWidthSelection, ugcLoadRequest.NumberOfNodes)
 	if started == false {
-		ugcLoadRequest.GenericCreateTestMsg = err
-		return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+		ugcLoadRequest.GenericCreateTestMsg = errStartTest
+		return c.Render(http.StatusBadRequest, "index.html", ugcLoadRequest)
 	}
-	ugcLoadRequest.Success = testPath
+
+	ugcLoadRequest.Success = fmt.Sprintf("Test %s was succesfully created for tenant[%s]", testPath, ugcLoadRequest.Context)
+	ugcLoadRequest.NumberOfNodes = 0
+	ugcLoadRequest.Context = ""
 	return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
 }
 
@@ -363,6 +355,22 @@ func main() {
 	e.POST("/stop-test", stopTest)
 	e.POST("/delete-tenant", deleteTenant)
 
+	s := &http.Server{
+		Addr:         ":1323",
+		ReadTimeout:  5 * time.Minute,
+		WriteTimeout: 5 * time.Minute,
+	}
+
+	//Taken from here: https://stackoverflow.com/questions/29334407/creating-an-idle-timeout-in-go/29334926#29334926
+	s.ConnState = func(c net.Conn, cs http.ConnState) {
+		switch cs {
+		case http.StateIdle, http.StateNew:
+			c.SetReadDeadline(time.Now().Add(time.Minute * 5))
+		case http.StateActive:
+			c.SetReadDeadline(time.Now().Add(time.Minute * 5))
+		}
+	}
+
 	// Start server
-	e.Logger.Debug(e.Start(":1323"))
+	e.Logger.Debug(e.StartServer(s))
 }

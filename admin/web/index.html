@@ -31,7 +31,7 @@
             </div>
         </div>
         {{if .ProblemsBinding}}
-            <div class="alert alert-primary" role="alert">
+        <div class="alert alert-primary" role="alert">
             Problems binding form data: {{ .ProblemsBinding}}
         </div>
         {{end}}
@@ -43,12 +43,13 @@
                     </div>
                     <div class="card-body">
                         <fieldset>
-                            <form method="post" name="delete" action="/delete-tenant" enctype="multipart/form-data">
+                            <form method="post" name="delete" id="deleteTenantFrm" action="/delete-tenant"
+                                enctype="multipart/form-data">
                                 <div class="form-group">
                                     <label for="context">Tennant</label>
                                     <input type="text" class="form-control" name="TenantContext" id="TenantContext"
-                                        aria-describedby="tennatHelp" placeholder="Enter Tennant">
-                                    <small id="tennatHelp" class="form-text text-muted">This is the tennat in which you
+                                        aria-describedby="tenantHelp" placeholder="Enter Tennant">
+                                    <small id="tenantHelp" class="form-text text-muted">This is the tenant in which you
                                         want to
                                         delete</small>
                                 </div>
@@ -67,7 +68,12 @@
                                     Tenant not deleted : {{ .TennantNotDeleted}}
                                 </div>
                                 {{end}}
-                                <button type="submit" class="btn btn-primary">Delete Tenant</button>
+                                {{if .TenantDeleted}}
+                                <div class="alert alert-success" role="alert">
+                                    Tenant {{ .TennantNotDeleted}} has been deleted
+                                </div>
+                                {{end}}
+                                <button type="submit" id="deleteTenantBtn" class="btn btn-primary">Delete Tenant</button>
                             </form>
                         </fieldset>
                     </div>
@@ -80,13 +86,13 @@
                     </div>
                     <div class="card-body">
                         <fieldset>
-                            <form method="post" action="/start-test" enctype="multipart/form-data">
+                            <form method="post" id="startTestFrm" action="/start-test" enctype="multipart/form-data">
                                 <div class="form-group">
                                     <label for="context">Tennant</label>
                                     <input type="text" class="form-control" name="context" id="context"
-                                        aria-describedby="tennatHelp" {{if .Context}} value={{ .Context }} {{ end}}
+                                        aria-describedby="tenantHelp" {{if .Context}} value={{ .Context }} {{ end}}
                                         placeholder="Enter Tennant">
-                                    <small id="tennatHelp" class="form-text text-muted">This is the tennat in which you
+                                    <small id="tenantHelp" class="form-text text-muted">This is the tenant in which you
                                         want to run
                                         the tests</small>
                                 </div>
@@ -97,7 +103,7 @@
                                 {{end}}
                                 {{if .InvalidTenantName}}
                                 <div class="alert alert-warning" role="alert">
-                                    Following can not be used as tennant names: {{ .InvalidTenantName}}
+                                    Following can not be used as tenant names: {{ .InvalidTenantName}}
                                 </div>
                                 {{end}}
 
@@ -160,14 +166,14 @@
                                 </div>
                                 {{end}}
 
-                                <button type="submit" class="btn btn-primary">Run Test</button>
+                                <button type="submit" id="startTestBtn" class="btn btn-primary">Run Test</button>
 
                             </form>
                         </fieldset>
                     </div>
                     {{if .Success}}
                     <div class="alert alert-success" role="alert">
-                        <strong>{{ .Success}} created</strong>
+                        <strong>{{ .Success}}</strong>
                     </div>
                     {{end}}
                 </div>
@@ -183,35 +189,35 @@
                     </div>
                     <div class="card-body">
                         <fieldset>
-                            <form method="post" action="/stop-test" enctype="multipart/form-data">
+                            <form method="post" id="stopTestFrm" action="/stop-test" enctype="multipart/form-data">
                                 <div class="form-group">
                                     <label for="context">Tennant</label>
-                                    <input type="text" class="form-control" name="stopcontext" id="stopcontext" aria-describedby="tennatHelp"
-                                        placeholder="Enter Tennant">
-                                    <small id="tennatHelp" class="form-text text-muted">This is the tennat in which you
+                                    <input type="text" class="form-control" name="stopcontext" id="stopcontext"
+                                        aria-describedby="tenantHelp" placeholder="Enter Tennant">
+                                    <small id="tenantHelp" class="form-text text-muted">This is the tenant in which you
                                         want to stop
                                         the test for </small>
                                 </div>
-                                <button type="submit" class="btn btn-primary">Stop Test</button>
+                                <button type="submit" id="stopTestBtn" class="btn btn-primary">Stop Test</button>
                                 {{if .StopTenantMissing}}
-                                    <div class="alert alert-primary" role="alert">
-                                    <strong>You must supply the tennat name</strong>
-                                    </div>
+                                <div class="alert alert-primary" role="alert">
+                                    <strong>You must supply the tenant name</strong>
+                                </div>
                                 {{end}}
                                 {{if .InvalidTenantStop}}
-                                    <div class="alert alert-primary" role="alert">
+                                <div class="alert alert-primary" role="alert">
                                     <strong>These names are not valid: {{ .InvalidTenantStop}}</strong>
-                                    </div>
+                                </div>
                                 {{end}}
                                 {{if .TennantNotStopped}}
-                                    <div class="alert alert-primary" role="alert">
+                                <div class="alert alert-primary" role="alert">
                                     <strong>Was not able to stop the test {{ .TennantNotStopped}}</strong>
-                                    </div>
+                                </div>
                                 {{end}}
                                 {{if .TenantStopped}}
-                                    <div class="alert alert-success" role="alert">
+                                <div class="alert alert-success" role="alert">
                                     <strong>Test were stopped for: {{ .TenantStopped}}</strong>
-                                    </div>
+                                </div>
                                 {{end}}
                             </form>
                         </fieldset>
@@ -229,6 +235,37 @@
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
         integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
         crossorigin="anonymous"></script>
+    <script>
+        $(document).ready(function () {
+
+            $("#deleteTenantFrm").on('submit', function () {
+                $("#deleteTenantBtn").prop("disabled", true)
+                $("#deleteTenantBtn").html(
+                    `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Deleting...`
+                );
+                $("#startTestBtn").prop("disabled", true)
+                $("#stopTestBtn").prop("disabled", true)
+            });
+
+            $("#startTestFrm").on('submit', function () {
+                $("#startTestBtn").prop("disabled", true)
+                $("#startTestBtn").html(
+                    `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Starting Test...`
+                );
+                $("#deleteTenantBtn").prop("disabled", true)
+                $("#stopTestBtn").prop("disabled", true)
+            });
+
+            $("#stopTestFrm").on('submit', function () {
+                $("#stopTestBtn").prop("disabled", true)
+                $("#stopTestBtn").html(
+                    `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Stopping Test...`
+                );
+                $("#startTestBtn").prop("disabled", true)
+                $("#deleteTenantBtn").prop("disabled", true)
+            });
+        });
+    </script>
 </body>
 
 </html>

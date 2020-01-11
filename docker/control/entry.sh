@@ -25,8 +25,8 @@ export AWS_SESSION_TOKEN="$(cat /tmp/irp-cred.txt | jq -r ".Credentials.SessionT
 export AWS_DEFAULT_REGION=eu-west-2
 
 aws eks --region eu-west-2 update-kubeconfig --name ugcloadtest
-nohup kubectl port-forward --address 0.0.0.0 -n weave "$(kubectl get -n weave pod --selector=weave-scope-component=app -o jsonpath='{.items..metadata.name}')" 4040 &
-
+nohup kubectl port-forward --address 0.0.0.0 -n weave "$(kubectl get -n weave pod --selector=weave-scope-component=app -o jsonpath='{.items..metadata.name}')" 4040 &> weavscope.out&
+nohup go run /home/control/admin/cmd/ugcupload/main.go &> admincontroller.out&
 cd /home/jmeter/admin
 /usr/local/go/bin/go run 
 
@@ -43,7 +43,8 @@ export AWS_SECRET_ACCESS_KEY="\$(cat /tmp/irp-cred.txt | jq -r ".Credentials.Sec
 export AWS_SESSION_TOKEN="\$(cat /tmp/irp-cred.txt | jq -r ".Credentials.SessionToken")"
 export AWS_DEFAULT_REGION=eu-west-2
 
-nohup kubectl port-forward --address 0.0.0.0 -n weave "\$(kubectl get -n weave pod --selector=weave-scope-component=app -o jsonpath='{.items..metadata.name}')" 4040 &
+nohup kubectl port-forward --address 0.0.0.0 -n weave "$(kubectl get -n weave pod --selector=weave-scope-component=app -o jsonpath='{.items..metadata.name}')" 4040 &> weavscope.out&
+
 EOF
 sudo chmod 0777 /home/control/start_weavescope.sh
 sudo mv /home/control/start_weavescope.sh /usr/local/bin
@@ -55,6 +56,25 @@ EOF
 
 sudo chmod 0777 /home/control/refresh_creds.sh
 sudo mv /home/control/refresh_creds.sh /usr/local/bin
+
+sudo cat >/home/control/start_admin_controller.sh<<EOF
+#!/usr/bin/env bash
+
+PID=$(pidof go)
+echo $PID
+if [ ! -z "\$PID" ]; then
+    kill -9 $PID
+fi
+export AWS_ACCESS_KEY_ID="\$(cat /tmp/irp-cred.txt | jq -r ".Credentials.AccessKeyId")"
+export AWS_SECRET_ACCESS_KEY="\$(cat /tmp/irp-cred.txt | jq -r ".Credentials.SecretAccessKey")"
+export AWS_SESSION_TOKEN="\$(cat /tmp/irp-cred.txt | jq -r ".Credentials.SessionToken")"
+export AWS_DEFAULT_REGION=eu-west-2
+
+nohup go run /home/control/admin/cmd/ugcupload/main.go &> admincontroller.out&
+EOF
+
+sudo chmod 0777 /home/control/start_admin_controller.sh
+sudo mv /home/control/start_admin_controller.sh /usr/local/bin
 
 sudo service sshd start
 sudo crond  -d 8 

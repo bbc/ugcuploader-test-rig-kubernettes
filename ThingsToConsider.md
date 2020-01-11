@@ -1,4 +1,4 @@
-1. It's a multi-tennant platform 
+1. It's a multi-tenant platform 
 
    What is the traffic distribution of each tenant?
 

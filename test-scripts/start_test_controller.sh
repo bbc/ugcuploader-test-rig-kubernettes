@@ -41,7 +41,7 @@ done
     
 }
 
-kubectl scale deployment.v1.apps/jmeter-slaves --replicas=$4 -n $2
+kubectl scale --replicas=$4 deployment/jmeter-slave -n $2
 check_if_all_started
 until ((  $found < 1  ))
 do
