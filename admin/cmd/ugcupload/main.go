@@ -1,28 +1,37 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"io"
-	"log"
-	"mime/multipart"
 	"net/http"
-	"os"
-	"os/exec"
-	"runtime"
-	"sync"
+	"strings"
 	"text/template"
 
+	log "github.com/sirupsen/logrus"
+
+	cluster "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/cluster"
 	"github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/kubernetes"
+	ugl "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/ugcupload"
+
+	"strconv"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/magiconair/properties"
-	uuid "github.com/satori/go.uuid"
 )
 
+func init() {
+	log.SetFormatter(&log.TextFormatter{
+		DisableColors: true,
+		FullTimestamp: true,
+	})
+}
+
+var nonValidNamespaces = []string{"control", "default", "kube-node-lease", "kube-public", "kube-system", "ugcload-reporter", "weave"}
+
 var props = properties.MustLoadFile("/etc/ugcupload/loadtest.conf", properties.UTF8)
+var kubctlOps = kubernetes.Operations{}
 
 // TemplateRenderer is a custom html/template renderer for Echo framework
 type TemplateRenderer struct {
@@ -40,208 +49,41 @@ func (t *TemplateRenderer) Render(w io.Writer, name string, data interface{}, c 
 	return t.templates.ExecuteTemplate(w, name, data)
 }
 
-// Code below taken from here: https://github.com/kjk/go-cookbook/blob/master/advanced-exec/03-live-progress-and-capture-v2.go
-
-//FileUploadOperations used to perform file upload
-type FileUploadOperations struct {
-	Form   *multipart.Form
-	Logger *log.Logger
-}
-
-//KubernetesOperations used for make calls to kubernetes
-type KubernetesOperations struct {
-	TestPath  string
-	Tenant    string
-	Bandwidth string
-	Nodes     string
-}
-
-// CapturingPassThroughWriter is a writer that remembers
-// data written to it and passes it to w
-type CapturingPassThroughWriter struct {
-	buf bytes.Buffer
-	w   io.Writer
-}
-
-// NewCapturingPassThroughWriter creates new CapturingPassThroughWriter
-func NewCapturingPassThroughWriter(w io.Writer) *CapturingPassThroughWriter {
-	return &CapturingPassThroughWriter{
-		w: w,
-	}
-}
-
-// Write writes data to the writer, returns number of bytes written and an error
-func (w *CapturingPassThroughWriter) Write(d []byte) (int, error) {
-	w.buf.Write(d)
-	return w.w.Write(d)
-}
-
-// Bytes returns bytes written to the writer
-func (w *CapturingPassThroughWriter) Bytes() []byte {
-	return w.buf.Bytes()
-}
-
-func (kop KubernetesOperations) startTest() (outStr string, errStr string) {
-
-	args := []string{kop.TestPath, kop.Tenant, kop.Bandwidth, kop.Nodes}
-
-	cmd := exec.Command("start_test_controller.sh", args...)
-	if runtime.GOOS == "windows" {
-		cmd = exec.Command("tasklist")
-	}
-
-	var errStdout, errStderr error
-	stdoutIn, _ := cmd.StdoutPipe()
-	stderrIn, _ := cmd.StderrPipe()
-	stdout := NewCapturingPassThroughWriter(os.Stdout)
-	stderr := NewCapturingPassThroughWriter(os.Stderr)
-	err := cmd.Start()
-	if err != nil {
-		log.Fatalf("cmd.Start() failed with '%s'\n", err)
-	}
-
-	var wg sync.WaitGroup
-	wg.Add(1)
-
-	go func() {
-		_, errStdout = io.Copy(stdout, stdoutIn)
-		wg.Done()
-	}()
-
-	_, errStderr = io.Copy(stderr, stderrIn)
-	wg.Wait()
-
-	err = cmd.Wait()
-	if err != nil {
-		log.Fatalf("cmd.Run() failed with %s\n", err)
-	}
-	if errStdout != nil || errStderr != nil {
-		log.Fatal("failed to capture stdout or stderr\n")
-	}
-	outStr, errStr = string(stdout.Bytes()), string(stderr.Bytes())
-	fmt.Printf("\nout:\n%s\nerr:\n%s\n", outStr, errStr)
-	return
-
-}
-
-func (kop KubernetesOperations) getGrafanaServiceHost() (outStr string, errStr string) {
-
-	args := []string{"ugcload-reporter", "jmeter-grafana"}
-
-	cmd := exec.Command("get-service-url.sh", args...)
-	if runtime.GOOS == "windows" {
-		cmd = exec.Command("tasklist")
-	}
-
-	var errStdout, errStderr error
-	stdoutIn, _ := cmd.StdoutPipe()
-	stderrIn, _ := cmd.StderrPipe()
-	stdout := NewCapturingPassThroughWriter(os.Stdout)
-	stderr := NewCapturingPassThroughWriter(os.Stderr)
-	err := cmd.Start()
-	if err != nil {
-		log.Fatalf("cmd.Start() failed with '%s'\n", err)
-	}
-
-	var wg sync.WaitGroup
-	wg.Add(1)
-
-	go func() {
-		_, errStdout = io.Copy(stdout, stdoutIn)
-		wg.Done()
-	}()
-
-	_, errStderr = io.Copy(stderr, stderrIn)
-	wg.Wait()
-
-	err = cmd.Wait()
-	if err != nil {
-		log.Fatalf("cmd.Run() failed with %s\n", err)
-	}
-	if errStdout != nil || errStderr != nil {
-		log.Fatal("failed to capture stdout or stderr\n")
-	}
-	outStr, errStr = string(stdout.Bytes()), string(stderr.Bytes())
-	fmt.Printf("\nout:\n%s\nerr:\n%s\n", outStr, errStr)
-	return
-}
-
-func (fop FileUploadOperations) processData() {
-
-	dataFiles := fop.Form.File["data"]
-	for _, f := range dataFiles {
-		src, err := f.Open()
-		if err != nil {
-			fop.Logger.Fatalln("Unable to open file")
+func stringInSlice(a string, list []string) bool {
+	for _, b := range list {
+		if b == a {
+			return true
 		}
-		defer src.Close()
-
-		// Destination
-		data := props.MustGet("data")
-		destFileName := fmt.Sprintf("%s/%s", data, f.Filename)
-		fmt.Printf(fmt.Sprintf("destFileName=%s", destFileName))
-		dst, err := os.Create(destFileName)
-		fmt.Printf(fmt.Sprintf("m=%v", err))
-		if err != nil {
-			fop.Logger.Fatalln("Unable to create destination data file")
-		}
-		defer dst.Close()
-
-		// Copy
-		if _, err = io.Copy(dst, src); err != nil {
-			fop.Logger.Fatalln("Unable to copy source file to destination")
-		}
-
 	}
-
-}
-
-func (fop FileUploadOperations) processJmeter() (testFile string) {
-
-	u2 := uuid.NewV4()
-	dataFiles := fop.Form.File["jmeter"]
-	path := fmt.Sprintf("%s/%s", props.MustGet("jmeter"), u2)
-	fmt.Println(path)
-	os.MkdirAll(path, os.ModePerm)
-	for _, f := range dataFiles {
-		src, err := f.Open()
-		if err != nil {
-			fop.Logger.Fatalln("Unable to open file")
-		}
-		defer src.Close()
-
-		testFile = fmt.Sprintf("%s/%s", u2, f.Filename)
-		destFileName := fmt.Sprintf("%s/%s", path, f.Filename)
-		fmt.Printf(fmt.Sprintf("destFileName=%s", destFileName))
-		dst, err := os.Create(destFileName)
-		fmt.Printf(fmt.Sprintf("m=%v", err))
-		if err != nil {
-			fop.Logger.Fatalln("Unable to create destination data file")
-		}
-		defer dst.Close()
-
-		// Copy
-		if _, err = io.Copy(dst, src); err != nil {
-			fop.Logger.Fatalln("Unable to copy source file to destination")
-		}
-
-	}
-	return
+	return false
 }
 
 //UgcLoadRequest This is used to map to the form data.. seems to only work with firefox
 type UgcLoadRequest struct {
 	Context              string `json:"context" form:"context" validate:"required"`
-	NumberOfNodes        string `json:"numberOfNodes" form:"numberOfNodes" validate:"numeric"`
+	NumberOfNodes        int    `json:"numberOfNodes" form:"numberOfNodes" validate:"numeric"`
 	BandWidthSelection   string `json:"bandWidthSelection" numericform:"bandWidthSelection" validate:"required"`
-	Jmeter               string `json:"jmeter" form:"jmeter" validate:"required"`
+	Jmeter               string `json:"jmeter" form:"jmeter"`
 	Data                 string `json:"data" form:"data"`
 	MissingTenant        bool
 	MissingNumberOfNodes bool
 	MissingJmeter        bool
 	ProblemsBinding      bool
-	MonitorUrl           string
-	DashboardUrl         string
+	MonitorURL           string
+	DashboardURL         string
+	Success              string
+	InvalidTenantName    string
+	TenantDeleted        string
+	TenantContext        string
+	TenantMissing        bool
+	InvalidTenantDelete  string
+	TennantNotDeleted    string
+	GenericCreateTestMsg string
+	StopContext          string
+	StopTenantMissing    bool
+	InvalidTenantStop    string
+	TennantNotStopped    string
+	TenantStopped        string
 }
 
 //CustomValidator based on: https://echo.labstack.com/guide/request
@@ -253,9 +95,105 @@ func (cv *CustomValidator) Validate(i interface{}) error {
 	return cv.validator.Struct(i)
 }
 
+func addMonitorAndDashboard(ur *UgcLoadRequest) {
+	ur.MonitorURL = fmt.Sprintf("http://%s:4040", kubctlOps.LoadBalancerIP("control"))
+	ur.DashboardURL = fmt.Sprintf("http://%s:3000", kubctlOps.LoadBalancerIP("ugcload-reporter"))
+}
+
+func stopTest(c echo.Context) error {
+	kubctlOps.RegisterClient()
+	ugcLoadRequest := new(UgcLoadRequest)
+	addMonitorAndDashboard(ugcLoadRequest)
+	if err := c.Bind(ugcLoadRequest); err != nil {
+		addMonitorAndDashboard(ugcLoadRequest)
+		ugcLoadRequest.ProblemsBinding = true
+		return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+	}
+	log.WithFields(log.Fields{
+		"StopContext": ugcLoadRequest.StopContext,
+	}).Info("StopContext")
+
+	if ugcLoadRequest.StopContext == "" {
+		ugcLoadRequest.StopTenantMissing = true
+		return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+	}
+
+	if stringInSlice(ugcLoadRequest.StopContext, nonValidNamespaces) {
+		ugcLoadRequest.InvalidTenantStop = strings.Join(nonValidNamespaces, ",")
+		return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+	}
+	deleted, errStr := kubctlOps.StopTest(ugcLoadRequest.StopContext)
+	if deleted == false {
+		log.WithFields(log.Fields{
+			"Context": ugcLoadRequest.StopContext,
+			"err":     errStr,
+		}).Info("Unable to stop the test")
+		ugcLoadRequest.TennantNotStopped = fmt.Sprintf("Unable to stop tennat: %s", errStr)
+		return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+	}
+
+	ugcLoadRequest.TenantStopped = ugcLoadRequest.StopContext
+	ugcLoadRequest.StopContext = ""
+	return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+}
+
+func deleteTenant(c echo.Context) error {
+
+	kubctlOps.RegisterClient()
+	ugcLoadRequest := new(UgcLoadRequest)
+	addMonitorAndDashboard(ugcLoadRequest)
+	if err := c.Bind(ugcLoadRequest); err != nil {
+		addMonitorAndDashboard(ugcLoadRequest)
+		ugcLoadRequest.ProblemsBinding = true
+		return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+	}
+
+	log.WithFields(log.Fields{
+		"TenantContext": ugcLoadRequest.TenantContext,
+	}).Info("TenantContext")
+
+	if ugcLoadRequest.TenantContext == "" {
+		ugcLoadRequest.TenantMissing = true
+		return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+	}
+
+	if stringInSlice(ugcLoadRequest.TenantContext, nonValidNamespaces) {
+		ugcLoadRequest.InvalidTenantDelete = strings.Join(nonValidNamespaces, ",")
+		return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+	}
+
+	deleted, errStr := kubctlOps.DeleteServiceAccount(ugcLoadRequest.TenantContext)
+	log.WithFields(log.Fields{
+		"deleted": deleted,
+	}).Info("Deleted")
+
+	if deleted == false {
+		log.WithFields(log.Fields{
+			"Context": ugcLoadRequest.TenantContext,
+			"err":     errStr,
+		}).Info("UnableToDeleteServiceAccount")
+		ugcLoadRequest.TennantNotDeleted = fmt.Sprintf("Unable to delete service account: %s", errStr)
+		return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+	}
+	/*
+		delns, errns := kubctlOps.DeleteNamespace(ugcLoadRequest.TenantContext)
+		if delns == false {
+			ugcLoadRequest.TennantNotDeleted = fmt.Sprintf("Unable to delete namespace: %s", errns)
+			return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+		}
+	*/
+	ugcLoadRequest.TenantDeleted = ugcLoadRequest.TenantContext
+	ugcLoadRequest.TenantContext = ""
+	return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+
+}
+
 func upload(c echo.Context) error {
 
+	kubctlOps.RegisterClient()
 	ugcLoadRequest := new(UgcLoadRequest)
+	ugcLoadRequest.MonitorURL = fmt.Sprintf("http://%s:4040", kubctlOps.LoadBalancerIP("control"))
+	ugcLoadRequest.DashboardURL = fmt.Sprintf("http://%s:3000", kubctlOps.LoadBalancerIP("ugcload-reporter"))
 	if err := c.Bind(ugcLoadRequest); err != nil {
 		ugcLoadRequest.ProblemsBinding = true
 		return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
@@ -278,40 +216,111 @@ func upload(c echo.Context) error {
 		return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
 	}
 
-	fmt.Printf(fmt.Sprintf("a=%v b=%v", ugcLoadRequest.Context, ugcLoadRequest.NumberOfNodes))
-	var (
-		buf    bytes.Buffer
-		logger = log.New(&buf, "logger: ", log.Lshortfile)
-	)
-
-	// Read form fields
-	fmt.Printf("This is the tennand %v \n", ugcLoadRequest.Context)
-	fmt.Printf("This is the noNodes %v \n", ugcLoadRequest.NumberOfNodes)
-	fmt.Printf("This is the bandWidth %v \n", ugcLoadRequest.BandWidthSelection)
-	fmt.Printf("This is the Jmeter %v \n", ugcLoadRequest.Jmeter)
-	fmt.Printf("This is the Data %v \n", ugcLoadRequest.Data)
+	if stringInSlice(ugcLoadRequest.Context, nonValidNamespaces) {
+		ugcLoadRequest.InvalidTenantName = strings.Join(nonValidNamespaces, ",")
+		return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+	}
 
 	form, err := c.MultipartForm()
 	if err != nil {
-		fmt.Println("Unable to get the multi part form")
-		return err
+		log.WithFields(log.Fields{
+			"err": err.Error(),
+		}).Info("Request Properties")
+		kubctlOps.RegisterClient()
+		ugcLoadRequest.MissingJmeter = true
+		return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
 	}
 
-	//fop := FileUploadOperations{Form: form, Logger: logger}
-	_ = FileUploadOperations{Form: form, Logger: logger}
-	//fop.processData()
-	//testPath := fop.processJmeter()
+	fop := ugl.FileUploadOperations{Form: form}
+	testPath := fop.ProcessJmeter()
+	if testPath == "" {
+		_ = fop.ProcessData()
+		kubctlOps.RegisterClient()
+		ugcLoadRequest.MissingJmeter = true
+		return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+	}
 
-	//fmt.Println(fmt.Sprintf("testPath=%s, tennat=%s, bandwidht=%s nonodes=%s", testPath, tenant, bandWidth, noNodes))
+	nsExist := kubctlOps.CheckNamespaces(ugcLoadRequest.Context)
+	if nsExist == false {
+		clusterops := cluster.Operations{}
+		awsRegion, awsAcntNumber := clusterops.DescribeCluster("ugcloadtest")
+		log.WithFields(log.Fields{
+			"awsAcntNumber": awsAcntNumber,
+			"awsRegion":     awsRegion,
+		}).Info("Cluster Info")
+
+		aan, err := strconv.ParseInt(awsAcntNumber, 10, 64)
+		if err != nil {
+			log.WithFields(log.Fields{
+				"err": err.Error(),
+			}).Error("Unable to Parse Integer")
+			ugcLoadRequest.GenericCreateTestMsg = err.Error()
+			return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+		}
+		created, errNs := kubctlOps.CreateNamespace(ugcLoadRequest.Context)
+		if created == false {
+			log.WithFields(log.Fields{
+				"err": errNs,
+			}).Error("Unable to create namespace")
+			ugcLoadRequest.GenericCreateTestMsg = errNs
+			return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+		}
+		policyArn := fmt.Sprintf("arn:aws:iam::%s:policy/ugcupload-eks-jmeter-policy", awsAcntNumber)
+		crtd, e := kubctlOps.CreateServiceaccount(ugcLoadRequest.Context, policyArn)
+		if crtd == false {
+			log.WithFields(log.Fields{
+				"err": e,
+			}).Error("Unable To Create ServiceAccount")
+			ugcLoadRequest.GenericCreateTestMsg = e
+			return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+		}
+		crtd, e = kubctlOps.CreateJmeterMasterDeployment(ugcLoadRequest.Context, aan, awsRegion)
+		if crtd == false {
+			log.WithFields(log.Fields{
+				"err": e,
+			}).Error("Unable To Create Jmeter Master Deployment")
+			ugcLoadRequest.GenericCreateTestMsg = e
+			return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+		}
+		crtd, e = kubctlOps.CreateJmeterSlaveService(ugcLoadRequest.Context)
+		if crtd == false {
+			log.WithFields(log.Fields{
+				"err": e,
+			}).Error("Unable To Create Jmeter Slave Service")
+			ugcLoadRequest.GenericCreateTestMsg = e
+			return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+		}
+		crtd, e = kubctlOps.CreateJmeterSlaveDeployment(ugcLoadRequest.Context, int32(ugcLoadRequest.NumberOfNodes), aan, awsRegion)
+		if crtd == false {
+			log.WithFields(log.Fields{
+				"err": e,
+			}).Error("Unable To Create Jmeter Slave Deployment")
+			ugcLoadRequest.GenericCreateTestMsg = e
+			return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+		}
+
+	}
+
+	log.WithFields(log.Fields{
+		"ugcLoadRequest.Context":            ugcLoadRequest.Context,
+		"ugcLoadRequest.NumberOfNodes":      ugcLoadRequest.NumberOfNodes,
+		"ugcLoadRequest.BandWidthSelection": ugcLoadRequest.BandWidthSelection,
+		"ugcLoadRequest.Jmeter":             ugcLoadRequest.Jmeter,
+		"ugcLoadRequest.Data":               ugcLoadRequest.Data,
+	}).Info("Request Properties")
+
 	//ko := KubernetesOperations{TestPath: testPath, Tenant: tenant, Bandwidth: bandWidth, Nodes: noNodes}
 	//res, resError := ko.startTest()
 	//grafanaHost, ghe := ko.getGrafanaServiceHost()
 	//fmt.Println(fmt.Sprintf("grafanaHost=%s: errorFetchingGrafanHost=%s", grafanaHost, ghe))
 	//return c.HTML(http.StatusOK, fmt.Sprintf("res=%s and resError=%s", res, resError))
 
-	kubctlOps := kubernetes.KubernetesOperations{}
-	kubctlOps.registerClient()
-	kubctlOps.listPods()
+	started, err := kubctlOps.StartTest(testPath, ugcLoadRequest.Context, ugcLoadRequest.BandWidthSelection, ugcLoadRequest.NumberOfNodes)
+	if started == false {
+		ugcLoadRequest.GenericCreateTestMsg = err
+		return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+	}
+	ugcLoadRequest.Success = testPath
 	return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
 }
 
@@ -338,16 +347,21 @@ func main() {
 	}
 	e.Renderer = renderer
 
-	formData := UgcLoadRequest{MonitorUrl: "http://monitor:8080", DashboardUrl: "http://dashboar"}
+	kubctlOps.Init()
+	kubctlOps.RegisterClient()
+	formData := UgcLoadRequest{MonitorURL: fmt.Sprintf("http://%s:4040", kubctlOps.LoadBalancerIP("control")),
+		DashboardURL: fmt.Sprintf("http://%s:3000", kubctlOps.LoadBalancerIP("ugcload-reporter"))}
+
 	// Named route "foobar"
 	e.GET("/", func(c echo.Context) error {
 		return c.Render(http.StatusOK, "index.html", formData)
 	}).Name = "index"
 
-	fmt.Println(fmt.Sprintf("%s/index.html", props.MustGet("web")))
 	// Routes
 	e.Static("/script", "web")
 	e.POST("/start-test", upload)
+	e.POST("/stop-test", stopTest)
+	e.POST("/delete-tenant", deleteTenant)
 
 	// Start server
 	e.Logger.Debug(e.Start(":1323"))

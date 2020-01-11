@@ -1,1 +1,2 @@
 0 * * * * /usr/local/bin/start_weavescope.sh >> /home/control/weavescope.log 2>&1
+*/55 * * * * /usr/local/bin/refresh_creds.sh >> /home/control/refresh_creds.log 2>&1
