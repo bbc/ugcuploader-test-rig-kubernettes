@@ -23,6 +23,12 @@ WORKDIR /home/control
 USER 1000
 RUN mkdir /home/control/admin
 
+
+# add credentials on build
+ARG SSH_PRIVATE_KEY
+RUN mkdir ~/.ssh/
+RUN echo "${SSH_PRIVATE_KEY}" > ~/.ssh/id_rsa
+
 # Force the go compiler to use modules 
 ENV GO111MODULE=on
 
@@ -42,7 +48,8 @@ RUN go mod download
 # Here we copy the rest of the source code
 COPY admin admin
 # And compile the project
-RUN CGO_ENABLED=1 GOOS=linux go build -o bin/admin -a -tags netgo -ldflags '-w -extldflags "-static"' ./admin/cmd/ugcupload/main.go
+
+#RUN CGO_ENABLED=1 GOOS=linux go build -o bin/admin -a -tags netgo -ldflags '-w -extldflags "-static"' ./admin/cmd/ugcupload/main.go
 
 COPY etc /etc
 
@@ -71,9 +78,9 @@ RUN sudo crontab -u control /home/control/crontab.txt
 COPY bin/ /usr/local/bin
 run sudo chmod 0777 /usr/local/bin/gen-env.py
 COPY test-scripts/ /usr/local/bin
-RUN mkdir tennant
-COPY tennant tennant
-RUN sudo chown -R control:control tennant
+RUN mkdir tenant
+COPY tenant tenant
+RUN sudo chown -R control:control tenant
 RUN mkdir src
 COPY test/ src/test
 RUN sudo chown -R control:control src

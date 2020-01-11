@@ -18,8 +18,8 @@ echo $aws_acnt_num
 
 rm -rf test-scripts
 cp -R ../../test-scripts .
-rm -rf tennant
-cp -R ../../kubernetes-artefacts/tennant .
+rm -rf tenant
+cp -R ../../kubernetes-artefacts/tenant .
 rm -rf test 
 cp -R ../../src/test .
 rm -rf config
