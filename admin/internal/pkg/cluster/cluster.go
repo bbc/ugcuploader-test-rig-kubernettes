@@ -10,18 +10,24 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws/external"
 	"github.com/aws/aws-sdk-go-v2/service/eks"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/awscredentials"
 )
 
 //Operations performed on the cluster
-type Operations struct {
-}
+type Operations struct{}
 
 //DescribeCluster returns a description of the cluster
 func (ops Operations) DescribeCluster(clusterName string) (awsRegion string, awsActNmbr string) {
 
-	cfg, err := external.LoadDefaultAWSConfig()
+	eksCreds := awscredentials.Credentials{}
+	cfg, err := external.LoadDefaultAWSConfig(
+		// Hard coded credentials.
+		external.WithCredentialsValue(eksCreds.GetWebIdentityCredentials()),
+	)
 	if err != nil {
-		panic("failed to load config, " + err.Error())
+		log.WithFields(log.Fields{
+			"err": err.Error(),
+		}).Error("Problems Loading Credentials")
 	}
 
 	svc := eks.New(cfg)

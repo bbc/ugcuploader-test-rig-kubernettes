@@ -33,6 +33,6 @@ cp -R ../../admin .
 REPO="$aws_acnt_num.dkr.ecr.$region.amazonaws.com/ugcloadtest/control:latest"
 aws ecr delete-repository --force --repository-name ugcloadtest/control
 aws ecr create-repository --repository-name ugcloadtest/control
-sudo docker build --no-cache -t ugcloadtest/control .
-sudo docker tag ugcloadtest/control:latest $REPO
-sudo docker push $REPO
+docker build --no-cache -t ugcloadtest/control .
+docker tag ugcloadtest/control:latest $REPO
+docker push $REPO

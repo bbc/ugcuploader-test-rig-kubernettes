@@ -42,24 +42,42 @@ var props = properties.MustLoadFile("/etc/ugcupload/loadtest.conf", properties.U
 //Init init
 func (kop *Operations) Init() (success bool) {
 
-	var kubeconfig *string
-	if home := homeDir(); home != "" {
-		kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
-	} else {
-		kubeconfig = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
-	}
-	flag.Parse()
+	if os.Getenv("AWS_WEB_IDENTITY_TOKEN_FILE") != "" {
+		// creates the in-cluster config
+		config, err := rest.InClusterConfig()
+		if err != nil {
+			log.WithFields(log.Fields{
+				"err": err.Error(),
+			}).Errorf("Problems getting credentials")
+			success = false
+		} else {
+			kop.Config = config
+			success = true
+		}
 
-	// use the current context in kubeconfig
-	config, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
-	if err != nil {
-		log.WithFields(log.Fields{
-			"err": err.Error(),
-		}).Errorf("Unable to initialize kubeconfig")
-		success = false
 	} else {
-		kop.Config = config
-		success = true
+		if kop.Config == nil {
+			var kubeconfig *string
+			if home := homeDir(); home != "" {
+				kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
+			} else {
+				kubeconfig = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
+			}
+			flag.Parse()
+
+			// use the current context in kubeconfig
+			config, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
+
+			if err != nil {
+				log.WithFields(log.Fields{
+					"err": err.Error(),
+				}).Errorf("Unable to initialize kubeconfig")
+				success = false
+			} else {
+				kop.Config = config
+				success = true
+			}
+		}
 	}
 	return
 }
@@ -356,6 +374,7 @@ func homeDir() string {
 //RegisterClient used to register the client
 func (kop *Operations) RegisterClient() (success bool) {
 	// creates the clientset
+	kop.Init()
 	clientset, err := kubernetes.NewForConfig(kop.Config)
 	if err != nil {
 		log.WithFields(log.Fields{
