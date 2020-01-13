@@ -11,6 +11,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	aws "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/aws"
 	cluster "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/cluster"
 	"github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/kubernetes"
 	ugl "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/ugcupload"
@@ -86,6 +87,8 @@ type UgcLoadRequest struct {
 	InvalidTenantStop    string
 	TennantNotStopped    string
 	TenantStopped        string
+	TenantList           []string
+	ReportURL            string
 }
 
 //CustomValidator based on: https://echo.labstack.com/guide/request
@@ -98,14 +101,57 @@ func (cv *CustomValidator) Validate(i interface{}) error {
 }
 
 func addMonitorAndDashboard(ur *UgcLoadRequest) {
-	ur.MonitorURL = fmt.Sprintf("http://%s:4040", kubctlOps.LoadBalancerIP("control"))
+	ip := kubctlOps.LoadBalancerIP("control")
+	ur.MonitorURL = fmt.Sprintf("http://%s:4040", ip)
+	ur.ReportURL = fmt.Sprintf("http://%s:80", ip)
 	ur.DashboardURL = fmt.Sprintf("http://%s:3000", kubctlOps.LoadBalancerIP("ugcload-reporter"))
 }
 
+func addTenants(ur *UgcLoadRequest) {
+	s3Ops := aws.S3Operations{}
+	ur.TenantList, _ = s3Ops.GetBucketItems("ugcupload-jmeter", "", 0)
+}
+
+func generateReport(c echo.Context) error {
+
+	tenant := c.FormValue("tenant")
+	data := c.FormValue("data")
+
+	var items []string
+	for _, d := range strings.Split(data, ",") {
+		items = append(items, fmt.Sprintf("%s=%s", tenant, d))
+	}
+	log.WithFields(log.Fields{
+		"tenant": tenant,
+		"data":   data,
+		"items":  items,
+	}).Info("Generate Report")
+	kubctlOps.RegisterClient()
+	_, e := kubctlOps.GenerateReport(strings.Join(items[:], ","))
+	return c.String(http.StatusOK, e)
+}
+
+func s3Tenants(c echo.Context) error {
+
+	type Items struct {
+		Date string `json:"date"`
+	}
+	s3Ops := aws.S3Operations{}
+	tenant := c.QueryParam("tenant")
+
+	var my []Items
+	items, _ := s3Ops.GetBucketItems("ugcupload-jmeter", fmt.Sprintf("%s/", tenant), 1)
+	for _, item := range items {
+		it := Items{Date: item}
+		my = append(my, it)
+	}
+	return c.JSON(http.StatusOK, &my)
+}
 func stopTest(c echo.Context) error {
 	kubctlOps.RegisterClient()
 	ugcLoadRequest := new(UgcLoadRequest)
 	addMonitorAndDashboard(ugcLoadRequest)
+	addTenants(ugcLoadRequest)
 	if err := c.Bind(ugcLoadRequest); err != nil {
 		addMonitorAndDashboard(ugcLoadRequest)
 		ugcLoadRequest.ProblemsBinding = true
@@ -144,6 +190,7 @@ func deleteTenant(c echo.Context) error {
 	kubctlOps.RegisterClient()
 	ugcLoadRequest := new(UgcLoadRequest)
 	addMonitorAndDashboard(ugcLoadRequest)
+	addTenants(ugcLoadRequest)
 	if err := c.Bind(ugcLoadRequest); err != nil {
 		addMonitorAndDashboard(ugcLoadRequest)
 		ugcLoadRequest.ProblemsBinding = true
@@ -187,8 +234,9 @@ func upload(c echo.Context) error {
 
 	kubctlOps.RegisterClient()
 	ugcLoadRequest := new(UgcLoadRequest)
-	ugcLoadRequest.MonitorURL = fmt.Sprintf("http://%s:4040", kubctlOps.LoadBalancerIP("control"))
-	ugcLoadRequest.DashboardURL = fmt.Sprintf("http://%s:3000", kubctlOps.LoadBalancerIP("ugcload-reporter"))
+	addTenants(ugcLoadRequest)
+	addMonitorAndDashboard(ugcLoadRequest)
+
 	if err := c.Bind(ugcLoadRequest); err != nil {
 		ugcLoadRequest.ProblemsBinding = true
 		return c.Render(http.StatusBadRequest, "index.html", ugcLoadRequest)
@@ -341,11 +389,15 @@ func main() {
 
 	kubctlOps.Init()
 	kubctlOps.RegisterClient()
-	formData := UgcLoadRequest{MonitorURL: fmt.Sprintf("http://%s:4040", kubctlOps.LoadBalancerIP("control")),
-		DashboardURL: fmt.Sprintf("http://%s:3000", kubctlOps.LoadBalancerIP("ugcload-reporter"))}
+	formData := UgcLoadRequest{}
+
+	addMonitorAndDashboard(&formData)
+	addTenants(&formData)
 
 	// Named route "foobar"
 	e.GET("/", func(c echo.Context) error {
+		addMonitorAndDashboard(&formData)
+		addTenants(&formData)
 		return c.Render(http.StatusOK, "index.html", formData)
 	}).Name = "index"
 
@@ -354,6 +406,8 @@ func main() {
 	e.POST("/start-test", upload)
 	e.POST("/stop-test", stopTest)
 	e.POST("/delete-tenant", deleteTenant)
+	e.GET("/tenantReport", s3Tenants)
+	e.POST("/genReport", generateReport)
 
 	s := &http.Server{
 		Addr:         ":1323",

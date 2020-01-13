@@ -76,7 +76,7 @@ sudo mv /home/control/start_admin_controller.sh /usr/local/bin
 
 sudo service sshd start
 sudo crond  -d 8 
-
+sudo rc-service lighttpd start
 echo "tart $@"
 # Hand off to the CMD
 exec "$@"

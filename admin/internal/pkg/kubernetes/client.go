@@ -414,6 +414,24 @@ func (w *CapturingPassThroughWriter) Bytes() []byte {
 	return w.buf.Bytes()
 }
 
+//GenerateReport creates report for tenant
+func (kop Operations) GenerateReport(data string) (created bool, err string) {
+
+	args := []string{data}
+	_, err = kop.executeCommand("gen-report.py", args)
+	if err != "" {
+		log.WithFields(log.Fields{
+			"err":  err,
+			"data": data,
+			"args": strings.Join(args, ","),
+		}).Errorf("unable to generate the report")
+		created = false
+	} else {
+		created = true
+	}
+	return
+}
+
 //CreateServiceaccount create service account
 func (kop Operations) CreateServiceaccount(ns string, policyarn string) (created bool, err string) {
 
@@ -486,8 +504,9 @@ func (kop Operations) executeCommand(command string, args []string) (outStr stri
 		"args":    strings.Join(args, ","),
 	})
 
-	w := logger.Writer()
-	defer w.Close()
+	w := &logrusWriter{
+		entry: logger,
+	}
 
 	cmd := exec.Command(command, args...)
 	if runtime.GOOS == "windows" {
@@ -504,6 +523,7 @@ func (kop Operations) executeCommand(command string, args []string) (outStr stri
 		log.WithFields(log.Fields{
 			"err": err.Error(),
 		}).Errorf("unable to start the execute the command: %v", strings.Join(args, ","))
+		errStr = err.Error()
 
 	} else {
 
@@ -543,4 +563,45 @@ func (kop Operations) executeCommand(command string, args []string) (outStr stri
 	}
 	return
 
+}
+
+type logrusWriter struct {
+	entry *log.Entry
+	buf   bytes.Buffer
+	mu    sync.Mutex
+}
+
+func (w *logrusWriter) Write(b []byte) (int, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	origLen := len(b)
+	for {
+		if len(b) == 0 {
+			return origLen, nil
+		}
+		i := bytes.IndexByte(b, '\n')
+		if i < 0 {
+			w.buf.Write(b)
+			return origLen, nil
+		}
+
+		w.buf.Write(b[:i])
+		w.alwaysFlush()
+		b = b[i+1:]
+	}
+}
+
+func (w *logrusWriter) alwaysFlush() {
+	w.entry.Info(w.buf.String())
+	w.buf.Reset()
+}
+
+func (w *logrusWriter) Flush() {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	if w.buf.Len() != 0 {
+		w.alwaysFlush()
+	}
 }

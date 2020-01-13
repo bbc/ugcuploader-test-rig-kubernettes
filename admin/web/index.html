@@ -9,6 +9,9 @@
     <!-- Bootstrap CSS -->
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
         integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/v/bs4/dt-1.10.20/b-1.6.1/b-colvis-1.6.1/r-2.2.3/rr-1.2.6/sc-2.0.1/sl-1.3.1/datatables.min.css"/>
+
+
 
     <title>UGCLoad Test Rig</title>
 </head>
@@ -17,69 +20,75 @@
 
     <div class="jumbotron text-center">
         <h1>UgcUpLoad Test Rig</h1>
-        <p>This is used to perform load Tests on a kubernetes cluster.</p>
+        <p> <a href="/">This is used to perform load Tests on a kubernetes cluster.</a></p>
     </div>
 
-    <div class="container">
+    <div class="container-fluid">
         <div class="row">
-            <div class="col">
-                <a href=" {{ .MonitorURL }}" target="_blank">Weavescope</a>
+            <div class="col-md-6 text-center">
+                <div class="panel panel-default">
+                    <a href=" {{ .MonitorURL }}" target="_blank">View Cluster</a>
+                </div>
             </div>
 
-            <div class="col">
-                <a href=" {{ .DashboardURL }}" target="_blank">Grafana Dashboard</a>
+            <div class="col-md-6 text-center">
+                <a href=" {{ .DashboardURL }}" target="_blank">Grafana Dashboaard</a>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-12">
+                <hr style="width: 100%; color: black; height: 1px; background-color:black;" />
             </div>
         </div>
         {{if .ProblemsBinding}}
-        <div class="alert alert-primary" role="alert">
-            Problems binding form data: {{ .ProblemsBinding}}
+        <div class="row">
+            <div class="col-md-12 text-center">
+                <div class="alert alert-primary" role="alert">
+                    Problems binding form data: {{ .ProblemsBinding}}
+                </div>
+            </div>
         </div>
         {{end}}
         <div class="row">
-            <div class="col">&nbsp;
+            <div class="col-md-5">
                 <div class="card">
                     <div class="card-title">
-                        <h3 class="text-center"><strong>Tennant Deletion</strong></h3>
+                        <h3 class="text-center"><strong>Generate Report</strong></h3>
                     </div>
                     <div class="card-body">
-                        <fieldset>
-                            <form method="post" name="delete" id="deleteTenantFrm" action="/delete-tenant"
-                                enctype="multipart/form-data">
-                                <div class="form-group">
-                                    <label for="context">Tennant</label>
-                                    <input type="text" class="form-control" name="TenantContext" id="TenantContext"
-                                        aria-describedby="tenantHelp" placeholder="Enter Tennant">
-                                    <small id="tenantHelp" class="form-text text-muted">This is the tenant in which you
-                                        want to
-                                        delete</small>
-                                </div>
-                                {{if .TenantMissing}}
-                                <div class="alert alert-primary" role="alert">
-                                    You need to enter the tenant details
-                                </div>
+                        <!-- Example split danger button -->
+                        <div class="btn-group">
+                            <button type="button" class="btn btn-primary">Select Tenant</button>
+                            <button type="button" class="btn btn-primary btn-lg dropdown-toggle dropdown-toggle-split"
+                                data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                <span class="sr-only">Toggle Dropdown</span>
+                            </button>
+                            <div class="dropdown-menu">
+                                {{range $element := .TenantList}}
+                                <a id="fetchReport" class="dropdown-item" href="#">{{$element}}</a>
+                                <div class="dropdown-divider"></div>
                                 {{end}}
-                                {{if .InvalidTenantDelete}}
-                                <div class="alert alert-primary" role="alert">
-                                    Following can not be deleted: {{ .InvalidTenantDelete }}
-                                </div>
-                                {{end}}
-                                {{if .TennantNotDeleted}}
-                                <div class="alert alert-primary" role="alert">
-                                    Tenant not deleted : {{ .TennantNotDeleted}}
-                                </div>
-                                {{end}}
-                                {{if .TenantDeleted}}
-                                <div class="alert alert-success" role="alert">
-                                    Tenant {{ .TennantNotDeleted}} has been deleted
-                                </div>
-                                {{end}}
-                                <button type="submit" id="deleteTenantBtn" class="btn btn-primary">Delete Tenant</button>
-                            </form>
-                        </fieldset>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="text-center">
+                                <a href=" {{ .ReportURL }}" target="_blank">View Reports</a>
+                            </div>
+                        </div>
                     </div>
                 </div>
+                <br>
+                <table id="tenantReport">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                </table>
             </div>
-            <div class="col">
+            <div class="col-md-4">
+
                 <div class="card">
                     <div class="card-title">
                         <h3 class="text-center"><strong>Test Creation</strong></h3>
@@ -178,14 +187,11 @@
                     {{end}}
                 </div>
 
-                <div>
-                    <h1></h1>
-                </div>
             </div>
-            <div class="col">
+            <div class="col-md-3">
                 <div class="card">
                     <div class="card-title">
-                        <h3 class="text-center"><strong>Test Manipulation</strong></h3>
+                        <h3 class="text-center"><strong>Stop Test</strong></h3>
                     </div>
                     <div class="card-body">
                         <fieldset>
@@ -223,49 +229,63 @@
                         </fieldset>
                     </div>
                 </div>
+                <br>
+                <div class="card">
+                    <div class="card-title">
+                        <h3 class="text-center"><strong>Tenant Deletion</strong></h3>
+                    </div>
+                    <div class="card-body">
+                        <fieldset>
+                            <form method="post" name="delete" id="deleteTenantFrm" action="/delete-tenant"
+                                enctype="multipart/form-data">
+                                <div class="form-group">
+                                    <label for="context">Tennant</label>
+                                    <input type="text" class="form-control" name="TenantContext" id="TenantContext"
+                                        aria-describedby="tenantHelp" placeholder="Enter Tennant">
+                                    <small id="tenantHelp" class="form-text text-muted">This is the tenant in which you
+                                        want to
+                                        delete</small>
+                                </div>
+                                {{if .TenantMissing}}
+                                <div class="alert alert-primary" role="alert">
+                                    You need to enter the tenant details
+                                </div>
+                                {{end}}
+                                {{if .InvalidTenantDelete}}
+                                <div class="alert alert-primary" role="alert">
+                                    Following can not be deleted: {{ .InvalidTenantDelete }}
+                                </div>
+                                {{end}}
+                                {{if .TennantNotDeleted}}
+                                <div class="alert alert-primary" role="alert">
+                                    Tenant not deleted : {{ .TennantNotDeleted}}
+                                </div>
+                                {{end}}
+                                {{if .TenantDeleted}}
+                                <div class="alert alert-success" role="alert">
+                                    Tenant {{ .TennantNotDeleted}} has been deleted
+                                </div>
+                                {{end}}
+                                <button type="submit" id="deleteTenantBtn" class="btn btn-primary">Delete
+                                    Tenant</button>
+                            </form>
+                        </fieldset>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
     <!-- Optional JavaScript -->
     <!-- jQuery first, then Popper.js, then Bootstrap JS -->
-    <script src="https://code.jquery.com/jquery-3.4.1.min.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
-        integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+    <script src="https://code.jquery.com/jquery-3.4.1.js"></script>
+    <script type="text/javascript" src="https://cdn.datatables.net/v/bs4/dt-1.10.20/b-1.6.1/b-colvis-1.6.1/r-2.2.3/rr-1.2.6/sc-2.0.1/sl-1.3.1/datatables.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"
+        integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q"
         crossorigin="anonymous"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
-        integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"
+        integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl"
         crossorigin="anonymous"></script>
-    <script>
-        $(document).ready(function () {
-
-            $("#deleteTenantFrm").on('submit', function () {
-                $("#deleteTenantBtn").prop("disabled", true)
-                $("#deleteTenantBtn").html(
-                    `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Deleting...`
-                );
-                $("#startTestBtn").prop("disabled", true)
-                $("#stopTestBtn").prop("disabled", true)
-            });
-
-            $("#startTestFrm").on('submit', function () {
-                $("#startTestBtn").prop("disabled", true)
-                $("#startTestBtn").html(
-                    `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Starting Test...`
-                );
-                $("#deleteTenantBtn").prop("disabled", true)
-                $("#stopTestBtn").prop("disabled", true)
-            });
-
-            $("#stopTestFrm").on('submit', function () {
-                $("#stopTestBtn").prop("disabled", true)
-                $("#stopTestBtn").html(
-                    `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Stopping Test...`
-                );
-                $("#startTestBtn").prop("disabled", true)
-                $("#deleteTenantBtn").prop("disabled", true)
-            });
-        });
-    </script>
+    <script src="/script/js/upload.js"></script>
 </body>
 
 </html>

@@ -10,7 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws/external"
 	"github.com/aws/aws-sdk-go-v2/service/eks"
 	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/awscredentials"
+	awscredentials "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/awscredential"
 )
 
 //Operations performed on the cluster
@@ -20,10 +20,15 @@ type Operations struct{}
 func (ops Operations) DescribeCluster(clusterName string) (awsRegion string, awsActNmbr string) {
 
 	eksCreds := awscredentials.Credentials{}
+	creds := *eksCreds.GetWebIdentityCredentials()
 	cfg, err := external.LoadDefaultAWSConfig(
 		// Hard coded credentials.
-		external.WithCredentialsValue(eksCreds.GetWebIdentityCredentials()),
+		external.WithCredentialsValue(aws.Credentials{
+			AccessKeyID: *creds.AccessKeyId, SecretAccessKey: *creds.SecretAccessKey, SessionToken: *creds.SessionToken,
+			Source: "Describe Cluster",
+		}),
 	)
+	cfg.Region = "eu-west-2"
 	if err != nil {
 		log.WithFields(log.Fields{
 			"err": err.Error(),

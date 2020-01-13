@@ -67,28 +67,21 @@ The following is the process that should be followed to create test and deploy t
    | test.data    | The is the location of the data used by the scripts | /data        |
    | test.results | This is where the reponse from the test are stored. | /test-output |
 
-5. 
+   
 
-   2. 
 
 
 ## Running Tests
 
 The following scripts can be found in the folder *test-scripts*
 
-1. Move tests to the admin control.
+The screen shot below is the admin gui used to start and manage the tests. This can be accessed after installing the  [Admin Controller](#admin--controller). Used the following command to get the external ip: `kubectl get service -n control`
 
-   Use the following commands to transfer your tests to the admin controller. Follow these instructions [Admin Controller](#admin--controller) to setup the admin controller.
+Use the following url: ```http:<<external-ip>>:1323/```
 
-   1. Copy jmeter tests to the controller: <br>```rsync --rsync-path=/usr/bin/rsync -r -a -v -e ssh --delete /Users/baahk01/workspace/ugcuploader-test-kubernettes/src/test control@a4311e0802ffa11ea9697063911e70ec-1800792965.eu-west-2.elb.amazonaws.com:/home/control/src/```
+![AdminController](AdminController.png)
 
-   2. Copy test data to controller:<br>```rsync --rsync-path=/usr/bin/rsync -r -a -v -e ssh --delete /Users/baahk01/workspace/ugcuploader-test-kubernettes/data/ control@a4311e0802ffa11ea9697063911e70ec-1800792965.eu-west-2.elb.amazonaws.com:/home/control/data/```
 
-      
-
-2. Start Test:<br> Usage:`start_test <location_of_test> <tennant> <bandwidth> <number-of-nodes>` <br> Eg: To start the  *ugcupload/upload.jmx* test for *national-moments* using *adsl* and *2* slave node:<br> `./test-scripts/start_test upload/upload.jmx national-moments adsl 2`
-
-3. Stop Test for a Tenant <br> `stop_test <tennent>`<br> Eg. ```./test-scripts/stop_test children```
 
 Table below shows the possible values accepted for bandwidth.
 
@@ -110,20 +103,6 @@ Table below shows the possible values accepted for bandwidth.
 | mobileDataGprs       | 21888       | Mobile data GPRS : 171 kbit/s     |
 | wifi80211a           | 6912000     | WIFI 802.11a/g : 54 Mbit/s        |
 | wifi80211n           | 76800000    | WIFI 802.11n : 600 Mbit/s         |
-
-
-
-## Generate Jmeter Report
-
-The test artefacts are stored in s3 bucket 
-
-Use the following command to convert  to jmeter report.
-
-`gen_report.py <items>`
-
-Where `items` is a comma separated list of tennant and date eg: `national-moments=202001020326PM,bbcradio=202001020326PM`
-
-This will generate the following folder:` /tmp/ugcupload/graphs` which 
 
 
 

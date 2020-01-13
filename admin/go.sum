@@ -16,6 +16,7 @@ github.com/aws/aws-sdk-go v1.27.4 h1:pfzAQZn2B4OFFSG9YHGwfCANZICW6LGSRToP6fsWotI
 github.com/aws/aws-sdk-go v1.27.4/go.mod h1:KmX6BPdI08NWTb3/sm4ZGu5ShLoqVDhKgpiN924inxo=
 github.com/aws/aws-sdk-go-v2 v0.18.0 h1:qZ+woO4SamnH/eEbjM2IDLhRNwIwND/RQyVlBLp3Jqg=
 github.com/aws/aws-sdk-go-v2 v0.18.0/go.mod h1:JWVYvqSMppoMJC0x5wdwiImzgXTI9FuZwxzkQq9wy+g=
+github.com/bbc/ugcuploader-test-rig-kubernettes v0.0.0-20200112021147-c80546c983f7 h1:gad9wmzgoD5ycqvCLEEeR1b2CCvUdw0Kxmd0RLonyDc=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
 github.com/davecgh/go-spew v0.0.0-20151105211317-5215b55f46b2/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=

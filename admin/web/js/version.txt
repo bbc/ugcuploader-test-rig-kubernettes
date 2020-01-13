@@ -1,2 +1,0 @@
-jquery-ui-1.12.1
-jQuery-File-Upload-10.7.0

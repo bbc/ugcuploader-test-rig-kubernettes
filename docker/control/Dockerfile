@@ -3,7 +3,35 @@ FROM python:3.7-alpine
 
 USER root
 # Install some dependencies needed to build the project
-RUN apk update && apk --no-cache add curl git jq bash openssh openrc rsyslog rsync gcc g++ libc-dev bash go bzr git mercurial subversion openssh-client ca-certificates
+RUN apk update && apk --no-cache add curl git jq bash openssh openrc rsyslog rsync gcc g++ libc-dev bash go bzr git mercurial subversion openssh-client ca-certificates lighttpd
+
+ARG JMETER_VERSION="5.1.1"
+ENV JMETER_HOME /opt/apache-jmeter-${JMETER_VERSION}
+ENV	JMETER_BIN	${JMETER_HOME}/bin
+ENV	JMETER_DOWNLOAD_URL  https://archive.apache.org/dist/jmeter/binaries/apache-jmeter-${JMETER_VERSION}.tgz
+RUN ln -s /opt/apache-jmeter-${JMETER_VERSION} /opt/apache-jmeter
+# Install extra packages
+# See https://github.com/gliderlabs/docker-alpine/issues/136#issuecomment-272703023
+# Change TimeZone TODO: TZ still is not set!
+ARG TZ="Europe/Amsterdam"
+RUN    apk update \
+	&& apk upgrade \
+	&& update-ca-certificates \
+	&& apk add --update openjdk8-jre tzdata \
+	&& apk add --no-cache nss \
+	&& rm -rf /var/cache/apk/* \
+	&& mkdir -p /tmp/dependencies  \
+	&& curl -L --silent ${JMETER_DOWNLOAD_URL} >  /tmp/dependencies/apache-jmeter-${JMETER_VERSION}.tgz  \
+	&& mkdir -p /opt  \
+	&& tar -xzf /tmp/dependencies/apache-jmeter-${JMETER_VERSION}.tgz -C /opt  \
+	&& rm -rf /tmp/dependencies
+
+# Set global PATH such that "jmeter" command is found
+ENV PATH $PATH:$JMETER_BIN
+COPY plugins/* /opt/apache-jmeter-$JMETER_VERSION/lib/ext/
+COPY conf/* /opt/apache-jmeter-$JMETER_VERSION/bin/
+COPY lib/* /opt/apache-jmeter-$JMETER_VERSION/lib/
+COPY client.jks /
 
 RUN apk add --no-cache shadow sudo && \
     if [ -z "`getent group 1000`" ]; then \
@@ -19,15 +47,17 @@ RUN apk add --no-cache shadow sudo && \
     echo "control ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/control && \
     chmod 0440 /etc/sudoers.d/control
 
+
+
 WORKDIR /home/control
 USER 1000
 RUN mkdir /home/control/admin
 
 
 # add credentials on build
-ARG SSH_PRIVATE_KEY
-RUN mkdir ~/.ssh/
-RUN echo "${SSH_PRIVATE_KEY}" > ~/.ssh/id_rsa
+#ARG SSH_PRIVATE_KEY
+#RUN mkdir ~/.ssh/
+#RUN echo "${SSH_PRIVATE_KEY}" > ~/.ssh/id_rsa
 
 # Force the go compiler to use modules 
 ENV GO111MODULE=on
@@ -92,5 +122,8 @@ COPY data data
 RUN sudo chown -R control:control data
 COPY entry.sh /usr/local/bin
 RUN sudo chmod 0777 /usr/local/bin/entry.sh
+RUN sudo pip install docopt
+RUN sudo pip install boto3
+COPY lighttpd.conf /etc/lighttpd/lighttpd.con
 EXPOSE 1323
 ENTRYPOINT ["/usr/local/bin/entry.sh"]
