@@ -82,10 +82,10 @@ slave_pods="kubectl get pods -l jmeter_mode=slave -n $2"
 eval slave_var=(\$\($slave_pods\))
 for i in "${slave_var[@]}"
 do
-   if [[ $i == "jmeter-slaves"* ]]; then
+   if [[ $i == "jmeter-slave"* ]]; then
      echo "hmm $i"
       kubectl cp "$working_dir/config/bandwidth/$3/bandwidth.csv" "$i:/config" -n $2
-      kubectl cp "$working_dir/data" "$i:/" -n $2
+      kubectl cp "$working_dir/data" "$i:/data" -n $2
    fi
 done
 

@@ -39,7 +39,7 @@
           </elementProp>
           <elementProp name="campaignId" elementType="Argument">
             <stringProp name="Argument.name">campaignId</stringProp>
-            <stringProp name="Argument.value">u34876134</stringProp>
+            <stringProp name="Argument.value">u36681717</stringProp>
             <stringProp name="Argument.desc">national moments on test</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
@@ -103,15 +103,15 @@
         <stringProp name="ThreadGroup.num_threads">1</stringProp>
         <stringProp name="ThreadGroup.ramp_time">0</stringProp>
         <boolProp name="ThreadGroup.scheduler">true</boolProp>
-        <stringProp name="ThreadGroup.duration">86400</stringProp>
+        <stringProp name="ThreadGroup.duration">300</stringProp>
         <stringProp name="ThreadGroup.delay"></stringProp>
       </ThreadGroup>
       <hashTree>
         <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Upload-${__property(TENNANT,&quot;Not Found&quot;)}" enabled="true">
           <elementProp name="HTTPsampler.Files" elementType="HTTPFileArgs">
             <collectionProp name="HTTPFileArgs.files">
-              <elementProp name="${__P(test.data,&quot;hmm&quot;)}/1600px-Snake_River_5MB.jpg" elementType="HTTPFileArg">
-                <stringProp name="File.path">${__P(test.data,&quot;hmm&quot;)}/1600px-Snake_River_5MB.jpg</stringProp>
+              <elementProp name="${__P(test.data,&quot;hmm&quot;)}/200MB.txt" elementType="HTTPFileArg">
+                <stringProp name="File.path">${__P(test.data,&quot;hmm&quot;)}/200MB.txt</stringProp>
                 <stringProp name="File.paramname">data</stringProp>
                 <stringProp name="File.mimetype">image/jpeg</stringProp>
               </elementProp>
@@ -119,12 +119,12 @@
           </elementProp>
           <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="Variables pré-définies" enabled="true">
             <collectionProp name="Arguments.arguments">
-              <elementProp name="txt34876167" elementType="HTTPArgument">
+              <elementProp name="txt10930738" elementType="HTTPArgument">
                 <boolProp name="HTTPArgument.always_encode">false</boolProp>
                 <stringProp name="Argument.value">me@national-moements.com</stringProp>
                 <stringProp name="Argument.metadata">=</stringProp>
                 <boolProp name="HTTPArgument.use_equals">true</boolProp>
-                <stringProp name="Argument.name">txt34876167</stringProp>
+                <stringProp name="Argument.name">txt10930738</stringProp>
               </elementProp>
               <elementProp name="cl34876388" elementType="HTTPArgument">
                 <boolProp name="HTTPArgument.always_encode">false</boolProp>
@@ -236,7 +236,7 @@ cookieprop.setObjectValue(manager);
           <intProp name="calcMode">0</intProp>
           <doubleProp>
             <name>throughput</name>
-            <value>30.0</value>
+            <value>60.0</value>
             <savedValue>0.0</savedValue>
           </doubleProp>
         </ConstantThroughputTimer>
@@ -547,7 +547,7 @@ for(i =0; i &lt; cc; i++) {
         <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
         <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller" enabled="true">
           <boolProp name="LoopController.continue_forever">false</boolProp>
-          <stringProp name="LoopController.loops">1</stringProp>
+          <intProp name="LoopController.loops">-1</intProp>
         </elementProp>
         <stringProp name="ThreadGroup.num_threads">1</stringProp>
         <stringProp name="ThreadGroup.ramp_time">1</stringProp>

@@ -124,6 +124,7 @@ COPY entry.sh /usr/local/bin
 RUN sudo chmod 0777 /usr/local/bin/entry.sh
 RUN sudo pip install docopt
 RUN sudo pip install boto3
-COPY lighttpd.conf /etc/lighttpd/lighttpd.con
+COPY lighttpd.conf /etc/lighttpd/lighttpd.conf
+RUN mkidr graphs
 EXPOSE 1323
 ENTRYPOINT ["/usr/local/bin/entry.sh"]

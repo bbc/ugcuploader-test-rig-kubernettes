@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -112,6 +113,29 @@ func addTenants(ur *UgcLoadRequest) {
 	ur.TenantList, _ = s3Ops.GetBucketItems("ugcupload-jmeter", "", 0)
 }
 
+func allTenants(c echo.Context) error {
+	kubctlOps.RegisterClient()
+	t, e := kubctlOps.GetallTenants()
+
+	if e != "" {
+		return c.String(http.StatusBadRequest, "Unable to fetch tenants")
+	}
+
+	nt := []kubernetes.Tenant{}
+
+	for _, tenant := range t {
+		r, e := kubctlOps.CheckIfRunningJava(tenant.Namespace, tenant.Name)
+		if len(e) > 0 || len(r) < 1 {
+			tenant.Running = false
+		} else {
+			tenant.Running = true
+		}
+		nt = append(nt, tenant)
+	}
+	r, _ := json.Marshal(nt)
+	return c.String(http.StatusOK, string(r))
+}
+
 func generateReport(c echo.Context) error {
 
 	tenant := c.FormValue("tenant")
@@ -121,11 +145,6 @@ func generateReport(c echo.Context) error {
 	for _, d := range strings.Split(data, ",") {
 		items = append(items, fmt.Sprintf("%s=%s", tenant, d))
 	}
-	log.WithFields(log.Fields{
-		"tenant": tenant,
-		"data":   data,
-		"items":  items,
-	}).Info("Generate Report")
 	kubctlOps.RegisterClient()
 	_, e := kubctlOps.GenerateReport(strings.Join(items[:], ","))
 	return c.String(http.StatusOK, e)
@@ -283,6 +302,8 @@ func upload(c echo.Context) error {
 		return c.Render(http.StatusBadRequest, "index.html", ugcLoadRequest)
 	}
 
+	fop.ProcessData()
+
 	nsExist := kubctlOps.CheckNamespaces(ugcLoadRequest.Context)
 	if nsExist == false {
 		clusterops := cluster.Operations{}
@@ -408,6 +429,7 @@ func main() {
 	e.POST("/delete-tenant", deleteTenant)
 	e.GET("/tenantReport", s3Tenants)
 	e.POST("/genReport", generateReport)
+	e.GET("/tenants", allTenants)
 
 	s := &http.Server{
 		Addr:         ":1323",

@@ -21,6 +21,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	intstr "k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -137,6 +138,33 @@ func (kop *Operations) CreateNamespace(ns string) (created bool, err string) {
 		err = fmt.Sprintf("%w", e.Error())
 	} else {
 		created = true
+	}
+	return
+}
+
+//Tenant Information about the tenant
+type Tenant struct {
+	Name      string
+	Namespace string
+	Running   bool
+}
+
+//GetallTenants Retuns a list of tenants
+func (kop *Operations) GetallTenants() (ts []Tenant, err string) {
+	tenants := []Tenant{}
+	labelSelector := metav1.LabelSelector{MatchLabels: map[string]string{"jmeter_mode": "master"}}
+	actual := metav1.ListOptions{LabelSelector: labels.Set(labelSelector.MatchLabels).String()}
+	res, e := kop.ClientSet.CoreV1().Pods("").List(actual)
+	if e != nil {
+		log.WithFields(log.Fields{
+			"err": e.Error(),
+		}).Error("Problems getting all namespaces")
+		err = e.Error()
+	} else {
+		for _, item := range res.Items {
+			tenants = append(tenants, Tenant{Name: item.Name, Namespace: item.Namespace})
+		}
+		ts = tenants
 	}
 	return
 }
@@ -294,7 +322,6 @@ func (kop *Operations) CreateJmeterMasterDeployment(namespace string, awsAcntNbr
 	}
 
 	// Create Deployment
-	fmt.Println("Creating deployment...")
 	result, e := deploymentsClient.Create(deployment)
 	if err != "" {
 		log.WithFields(log.Fields{
@@ -353,10 +380,6 @@ func (kop *Operations) LoadBalancerIP(namespace string) (host string) {
 	} else {
 		for _, svc := range list.Items {
 			for _, ingress := range svc.Status.LoadBalancer.Ingress {
-				log.WithFields(log.Fields{
-					"host":      ingress.Hostname,
-					"namespace": namespace,
-				}).Info("Found host")
 				host = ingress.Hostname
 			}
 		}
@@ -432,6 +455,22 @@ func (kop Operations) GenerateReport(data string) (created bool, err string) {
 	return
 }
 
+//CheckIfRunningJava Used to check if the pod has java running
+func (kop Operations) CheckIfRunningJava(ns string, pod string) (resp string, err string) {
+	cmd := fmt.Sprintf("%s/%s", props.MustGet("tscripts"), "check-if-jmeter-running.sh")
+	args := []string{ns, pod}
+	resp, err = kop.executeCommand(cmd, args)
+	if err != "" {
+		log.WithFields(log.Fields{
+			"err":       err,
+			"namespace": ns,
+			"pod":       pod,
+		}).Errorf("failed checking if java is running on the pod")
+	}
+	return
+
+}
+
 //CreateServiceaccount create service account
 func (kop Operations) CreateServiceaccount(ns string, policyarn string) (created bool, err string) {
 
@@ -441,7 +480,7 @@ func (kop Operations) CreateServiceaccount(ns string, policyarn string) (created
 	if err != "" {
 		log.WithFields(log.Fields{
 			"err": err,
-		}).Errorf("unabme able to create the service account in workspace: %v", ns)
+		}).Errorf("unable to create the service account in workspace: %v", ns)
 		created = false
 	} else {
 		created = true
