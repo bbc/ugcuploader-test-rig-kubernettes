@@ -45,7 +45,7 @@ spec:
       fsGroup: 1000
   containers:
   - name: control
-    image: 546933502184.dkr.ecr.eu-west-2.amazonaws.com/ugcloadtest/control:latest
+    image: 546933502184.dkr.ecr.eu-west-2.amazonaws.com/ugctestgrid/control:latest
     imagePullPolicy: Always
     args: [ "/bin/bash", "-c", "--", "while true; do sleep 30; done;" ]
     ports:

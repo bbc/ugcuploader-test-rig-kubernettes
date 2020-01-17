@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-declare RESULT=($(eksctl utils describe-stacks --cluster ugcloadtest | grep StackId))  
+declare RESULT=($(eksctl utils describe-stacks --cluster ugctestgrid | grep StackId))  
 for i in "${RESULT[@]}"
 do
     var="${i%\"}"
@@ -30,9 +30,9 @@ rm -rf admin
 cp -R ../../admin .
 
 
-REPO="$aws_acnt_num.dkr.ecr.$region.amazonaws.com/ugcloadtest/control:latest"
-aws ecr delete-repository --force --repository-name ugcloadtest/control
-aws ecr create-repository --repository-name ugcloadtest/control
-docker build --no-cache -t ugcloadtest/control .
-docker tag ugcloadtest/control:latest $REPO
+REPO="$aws_acnt_num.dkr.ecr.$region.amazonaws.com/ugctestgrid/control:latest"
+aws ecr delete-repository --force --repository-name ugctestgrid/control
+aws ecr create-repository --repository-name ugctestgrid/control
+docker build --no-cache -t ugctestgrid/control .
+docker tag ugctestgrid/control:latest $REPO
 docker push $REPO

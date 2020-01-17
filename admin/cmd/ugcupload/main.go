@@ -1,13 +1,11 @@
 package main
 
 import (
+	"encoding/gob"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net"
 	"net/http"
 	"strings"
-	"text/template"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -20,9 +18,13 @@ import (
 	"strconv"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
+
+	"github.com/gin-gonic/gin"
 	"github.com/magiconair/properties"
+
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/redis"
+	"github.com/gin-gonic/gin/binding"
 )
 
 func init() {
@@ -37,21 +39,8 @@ var nonValidNamespaces = []string{"control", "default", "kube-node-lease", "kube
 var props = properties.MustLoadFile("/etc/ugcupload/loadtest.conf", properties.UTF8)
 var kubctlOps = kubernetes.Operations{}
 
-// TemplateRenderer is a custom html/template renderer for Echo framework
-type TemplateRenderer struct {
-	templates *template.Template
-}
-
-// Render renders a template document
-func (t *TemplateRenderer) Render(w io.Writer, name string, data interface{}, c echo.Context) error {
-
-	// Add global methods if data is a map
-	if viewContext, isMap := data.(map[string]interface{}); isMap {
-		viewContext["reverse"] = c.Echo().Reverse
-	}
-
-	return t.templates.ExecuteTemplate(w, name, data)
-}
+// Gin instance
+var r = gin.Default()
 
 func stringInSlice(a string, list []string) bool {
 	for _, b := range list {
@@ -78,12 +67,12 @@ type UgcLoadRequest struct {
 	Success              string
 	InvalidTenantName    string
 	TenantDeleted        string
-	TenantContext        string
+	TenantContext        string `json:"TenantContext" form:"TenantContext"`
 	TenantMissing        bool
 	InvalidTenantDelete  string
 	TennantNotDeleted    string
 	GenericCreateTestMsg string
-	StopContext          string
+	StopContext          string `json:"stopcontext" form:"stopcontext"`
 	StopTenantMissing    bool
 	InvalidTenantStop    string
 	TennantNotStopped    string
@@ -113,12 +102,12 @@ func addTenants(ur *UgcLoadRequest) {
 	ur.TenantList, _ = s3Ops.GetBucketItems("ugcupload-jmeter", "", 0)
 }
 
-func allTenants(c echo.Context) error {
+func allTenants(c *gin.Context) {
 	kubctlOps.RegisterClient()
 	t, e := kubctlOps.GetallTenants()
 
 	if e != "" {
-		return c.String(http.StatusBadRequest, "Unable to fetch tenants")
+		c.String(http.StatusBadRequest, "Unable to fetch tenants")
 	}
 
 	nt := []kubernetes.Tenant{}
@@ -133,13 +122,13 @@ func allTenants(c echo.Context) error {
 		nt = append(nt, tenant)
 	}
 	r, _ := json.Marshal(nt)
-	return c.String(http.StatusOK, string(r))
+	c.String(http.StatusOK, string(r))
 }
 
-func generateReport(c echo.Context) error {
+func generateReport(c *gin.Context) {
 
-	tenant := c.FormValue("tenant")
-	data := c.FormValue("data")
+	tenant, _ := c.GetPostForm("tenant")
+	data, _ := c.GetPostForm("data")
 
 	var items []string
 	for _, d := range strings.Split(data, ",") {
@@ -147,16 +136,16 @@ func generateReport(c echo.Context) error {
 	}
 	kubctlOps.RegisterClient()
 	_, e := kubctlOps.GenerateReport(strings.Join(items[:], ","))
-	return c.String(http.StatusOK, e)
+	c.String(http.StatusOK, e)
 }
 
-func s3Tenants(c echo.Context) error {
+func s3Tenants(c *gin.Context) {
 
 	type Items struct {
 		Date string `json:"date"`
 	}
 	s3Ops := aws.S3Operations{}
-	tenant := c.QueryParam("tenant")
+	tenant, _ := c.GetQuery("tenant")
 
 	var my []Items
 	items, _ := s3Ops.GetBucketItems("ugcupload-jmeter", fmt.Sprintf("%s/", tenant), 1)
@@ -164,31 +153,47 @@ func s3Tenants(c echo.Context) error {
 		it := Items{Date: item}
 		my = append(my, it)
 	}
-	return c.JSON(http.StatusOK, &my)
+	c.JSON(http.StatusOK, &my)
+	return
 }
-func stopTest(c echo.Context) error {
+
+func stopTest(c *gin.Context) {
+
+	session := sessions.Default(c)
 	kubctlOps.RegisterClient()
 	ugcLoadRequest := new(UgcLoadRequest)
-	addMonitorAndDashboard(ugcLoadRequest)
-	addTenants(ugcLoadRequest)
-	if err := c.Bind(ugcLoadRequest); err != nil {
-		addMonitorAndDashboard(ugcLoadRequest)
+
+	if err := c.ShouldBindWith(&ugcLoadRequest, binding.Form); err != nil {
 		ugcLoadRequest.ProblemsBinding = true
-		return c.Render(http.StatusBadRequest, "index.html", ugcLoadRequest)
+		session.Set("ugcLoadRequest", ugcLoadRequest)
+		session.Save()
+		c.Redirect(http.StatusMovedPermanently, "/")
+		c.Abort()
+		return
 	}
+
 	log.WithFields(log.Fields{
 		"StopContext": ugcLoadRequest.StopContext,
 	}).Info("StopContext")
 
 	if ugcLoadRequest.StopContext == "" {
 		ugcLoadRequest.StopTenantMissing = true
-		return c.Render(http.StatusBadRequest, "index.html", ugcLoadRequest)
+		session.Set("ugcLoadRequest", ugcLoadRequest)
+		session.Save()
+		c.Redirect(http.StatusMovedPermanently, "/")
+		c.Abort()
+		return
 	}
 
 	if stringInSlice(ugcLoadRequest.StopContext, nonValidNamespaces) {
 		ugcLoadRequest.InvalidTenantStop = strings.Join(nonValidNamespaces, ",")
-		return c.Render(http.StatusBadRequest, "index.html", ugcLoadRequest)
+		session.Set("ugcLoadRequest", ugcLoadRequest)
+		session.Save()
+		c.Redirect(http.StatusMovedPermanently, "/")
+		c.Abort()
+		return
 	}
+
 	deleted, errStr := kubctlOps.StopTest(ugcLoadRequest.StopContext)
 	if deleted == false {
 		log.WithFields(log.Fields{
@@ -196,24 +201,39 @@ func stopTest(c echo.Context) error {
 			"err":     errStr,
 		}).Info("Unable to stop the test")
 		ugcLoadRequest.TennantNotStopped = fmt.Sprintf("Unable to stop tenant: %s", errStr)
-		return c.Render(http.StatusBadRequest, "index.html", ugcLoadRequest)
+		session.Set("ugcLoadRequest", ugcLoadRequest)
+		session.Save()
+		c.Redirect(http.StatusMovedPermanently, "/")
+		c.Abort()
+		return
 	}
 
 	ugcLoadRequest.TenantStopped = ugcLoadRequest.StopContext
 	ugcLoadRequest.StopContext = ""
-	return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+	session.Set("ugcLoadRequest", ugcLoadRequest)
+	session.Save()
+	c.Redirect(http.StatusMovedPermanently, "/")
+	c.Abort()
+	return
 }
 
-func deleteTenant(c echo.Context) error {
+func deleteTenant(c *gin.Context) {
+
+	session := sessions.Default(c)
 
 	kubctlOps.RegisterClient()
 	ugcLoadRequest := new(UgcLoadRequest)
 	addMonitorAndDashboard(ugcLoadRequest)
 	addTenants(ugcLoadRequest)
-	if err := c.Bind(ugcLoadRequest); err != nil {
+
+	if err := c.ShouldBindWith(ugcLoadRequest, binding.Form); err != nil {
 		addMonitorAndDashboard(ugcLoadRequest)
 		ugcLoadRequest.ProblemsBinding = true
-		return c.Render(http.StatusBadRequest, "index.html", ugcLoadRequest)
+		session.Set("ugcLoadRequest", ugcLoadRequest)
+		session.Save()
+		c.Redirect(http.StatusMovedPermanently, "/")
+		c.Abort()
+		return
 	}
 
 	log.WithFields(log.Fields{
@@ -222,12 +242,20 @@ func deleteTenant(c echo.Context) error {
 
 	if ugcLoadRequest.TenantContext == "" {
 		ugcLoadRequest.TenantMissing = true
-		return c.Render(http.StatusBadRequest, "index.html", ugcLoadRequest)
+		session.Set("ugcLoadRequest", ugcLoadRequest)
+		session.Save()
+		c.Redirect(http.StatusMovedPermanently, "/")
+		c.Abort()
+		return
 	}
 
 	if stringInSlice(ugcLoadRequest.TenantContext, nonValidNamespaces) {
 		ugcLoadRequest.InvalidTenantDelete = strings.Join(nonValidNamespaces, ",")
-		return c.Render(http.StatusBadRequest, "index.html", ugcLoadRequest)
+		session.Set("ugcLoadRequest", ugcLoadRequest)
+		session.Save()
+		c.Redirect(http.StatusMovedPermanently, "/")
+		c.Abort()
+		return
 	}
 
 	deleted, errStr := kubctlOps.DeleteServiceAccount(ugcLoadRequest.TenantContext)
@@ -241,65 +269,81 @@ func deleteTenant(c echo.Context) error {
 			"err":     errStr,
 		}).Info("UnableToDeleteServiceAccount")
 		ugcLoadRequest.TennantNotDeleted = fmt.Sprintf("Unable to delete service account: %s", errStr)
-		return c.Render(http.StatusBadRequest, "index.html", ugcLoadRequest)
+		session.Set("ugcLoadRequest", ugcLoadRequest)
+		session.Save()
+		c.Redirect(http.StatusMovedPermanently, "/")
+		c.Abort()
+		return
 	}
 	ugcLoadRequest.TenantDeleted = ugcLoadRequest.TenantContext
 	ugcLoadRequest.TenantContext = ""
-	return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+	session.Set("ugcLoadRequest", ugcLoadRequest)
+	session.Save()
+	c.Redirect(http.StatusMovedPermanently, "/")
+	c.Abort()
+	return
 
 }
 
-func upload(c echo.Context) error {
+func upload(c *gin.Context) {
+
+	session := sessions.Default(c)
 
 	kubctlOps.RegisterClient()
 	ugcLoadRequest := new(UgcLoadRequest)
 	addTenants(ugcLoadRequest)
 	addMonitorAndDashboard(ugcLoadRequest)
 
-	if err := c.Bind(ugcLoadRequest); err != nil {
+	if err := c.ShouldBindWith(ugcLoadRequest, binding.Form); err != nil {
 		ugcLoadRequest.ProblemsBinding = true
-		return c.Render(http.StatusBadRequest, "index.html", ugcLoadRequest)
+		session.Set("ugcLoadRequest", ugcLoadRequest)
+		session.Save()
+		c.Redirect(http.StatusMovedPermanently, "/")
+		c.Abort()
+		return
 	}
 
-	if err := c.Validate(ugcLoadRequest); err != nil {
-		for _, err := range err.(validator.ValidationErrors) {
+	/*
 
-			if err.Field() == "Context" {
-				ugcLoadRequest.MissingTenant = true
-			}
-			if err.Field() == "NumberOfNodes" {
-				ugcLoadRequest.MissingNumberOfNodes = true
-			}
-			if err.Field() == "Jmeter" {
-				ugcLoadRequest.MissingJmeter = true
-			}
+		if err := c.Validate(ugcLoadRequest); err != nil {
+			for _, err := range err.(validator.ValidationErrors) {
 
+				if err.Field() == "Context" {
+					ugcLoadRequest.MissingTenant = true
+				}
+				if err.Field() == "NumberOfNodes" {
+					ugcLoadRequest.MissingNumberOfNodes = true
+				}
+				if err.Field() == "Jmeter" {
+					ugcLoadRequest.MissingJmeter = true
+				}
+
+			}
+			return c.HTML(http.StatusOK, "index.tmpl", ugcLoadRequest)
 		}
-		return c.Render(http.StatusBadRequest, "index.html", ugcLoadRequest)
-	}
+
+	*/
 
 	if stringInSlice(ugcLoadRequest.Context, nonValidNamespaces) {
 		ugcLoadRequest.InvalidTenantName = strings.Join(nonValidNamespaces, ",")
-		return c.Render(http.StatusBadRequest, "index.html", ugcLoadRequest)
+		session.Set("ugcLoadRequest", ugcLoadRequest)
+		session.Save()
+		c.Redirect(http.StatusMovedPermanently, "/")
+		c.Abort()
+		return
 	}
 
-	form, err := c.MultipartForm()
-	if err != nil {
-		log.WithFields(log.Fields{
-			"err": err.Error(),
-		}).Info("Request Properties")
-		kubctlOps.RegisterClient()
-		ugcLoadRequest.MissingJmeter = true
-		return c.Render(http.StatusBadRequest, "index.html", ugcLoadRequest)
-	}
-
-	fop := ugl.FileUploadOperations{Form: form}
+	fop := ugl.FileUploadOperations{Context: c}
 	testPath := fop.ProcessJmeter()
 	if testPath == "" {
 		_ = fop.ProcessData()
 		kubctlOps.RegisterClient()
 		ugcLoadRequest.MissingJmeter = true
-		return c.Render(http.StatusBadRequest, "index.html", ugcLoadRequest)
+		session.Set("ugcLoadRequest", ugcLoadRequest)
+		session.Save()
+		c.Redirect(http.StatusMovedPermanently, "/")
+		c.Abort()
+		return
 	}
 
 	fop.ProcessData()
@@ -307,7 +351,7 @@ func upload(c echo.Context) error {
 	nsExist := kubctlOps.CheckNamespaces(ugcLoadRequest.Context)
 	if nsExist == false {
 		clusterops := cluster.Operations{}
-		awsRegion, awsAcntNumber := clusterops.DescribeCluster("ugcloadtest")
+		awsRegion, awsAcntNumber := clusterops.DescribeCluster("ugctestgrid")
 		log.WithFields(log.Fields{
 			"awsAcntNumber": awsAcntNumber,
 			"awsRegion":     awsRegion,
@@ -319,7 +363,11 @@ func upload(c echo.Context) error {
 				"err": err.Error(),
 			}).Error("Unable to Parse Integer")
 			ugcLoadRequest.GenericCreateTestMsg = err.Error()
-			return c.Render(http.StatusConflict, "index.html", ugcLoadRequest)
+			session.Set("ugcLoadRequest", ugcLoadRequest)
+			session.Save()
+			c.Redirect(http.StatusMovedPermanently, "/")
+			c.Abort()
+			return
 		}
 		created, errNs := kubctlOps.CreateNamespace(ugcLoadRequest.Context)
 		if created == false {
@@ -327,7 +375,11 @@ func upload(c echo.Context) error {
 				"err": errNs,
 			}).Error("Unable to create namespace")
 			ugcLoadRequest.GenericCreateTestMsg = errNs
-			return c.Render(http.StatusBadRequest, "index.html", ugcLoadRequest)
+			session.Set("ugcLoadRequest", ugcLoadRequest)
+			session.Save()
+			c.Redirect(http.StatusMovedPermanently, "/")
+			c.Abort()
+			return
 		}
 		policyArn := fmt.Sprintf("arn:aws:iam::%s:policy/ugcupload-eks-jmeter-policy", awsAcntNumber)
 		crtd, e := kubctlOps.CreateServiceaccount(ugcLoadRequest.Context, policyArn)
@@ -336,7 +388,11 @@ func upload(c echo.Context) error {
 				"err": e,
 			}).Error("Unable To Create ServiceAccount")
 			ugcLoadRequest.GenericCreateTestMsg = e
-			return c.Render(http.StatusBadRequest, "index.html", ugcLoadRequest)
+			session.Set("ugcLoadRequest", ugcLoadRequest)
+			session.Save()
+			c.Redirect(http.StatusMovedPermanently, "/")
+			c.Abort()
+			return
 		}
 		crtd, e = kubctlOps.CreateJmeterMasterDeployment(ugcLoadRequest.Context, aan, awsRegion)
 		if crtd == false {
@@ -344,7 +400,11 @@ func upload(c echo.Context) error {
 				"err": e,
 			}).Error("Unable To Create Jmeter Master Deployment")
 			ugcLoadRequest.GenericCreateTestMsg = e
-			return c.Render(http.StatusBadRequest, "index.html", ugcLoadRequest)
+			session.Set("ugcLoadRequest", ugcLoadRequest)
+			session.Save()
+			c.Redirect(http.StatusMovedPermanently, "/")
+			c.Abort()
+			return
 		}
 		crtd, e = kubctlOps.CreateJmeterSlaveService(ugcLoadRequest.Context)
 		if crtd == false {
@@ -352,7 +412,11 @@ func upload(c echo.Context) error {
 				"err": e,
 			}).Error("Unable To Create Jmeter Slave Service")
 			ugcLoadRequest.GenericCreateTestMsg = e
-			return c.Render(http.StatusBadRequest, "index.html", ugcLoadRequest)
+			session.Set("ugcLoadRequest", ugcLoadRequest)
+			session.Save()
+			c.Redirect(http.StatusMovedPermanently, "/")
+			c.Abort()
+			return
 		}
 		crtd, e = kubctlOps.CreateJmeterSlaveDeployment(ugcLoadRequest.Context, int32(ugcLoadRequest.NumberOfNodes), aan, awsRegion)
 		if crtd == false {
@@ -360,7 +424,11 @@ func upload(c echo.Context) error {
 				"err": e,
 			}).Error("Unable To Create Jmeter Slave Deployment")
 			ugcLoadRequest.GenericCreateTestMsg = e
-			return c.Render(http.StatusBadRequest, "index.html", ugcLoadRequest)
+			session.Set("ugcLoadRequest", ugcLoadRequest)
+			session.Save()
+			c.Redirect(http.StatusMovedPermanently, "/")
+			c.Abort()
+			return
 		}
 
 	}
@@ -376,77 +444,82 @@ func upload(c echo.Context) error {
 	started, errStartTest := kubctlOps.StartTest(testPath, ugcLoadRequest.Context, ugcLoadRequest.BandWidthSelection, ugcLoadRequest.NumberOfNodes)
 	if started == false {
 		ugcLoadRequest.GenericCreateTestMsg = errStartTest
-		return c.Render(http.StatusBadRequest, "index.html", ugcLoadRequest)
+		session.Set("ugcLoadRequest", ugcLoadRequest)
+		session.Save()
+		c.Redirect(http.StatusMovedPermanently, "/")
+		c.Abort()
+		return
 	}
 
 	ugcLoadRequest.Success = fmt.Sprintf("Test %s was succesfully created for tenant[%s]", testPath, ugcLoadRequest.Context)
 	ugcLoadRequest.NumberOfNodes = 0
 	ugcLoadRequest.Context = ""
-	return c.Render(http.StatusOK, "index.html", ugcLoadRequest)
+	session.Set("ugcLoadRequest", ugcLoadRequest)
+	session.Save()
+	c.Redirect(http.StatusMovedPermanently, "/")
+	c.Abort()
+	return
+}
+
+func SetNoCacheHeader() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		fmt.Println("******************* RESPONSE HEADERS")
+		c.Writer.Header().Set("Cache-Control", "no-store")
+		c.Next()
+	}
 }
 
 func main() {
-	// Echo instance
-	e := echo.New()
+	// Gin instance
+	r := gin.Default()
 
-	// Middleware
-	e.Use(middleware.Logger())
-	e.Use(middleware.Recover())
-
-	e.Validator = &CustomValidator{validator: validator.New()}
-
-	//ko := KubernetesOperations{}
-	//response, err := ko.getGrafanaServiceHost()
-
-	//temp := strings.Split(response, "\n")
-
-	//grafanaHost := strings.Fields(temp[1])[0]
-	//fmt.Println(fmt.Sprintf("grafanaHost=%s err=%s", grafanaHost, err))
-
-	renderer := &TemplateRenderer{
-		templates: template.Must(template.ParseGlob(props.MustGet("web") + "/" + "*.html")),
-	}
-	e.Renderer = renderer
+	binding.Validator = new(defaultValidator)
+	gob.Register(UgcLoadRequest{})
+	store, _ := redis.NewStore(10, "tcp", "localhost:6379", "", []byte("secret"))
+	r.Use(sessions.Sessions("mysession", store))
+	r.Use(SetNoCacheHeader())
+	//e.Validator = &CustomValidator{validator: validator.New()}
 
 	kubctlOps.Init()
 	kubctlOps.RegisterClient()
-	formData := UgcLoadRequest{}
 
-	addMonitorAndDashboard(&formData)
-	addTenants(&formData)
+	r.LoadHTMLGlob(props.MustGet("web") + "/templates/*")
+	r.GET("/", func(c *gin.Context) {
 
-	// Named route "foobar"
-	e.GET("/", func(c echo.Context) error {
-		addMonitorAndDashboard(&formData)
-		addTenants(&formData)
-		return c.Render(http.StatusOK, "index.html", formData)
-	}).Name = "index"
+		session := sessions.Default(c)
+		var ugcLoadRequest UgcLoadRequest
+		if ulr := session.Get("ugcLoadRequest"); ulr != nil {
+			ugcLoadRequest = ulr.(UgcLoadRequest)
+		} else {
+			ugcLoadRequest = UgcLoadRequest{}
+		}
+		addMonitorAndDashboard(&ugcLoadRequest)
+		addTenants(&ugcLoadRequest)
+		c.HTML(http.StatusOK, "index.tmpl", ugcLoadRequest)
+		session.Clear()
+		if err := session.Save(); err != nil {
+			log.WithFields(log.Fields{
+				"err": err,
+			}).Error("Unable to save the session")
+		}
 
-	// Routes
-	e.Static("/script", "web")
-	e.POST("/start-test", upload)
-	e.POST("/stop-test", stopTest)
-	e.POST("/delete-tenant", deleteTenant)
-	e.GET("/tenantReport", s3Tenants)
-	e.POST("/genReport", generateReport)
-	e.GET("/tenants", allTenants)
+	})
+	r.Static("/script", props.MustGet("web"))
+	r.POST("/start-test", upload)
+	r.POST("/stop-test", stopTest)
+	r.POST("/delete-tenant", deleteTenant)
+	r.GET("/tenantReport", s3Tenants)
+	r.POST("/genReport", generateReport)
+	r.GET("/tenants", allTenants)
 
 	s := &http.Server{
 		Addr:         ":1323",
-		ReadTimeout:  5 * time.Minute,
-		WriteTimeout: 5 * time.Minute,
-	}
-
-	//Taken from here: https://stackoverflow.com/questions/29334407/creating-an-idle-timeout-in-go/29334926#29334926
-	s.ConnState = func(c net.Conn, cs http.ConnState) {
-		switch cs {
-		case http.StateIdle, http.StateNew:
-			c.SetReadDeadline(time.Now().Add(time.Minute * 5))
-		case http.StateActive:
-			c.SetReadDeadline(time.Now().Add(time.Minute * 5))
-		}
+		Handler:      r,
+		ReadTimeout:  15 * time.Minute,
+		WriteTimeout: 15 * time.Minute,
+		IdleTimeout:  15 * time.Minute,
 	}
 
 	// Start server
-	e.Logger.Debug(e.StartServer(s))
+	s.ListenAndServe()
 }

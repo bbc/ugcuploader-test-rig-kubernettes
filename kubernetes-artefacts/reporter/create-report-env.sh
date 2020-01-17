@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-declare RESULT=($(eksctl utils describe-stacks --cluster ugcloadtest | grep StackId))  
+declare RESULT=($(eksctl utils describe-stacks --cluster ugctestgrid | grep StackId))  
 for i in "${RESULT[@]}"
 do
     var="${i%\"}"
@@ -18,6 +18,6 @@ echo $aws_acnt_num
 POLICY_ARN="arn:aws:iam::$aws_acnt_num:policy/ugcupload-eks-jmeter-policy"
 echo $POLICY_ARN
 kubectl create namespace ugcload-reporter
-eksctl create iamserviceaccount --name ugcupload-jmeter --namespace ugcload-reporter --cluster ugcloadtest --attach-policy-arn $POLICY_ARN --approve --override-existing-serviceaccounts
+eksctl create iamserviceaccount --name ugcupload-jmeter --namespace ugcload-reporter --cluster ugctestgrid --attach-policy-arn $POLICY_ARN --approve --override-existing-serviceaccounts
 kubectl create -n ugcload-reporter -f ./grafana.yaml
 kubectl create -n ugcload-reporter -f ./influxdb.yaml

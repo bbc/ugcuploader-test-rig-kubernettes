@@ -6,6 +6,9 @@ require (
 	github.com/aws/aws-sdk-go v1.27.4
 	github.com/aws/aws-sdk-go-v2 v0.18.0
 	github.com/disintegration/gift v1.2.1
+	github.com/gin-contrib/sessions v0.0.3 // indirect
+	github.com/gin-gonic/contrib v0.0.0-20191209060500-d6e26eeaa607 // indirect
+	github.com/gin-gonic/gin v1.5.0
 	github.com/go-playground/validator/v10 v10.1.0
 	github.com/google/go-cmp v0.3.2-0.20191028172631-481baca67f93 // indirect
 	github.com/imdario/mergo v0.3.8 // indirect

@@ -34,7 +34,7 @@ spec:
     spec:
       containers:
       - name: jmslave
-        image: 546933502184.dkr.ecr.eu-west-2.amazonaws.com/ugcloadtest/jmeter-slave:latest
+        image: 546933502184.dkr.ecr.eu-west-2.amazonaws.com/ugctestgrid/jmeter-slave:latest
         imagePullPolicy: Always
         command: 
         - sh

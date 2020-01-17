@@ -1,6 +1,6 @@
 [ℹ]  eksctl version 0.11.1
 [ℹ]  using region eu-west-2
-[ℹ]  stack/eksctl-ugcloadtest-addon-iamserviceaccount-children-ugcupload-jmeter = {
+[ℹ]  stack/eksctl-ugctestgrid-addon-iamserviceaccount-children-ugcupload-jmeter = {
   Capabilities: ["CAPABILITY_IAM"],
   CreationTime: 2020-01-01 13:46:57.485 +0000 UTC,
   Description: "IAM role for serviceaccount \"children/ugcupload-jmeter\" [created and managed by eksctl]",
@@ -11,26 +11,26 @@
   EnableTerminationProtection: false,
   Outputs: [{
       OutputKey: "Role1",
-      OutputValue: "arn:aws:iam::546933502184:role/eksctl-ugcloadtest-addon-iamserviceaccount-c-Role1-MC0PCN1ICRUF"
+      OutputValue: "arn:aws:iam::546933502184:role/eksctl-ugctestgrid-addon-iamserviceaccount-c-Role1-MC0PCN1ICRUF"
     }],
   RollbackConfiguration: {
 
   },
-  StackId: "arn:aws:cloudformation:eu-west-2:546933502184:stack/eksctl-ugcloadtest-addon-iamserviceaccount-children-ugcupload-jmeter/2d972830-2c9d-11ea-b105-0a967d6d9d80",
-  StackName: "eksctl-ugcloadtest-addon-iamserviceaccount-children-ugcupload-jmeter",
+  StackId: "arn:aws:cloudformation:eu-west-2:546933502184:stack/eksctl-ugctestgrid-addon-iamserviceaccount-children-ugcupload-jmeter/2d972830-2c9d-11ea-b105-0a967d6d9d80",
+  StackName: "eksctl-ugctestgrid-addon-iamserviceaccount-children-ugcupload-jmeter",
   StackStatus: "CREATE_COMPLETE",
   Tags: [{
       Key: "alpha.eksctl.io/cluster-name",
-      Value: "ugcloadtest"
+      Value: "ugctestgrid"
     },{
       Key: "eksctl.cluster.k8s.io/v1alpha1/cluster-name",
-      Value: "ugcloadtest"
+      Value: "ugctestgrid"
     },{
       Key: "alpha.eksctl.io/iamserviceaccount-name",
       Value: "children/ugcupload-jmeter"
     }]
 }
-[ℹ]  stack/eksctl-ugcloadtest-addon-iamserviceaccount-national-moments-ugcupload-jmeter = {
+[ℹ]  stack/eksctl-ugctestgrid-addon-iamserviceaccount-national-moments-ugcupload-jmeter = {
   Capabilities: ["CAPABILITY_IAM"],
   CreationTime: 2019-12-31 15:37:35.834 +0000 UTC,
   Description: "IAM role for serviceaccount \"national-moments/ugcupload-jmeter\" [created and managed by eksctl]",
@@ -41,26 +41,26 @@
   EnableTerminationProtection: false,
   Outputs: [{
       OutputKey: "Role1",
-      OutputValue: "arn:aws:iam::546933502184:role/eksctl-ugcloadtest-addon-iamserviceaccount-n-Role1-Z42SOTBQSOTV"
+      OutputValue: "arn:aws:iam::546933502184:role/eksctl-ugctestgrid-addon-iamserviceaccount-n-Role1-Z42SOTBQSOTV"
     }],
   RollbackConfiguration: {
 
   },
-  StackId: "arn:aws:cloudformation:eu-west-2:546933502184:stack/eksctl-ugcloadtest-addon-iamserviceaccount-national-moments-ugcupload-jmeter/77efdb80-2be3-11ea-b105-0a967d6d9d80",
-  StackName: "eksctl-ugcloadtest-addon-iamserviceaccount-national-moments-ugcupload-jmeter",
+  StackId: "arn:aws:cloudformation:eu-west-2:546933502184:stack/eksctl-ugctestgrid-addon-iamserviceaccount-national-moments-ugcupload-jmeter/77efdb80-2be3-11ea-b105-0a967d6d9d80",
+  StackName: "eksctl-ugctestgrid-addon-iamserviceaccount-national-moments-ugcupload-jmeter",
   StackStatus: "CREATE_COMPLETE",
   Tags: [{
       Key: "alpha.eksctl.io/cluster-name",
-      Value: "ugcloadtest"
+      Value: "ugctestgrid"
     },{
       Key: "eksctl.cluster.k8s.io/v1alpha1/cluster-name",
-      Value: "ugcloadtest"
+      Value: "ugctestgrid"
     },{
       Key: "alpha.eksctl.io/iamserviceaccount-name",
       Value: "national-moments/ugcupload-jmeter"
     }]
 }
-[ℹ]  stack/eksctl-ugcloadtest-addon-iamserviceaccount-ugcload-reporter-ugcupload-jmeter = {
+[ℹ]  stack/eksctl-ugctestgrid-addon-iamserviceaccount-ugcload-reporter-ugcupload-jmeter = {
   Capabilities: ["CAPABILITY_IAM"],
   CreationTime: 2019-12-30 21:46:17.67 +0000 UTC,
   Description: "IAM role for serviceaccount \"ugcload-reporter/ugcupload-jmeter\" [created and managed by eksctl]",
@@ -71,26 +71,26 @@
   EnableTerminationProtection: false,
   Outputs: [{
       OutputKey: "Role1",
-      OutputValue: "arn:aws:iam::546933502184:role/eksctl-ugcloadtest-addon-iamserviceaccount-u-Role1-RIM8ZSU9J13I"
+      OutputValue: "arn:aws:iam::546933502184:role/eksctl-ugctestgrid-addon-iamserviceaccount-u-Role1-RIM8ZSU9J13I"
     }],
   RollbackConfiguration: {
 
   },
-  StackId: "arn:aws:cloudformation:eu-west-2:546933502184:stack/eksctl-ugcloadtest-addon-iamserviceaccount-ugcload-reporter-ugcupload-jmeter/cf29f110-2b4d-11ea-bc4c-0a3915ca55a4",
-  StackName: "eksctl-ugcloadtest-addon-iamserviceaccount-ugcload-reporter-ugcupload-jmeter",
+  StackId: "arn:aws:cloudformation:eu-west-2:546933502184:stack/eksctl-ugctestgrid-addon-iamserviceaccount-ugcload-reporter-ugcupload-jmeter/cf29f110-2b4d-11ea-bc4c-0a3915ca55a4",
+  StackName: "eksctl-ugctestgrid-addon-iamserviceaccount-ugcload-reporter-ugcupload-jmeter",
   StackStatus: "CREATE_COMPLETE",
   Tags: [{
       Key: "alpha.eksctl.io/cluster-name",
-      Value: "ugcloadtest"
+      Value: "ugctestgrid"
     },{
       Key: "eksctl.cluster.k8s.io/v1alpha1/cluster-name",
-      Value: "ugcloadtest"
+      Value: "ugctestgrid"
     },{
       Key: "alpha.eksctl.io/iamserviceaccount-name",
       Value: "ugcload-reporter/ugcupload-jmeter"
     }]
 }
-[ℹ]  stack/eksctl-ugcloadtest-nodegroup-grafana = {
+[ℹ]  stack/eksctl-ugctestgrid-nodegroup-grafana = {
   Capabilities: ["CAPABILITY_IAM"],
   CreationTime: 2019-12-30 21:39:25.496 +0000 UTC,
   Description: "EKS nodes (AMI family: AmazonLinux2, SSH access: true, private networking: false) [created and managed by eksctl]",
@@ -105,18 +105,18 @@
       OutputValue: "false"
     },
     {
-      ExportName: "eksctl-ugcloadtest-nodegroup-grafana::InstanceRoleARN",
+      ExportName: "eksctl-ugctestgrid-nodegroup-grafana::InstanceRoleARN",
       OutputKey: "InstanceRoleARN",
-      OutputValue: "arn:aws:iam::546933502184:role/eksctl-ugcloadtest-nodegroup-graf-NodeInstanceRole-6DDYE968T92O"
+      OutputValue: "arn:aws:iam::546933502184:role/eksctl-ugctestgrid-nodegroup-graf-NodeInstanceRole-6DDYE968T92O"
     },
     {
       OutputKey: "FeatureLocalSecurityGroup",
       OutputValue: "true"
     },
     {
-      ExportName: "eksctl-ugcloadtest-nodegroup-grafana::InstanceProfileARN",
+      ExportName: "eksctl-ugctestgrid-nodegroup-grafana::InstanceProfileARN",
       OutputKey: "InstanceProfileARN",
-      OutputValue: "arn:aws:iam::546933502184:instance-profile/eksctl-ugcloadtest-nodegroup-grafana-NodeInstanceProfile-KD31GXU73C5K"
+      OutputValue: "arn:aws:iam::546933502184:instance-profile/eksctl-ugctestgrid-nodegroup-grafana-NodeInstanceProfile-KD31GXU73C5K"
     },
     {
       OutputKey: "FeatureSharedSecurityGroup",
@@ -126,13 +126,13 @@
   RollbackConfiguration: {
 
   },
-  StackId: "arn:aws:cloudformation:eu-west-2:546933502184:stack/eksctl-ugcloadtest-nodegroup-grafana/d967f880-2b4c-11ea-b105-0a967d6d9d80",
-  StackName: "eksctl-ugcloadtest-nodegroup-grafana",
+  StackId: "arn:aws:cloudformation:eu-west-2:546933502184:stack/eksctl-ugctestgrid-nodegroup-grafana/d967f880-2b4c-11ea-b105-0a967d6d9d80",
+  StackName: "eksctl-ugctestgrid-nodegroup-grafana",
   StackStatus: "CREATE_COMPLETE",
   Tags: [
     {
       Key: "alpha.eksctl.io/cluster-name",
-      Value: "ugcloadtest"
+      Value: "ugctestgrid"
     },
     {
       Key: "alpha.eksctl.io/nodegroup-name",
@@ -140,7 +140,7 @@
     },
     {
       Key: "eksctl.cluster.k8s.io/v1alpha1/cluster-name",
-      Value: "ugcloadtest"
+      Value: "ugctestgrid"
     },
     {
       Key: "alpha.eksctl.io/nodegroup-type",
@@ -152,7 +152,7 @@
     }
   ]
 }
-[ℹ]  stack/eksctl-ugcloadtest-nodegroup-influxdb = {
+[ℹ]  stack/eksctl-ugctestgrid-nodegroup-influxdb = {
   Capabilities: ["CAPABILITY_IAM"],
   CreationTime: 2019-12-30 21:39:25.483 +0000 UTC,
   Description: "EKS nodes (AMI family: AmazonLinux2, SSH access: true, private networking: false) [created and managed by eksctl]",
@@ -167,18 +167,18 @@
       OutputValue: "false"
     },
     {
-      ExportName: "eksctl-ugcloadtest-nodegroup-influxdb::InstanceRoleARN",
+      ExportName: "eksctl-ugctestgrid-nodegroup-influxdb::InstanceRoleARN",
       OutputKey: "InstanceRoleARN",
-      OutputValue: "arn:aws:iam::546933502184:role/eksctl-ugcloadtest-nodegroup-infl-NodeInstanceRole-1QE2J12DPCMIF"
+      OutputValue: "arn:aws:iam::546933502184:role/eksctl-ugctestgrid-nodegroup-infl-NodeInstanceRole-1QE2J12DPCMIF"
     },
     {
       OutputKey: "FeatureLocalSecurityGroup",
       OutputValue: "true"
     },
     {
-      ExportName: "eksctl-ugcloadtest-nodegroup-influxdb::InstanceProfileARN",
+      ExportName: "eksctl-ugctestgrid-nodegroup-influxdb::InstanceProfileARN",
       OutputKey: "InstanceProfileARN",
-      OutputValue: "arn:aws:iam::546933502184:instance-profile/eksctl-ugcloadtest-nodegroup-influxdb-NodeInstanceProfile-RDDE3B1EG4F6"
+      OutputValue: "arn:aws:iam::546933502184:instance-profile/eksctl-ugctestgrid-nodegroup-influxdb-NodeInstanceProfile-RDDE3B1EG4F6"
     },
     {
       OutputKey: "FeatureSharedSecurityGroup",
@@ -188,13 +188,13 @@
   RollbackConfiguration: {
 
   },
-  StackId: "arn:aws:cloudformation:eu-west-2:546933502184:stack/eksctl-ugcloadtest-nodegroup-influxdb/d966e710-2b4c-11ea-bdaf-0617023ccf6e",
-  StackName: "eksctl-ugcloadtest-nodegroup-influxdb",
+  StackId: "arn:aws:cloudformation:eu-west-2:546933502184:stack/eksctl-ugctestgrid-nodegroup-influxdb/d966e710-2b4c-11ea-bdaf-0617023ccf6e",
+  StackName: "eksctl-ugctestgrid-nodegroup-influxdb",
   StackStatus: "CREATE_COMPLETE",
   Tags: [
     {
       Key: "alpha.eksctl.io/cluster-name",
-      Value: "ugcloadtest"
+      Value: "ugctestgrid"
     },
     {
       Key: "alpha.eksctl.io/nodegroup-name",
@@ -202,7 +202,7 @@
     },
     {
       Key: "eksctl.cluster.k8s.io/v1alpha1/cluster-name",
-      Value: "ugcloadtest"
+      Value: "ugctestgrid"
     },
     {
       Key: "alpha.eksctl.io/nodegroup-type",
@@ -214,7 +214,7 @@
     }
   ]
 }
-[ℹ]  stack/eksctl-ugcloadtest-nodegroup-jmeter-slaves = {
+[ℹ]  stack/eksctl-ugctestgrid-nodegroup-jmeter-slaves = {
   Capabilities: ["CAPABILITY_IAM"],
   CreationTime: 2019-12-30 21:39:25.481 +0000 UTC,
   Description: "EKS nodes (AMI family: AmazonLinux2, SSH access: true, private networking: false) [created and managed by eksctl]",
@@ -229,18 +229,18 @@
       OutputValue: "false"
     },
     {
-      ExportName: "eksctl-ugcloadtest-nodegroup-jmeter-slaves::InstanceRoleARN",
+      ExportName: "eksctl-ugctestgrid-nodegroup-jmeter-slaves::InstanceRoleARN",
       OutputKey: "InstanceRoleARN",
-      OutputValue: "arn:aws:iam::546933502184:role/eksctl-ugcloadtest-nodegroup-jmet-NodeInstanceRole-SBXQKIKACNMD"
+      OutputValue: "arn:aws:iam::546933502184:role/eksctl-ugctestgrid-nodegroup-jmet-NodeInstanceRole-SBXQKIKACNMD"
     },
     {
       OutputKey: "FeatureLocalSecurityGroup",
       OutputValue: "true"
     },
     {
-      ExportName: "eksctl-ugcloadtest-nodegroup-jmeter-slaves::InstanceProfileARN",
+      ExportName: "eksctl-ugctestgrid-nodegroup-jmeter-slaves::InstanceProfileARN",
       OutputKey: "InstanceProfileARN",
-      OutputValue: "arn:aws:iam::546933502184:instance-profile/eksctl-ugcloadtest-nodegroup-jmeter-slaves-NodeInstanceProfile-BMAEPZ1VFZ1E"
+      OutputValue: "arn:aws:iam::546933502184:instance-profile/eksctl-ugctestgrid-nodegroup-jmeter-slaves-NodeInstanceProfile-BMAEPZ1VFZ1E"
     },
     {
       OutputKey: "FeatureSharedSecurityGroup",
@@ -250,13 +250,13 @@
   RollbackConfiguration: {
 
   },
-  StackId: "arn:aws:cloudformation:eu-west-2:546933502184:stack/eksctl-ugcloadtest-nodegroup-jmeter-slaves/d96894c0-2b4c-11ea-8adf-0a216ef7b6d4",
-  StackName: "eksctl-ugcloadtest-nodegroup-jmeter-slaves",
+  StackId: "arn:aws:cloudformation:eu-west-2:546933502184:stack/eksctl-ugctestgrid-nodegroup-jmeter-slaves/d96894c0-2b4c-11ea-8adf-0a216ef7b6d4",
+  StackName: "eksctl-ugctestgrid-nodegroup-jmeter-slaves",
   StackStatus: "CREATE_COMPLETE",
   Tags: [
     {
       Key: "alpha.eksctl.io/cluster-name",
-      Value: "ugcloadtest"
+      Value: "ugctestgrid"
     },
     {
       Key: "alpha.eksctl.io/nodegroup-name",
@@ -264,7 +264,7 @@
     },
     {
       Key: "eksctl.cluster.k8s.io/v1alpha1/cluster-name",
-      Value: "ugcloadtest"
+      Value: "ugctestgrid"
     },
     {
       Key: "alpha.eksctl.io/nodegroup-type",
@@ -276,7 +276,7 @@
     }
   ]
 }
-[ℹ]  stack/eksctl-ugcloadtest-nodegroup-jmeter-master = {
+[ℹ]  stack/eksctl-ugctestgrid-nodegroup-jmeter-master = {
   Capabilities: ["CAPABILITY_IAM"],
   CreationTime: 2019-12-30 21:39:25.444 +0000 UTC,
   Description: "EKS nodes (AMI family: AmazonLinux2, SSH access: true, private networking: false) [created and managed by eksctl]",
@@ -291,18 +291,18 @@
       OutputValue: "false"
     },
     {
-      ExportName: "eksctl-ugcloadtest-nodegroup-jmeter-master::InstanceRoleARN",
+      ExportName: "eksctl-ugctestgrid-nodegroup-jmeter-master::InstanceRoleARN",
       OutputKey: "InstanceRoleARN",
-      OutputValue: "arn:aws:iam::546933502184:role/eksctl-ugcloadtest-nodegroup-jmet-NodeInstanceRole-FDR33CMEYYZ1"
+      OutputValue: "arn:aws:iam::546933502184:role/eksctl-ugctestgrid-nodegroup-jmet-NodeInstanceRole-FDR33CMEYYZ1"
     },
     {
       OutputKey: "FeatureLocalSecurityGroup",
       OutputValue: "true"
     },
     {
-      ExportName: "eksctl-ugcloadtest-nodegroup-jmeter-master::InstanceProfileARN",
+      ExportName: "eksctl-ugctestgrid-nodegroup-jmeter-master::InstanceProfileARN",
       OutputKey: "InstanceProfileARN",
-      OutputValue: "arn:aws:iam::546933502184:instance-profile/eksctl-ugcloadtest-nodegroup-jmeter-master-NodeInstanceProfile-5Y5169AB2BCO"
+      OutputValue: "arn:aws:iam::546933502184:instance-profile/eksctl-ugctestgrid-nodegroup-jmeter-master-NodeInstanceProfile-5Y5169AB2BCO"
     },
     {
       OutputKey: "FeatureSharedSecurityGroup",
@@ -312,13 +312,13 @@
   RollbackConfiguration: {
 
   },
-  StackId: "arn:aws:cloudformation:eu-west-2:546933502184:stack/eksctl-ugcloadtest-nodegroup-jmeter-master/d9611ab0-2b4c-11ea-b039-029db6d88004",
-  StackName: "eksctl-ugcloadtest-nodegroup-jmeter-master",
+  StackId: "arn:aws:cloudformation:eu-west-2:546933502184:stack/eksctl-ugctestgrid-nodegroup-jmeter-master/d9611ab0-2b4c-11ea-b039-029db6d88004",
+  StackName: "eksctl-ugctestgrid-nodegroup-jmeter-master",
   StackStatus: "CREATE_COMPLETE",
   Tags: [
     {
       Key: "alpha.eksctl.io/cluster-name",
-      Value: "ugcloadtest"
+      Value: "ugctestgrid"
     },
     {
       Key: "alpha.eksctl.io/nodegroup-name",
@@ -326,7 +326,7 @@
     },
     {
       Key: "eksctl.cluster.k8s.io/v1alpha1/cluster-name",
-      Value: "ugcloadtest"
+      Value: "ugctestgrid"
     },
     {
       Key: "alpha.eksctl.io/nodegroup-type",
@@ -338,7 +338,7 @@
     }
   ]
 }
-[ℹ]  stack/eksctl-ugcloadtest-cluster = {
+[ℹ]  stack/eksctl-ugctestgrid-cluster = {
   Capabilities: ["CAPABILITY_IAM"],
   CreationTime: 2019-12-30 21:28:31.206 +0000 UTC,
   Description: "EKS cluster (dedicated VPC: true, dedicated IAM: true) [created and managed by eksctl]",
@@ -349,35 +349,35 @@
   EnableTerminationProtection: false,
   Outputs: [
     {
-      ExportName: "eksctl-ugcloadtest-cluster::SubnetsPrivate",
+      ExportName: "eksctl-ugctestgrid-cluster::SubnetsPrivate",
       OutputKey: "SubnetsPrivate",
       OutputValue: "subnet-0bd6fb59924435984,subnet-00acd9ebcc439e8a5,subnet-0d3472a987cbc5cac"
     },
     {
-      ExportName: "eksctl-ugcloadtest-cluster::SubnetsPublic",
+      ExportName: "eksctl-ugctestgrid-cluster::SubnetsPublic",
       OutputKey: "SubnetsPublic",
       OutputValue: "subnet-036d9109c70a1d367,subnet-0f5c7f8ce238fe01c,subnet-0501943aad8f31b4b"
     },
     {
-      ExportName: "eksctl-ugcloadtest-cluster::ServiceRoleARN",
+      ExportName: "eksctl-ugctestgrid-cluster::ServiceRoleARN",
       OutputKey: "ServiceRoleARN",
-      OutputValue: "arn:aws:iam::546933502184:role/eksctl-ugcloadtest-cluster-ServiceRole-17LZIWZPJ1R14"
+      OutputValue: "arn:aws:iam::546933502184:role/eksctl-ugctestgrid-cluster-ServiceRole-17LZIWZPJ1R14"
     },
     {
-      ExportName: "eksctl-ugcloadtest-cluster::VPC",
+      ExportName: "eksctl-ugctestgrid-cluster::VPC",
       OutputKey: "VPC",
       OutputValue: "vpc-01c86a1990b0ee9e4"
     },
     {
       OutputKey: "ClusterStackName",
-      OutputValue: "eksctl-ugcloadtest-cluster"
+      OutputValue: "eksctl-ugctestgrid-cluster"
     },
     {
       OutputKey: "CertificateAuthorityData",
       OutputValue: "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUN5RENDQWJDZ0F3SUJBZ0lCQURBTkJna3Foa2lHOXcwQkFRc0ZBREFWTVJNd0VRWURWUVFERXdwcmRXSmwKY201bGRHVnpNQjRYRFRFNU1USXpNREl4TXpVMU5Gb1hEVEk1TVRJeU56SXhNelUxTkZvd0ZURVRNQkVHQTFVRQpBeE1LYTNWaVpYSnVaWFJsY3pDQ0FTSXdEUVlKS29aSWh2Y05BUUVCQlFBRGdnRVBBRENDQVFvQ2dnRUJBSllWCkppQnUvTnBVYUxNcCtvNmQvcFBFci9TMFVOZXlxNHRFVHdHYnB2M3g1Sm4wZUoyYzlwenpOS2VmSkVSVjZtNTkKZy9iL0RiNWwwaUh4RWViTjk1Q3BiOFZGTzBId28yZHNubXFRemFoR1YrRlpIR2c0dkJPd1BGWW4ydXNwOHg1NgpkYXRMdkZlYWQ3TUw4SVNER3pyRTE4MDk0cEZXR2RZaVErWHFYT3VBVG16dG9DUDNLSlA4a3NWLytNYTN2ZXJ0Ck1SK2V6RzFvNk9FOUREVm5vV2dGZWJtL0FsYzhKV2VKNitMMzhLQW1xZlUvb1hMaUROYnVlZ0lOdVhLTTdwakkKMGdOKzUzVEh2RUJoZ3RhVFpBaDlYV0pCQ090MmMvZ3UxSjFRNUZTTlFQOXZ4V1phSWtZaDViQmFrUzU1M3R6Ugp1WCt6Y21lQXRIUHQzOStRL2pzQ0F3RUFBYU1qTUNFd0RnWURWUjBQQVFIL0JBUURBZ0trTUE4R0ExVWRFd0VCCi93UUZNQU1CQWY4d0RRWUpLb1pJaHZjTkFRRUxCUUFEZ2dFQkFCTG1DaFVIY2Q0ajFubUdZeFBtd0NnVjFmS3kKbmxiTkQ5RGxsb2llT25IR2tWUGoySmZ0cHU1UmNTVEVHaVI5TjdPKzZ0dTJPTXFLTjZvUmpONWowUThhM1crRQpMaERqVmtidkN2ZVN5N3lVaWtjczM5SW5OVno0QjNXZFlQVE51aTE0UXJVdFQzZllSV3B4VUdIbUJrOWtpRFlUCmhEdENqcEJJb3RjeVBndmN1a1MvWGdSOFpvQzNUMkpIK24yKzBra2pQeTdqSzJtUEJVODdPZGdkQndGVG1JZmMKSWcveUI3Y2hOWFVOWGorSENIditzKzViN0xEL0lBbDl4M3hkTG9JTzl0dHBELzhUYXJDaHNTOXFPdnl4ODFxUgpZSUg2MUxsVlFQRXhEb3A1NUF1VjFTZGw3ZnlqRW1IZlV0ZTNuNS9KNllxTmdicHMxVHFpb3JmNGVZcz0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo="
     },
     {
-      ExportName: "eksctl-ugcloadtest-cluster::SecurityGroup",
+      ExportName: "eksctl-ugctestgrid-cluster::SecurityGroup",
       OutputKey: "SecurityGroup",
       OutputValue: "sg-086229dec316e8424"
     },
@@ -386,42 +386,42 @@
       OutputValue: "Single"
     },
     {
-      ExportName: "eksctl-ugcloadtest-cluster::Endpoint",
+      ExportName: "eksctl-ugctestgrid-cluster::Endpoint",
       OutputKey: "Endpoint",
       OutputValue: "https://ACF78ACB61E079E71A0BE5DF72844A6E.yl4.eu-west-2.eks.amazonaws.com"
     },
     {
-      ExportName: "eksctl-ugcloadtest-cluster::SharedNodeSecurityGroup",
+      ExportName: "eksctl-ugctestgrid-cluster::SharedNodeSecurityGroup",
       OutputKey: "SharedNodeSecurityGroup",
       OutputValue: "sg-0daa7874092396bff"
     },
     {
-      ExportName: "eksctl-ugcloadtest-cluster::ClusterSecurityGroupId",
+      ExportName: "eksctl-ugctestgrid-cluster::ClusterSecurityGroupId",
       OutputKey: "ClusterSecurityGroupId",
       OutputValue: "sg-0af4e7a15167dc171"
     },
     {
-      ExportName: "eksctl-ugcloadtest-cluster::ARN",
+      ExportName: "eksctl-ugctestgrid-cluster::ARN",
       OutputKey: "ARN",
-      OutputValue: "arn:aws:eks:eu-west-2:546933502184:cluster/ugcloadtest"
+      OutputValue: "arn:aws:eks:eu-west-2:546933502184:cluster/ugctestgrid"
     },
     {
-      ExportName: "eksctl-ugcloadtest-cluster::FargatePodExecutionRoleARN",
+      ExportName: "eksctl-ugctestgrid-cluster::FargatePodExecutionRoleARN",
       OutputKey: "FargatePodExecutionRoleARN",
-      OutputValue: "arn:aws:iam::546933502184:role/eksctl-ugcloadtest-cluster-FargatePodExecutionRole-140CJ9RQJNWN4"
+      OutputValue: "arn:aws:iam::546933502184:role/eksctl-ugctestgrid-cluster-FargatePodExecutionRole-140CJ9RQJNWN4"
     }
   ],
   RollbackConfiguration: {
 
   },
-  StackId: "arn:aws:cloudformation:eu-west-2:546933502184:stack/eksctl-ugcloadtest-cluster/535c4940-2b4b-11ea-bc4c-0a3915ca55a4",
-  StackName: "eksctl-ugcloadtest-cluster",
+  StackId: "arn:aws:cloudformation:eu-west-2:546933502184:stack/eksctl-ugctestgrid-cluster/535c4940-2b4b-11ea-bc4c-0a3915ca55a4",
+  StackName: "eksctl-ugctestgrid-cluster",
   StackStatus: "CREATE_COMPLETE",
   Tags: [{
       Key: "alpha.eksctl.io/cluster-name",
-      Value: "ugcloadtest"
+      Value: "ugctestgrid"
     },{
       Key: "eksctl.cluster.k8s.io/v1alpha1/cluster-name",
-      Value: "ugcloadtest"
+      Value: "ugctestgrid"
     }]
 }

@@ -2,6 +2,7 @@ package cluster
 
 import (
 	"context"
+	"os"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -19,22 +20,37 @@ type Operations struct{}
 //DescribeCluster returns a description of the cluster
 func (ops Operations) DescribeCluster(clusterName string) (awsRegion string, awsActNmbr string) {
 
-	eksCreds := awscredentials.Credentials{}
-	creds := *eksCreds.GetWebIdentityCredentials()
-	cfg, err := external.LoadDefaultAWSConfig(
-		// Hard coded credentials.
-		external.WithCredentialsValue(aws.Credentials{
-			AccessKeyID: *creds.AccessKeyId, SecretAccessKey: *creds.SecretAccessKey, SessionToken: *creds.SessionToken,
-			Source: "Describe Cluster",
-		}),
-	)
-	cfg.Region = "eu-west-2"
+	webTokenFile := os.Getenv("AWS_WEB_IDENTITY_TOKEN_FILE")
+
+	var cfg aws.Config
+	var err error
 	if err != nil {
 		log.WithFields(log.Fields{
 			"err": err.Error(),
 		}).Error("Problems Loading Credentials")
 	}
-
+	if webTokenFile != "" {
+		eksCreds := awscredentials.Credentials{}
+		creds := eksCreds.GetWebIdentityCredentials()
+		keyID := *creds.AccessKeyId
+		secretKey := *creds.SecretAccessKey
+		st := *creds.SessionToken
+		cfg, err = external.LoadDefaultAWSConfig(
+			// Hard coded credentials.
+			external.WithCredentialsValue(aws.Credentials{
+				AccessKeyID: keyID, SecretAccessKey: secretKey, SessionToken: st,
+				Source: "Describe Cluster",
+			}),
+		)
+	} else {
+		cfg, err = external.LoadDefaultAWSConfig()
+	}
+	if err != nil {
+		log.WithFields(log.Fields{
+			"err": err.Error(),
+		}).Error("Problems Loading Credentials")
+	}
+	cfg.Region = "eu-west-2"
 	svc := eks.New(cfg)
 	input := &eks.DescribeClusterInput{
 		Name: aws.String(clusterName),

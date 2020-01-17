@@ -1,4 +1,4 @@
-FROM 546933502184.dkr.ecr.eu-west-2.amazonaws.com/ugcloadtest/jmeter-base:latest
+FROM 546933502184.dkr.ecr.eu-west-2.amazonaws.com/ugctestgrid/jmeter-base:latest
 MAINTAINER Kodjo Baah<kafriyie01@bbc.co.uk>
 
 USER root

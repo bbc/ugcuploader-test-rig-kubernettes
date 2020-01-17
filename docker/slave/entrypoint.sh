@@ -19,4 +19,6 @@ echo "jmeter args=$@"
 #jmeter $@ upload/upload.jmx
 
 #jmeter -n -N 127.0.0.1 upload/upload.jmx
-/opt/apache-jmeter-5.1.1/bin/jmeter-server -Dserver.rmi.localport=50000 -Dserver_port=1099
+#/opt/apache-jmeter-5.1.1/bin/jmeter-server -Dserver.rmi.localport=50000 -Dserver_port=1099
+
+exec "$@"

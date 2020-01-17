@@ -82,9 +82,10 @@ $(document).ready(function () {
      * Used to add spinners when processing a request
      */
     $("#deleteTenantFrm").on('submit', function () {
+        $("#deleteTenant").remove()
         $("#deleteTenantBtn").prop("disabled", true)
         $("#deleteTenantBtn").html(
-            `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Deleting...`
+            `<span id="deleteTenant" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Deleting...`
         );
         $("#startTestBtn").prop("disabled", true)
         $("#stopTestBtn").prop("disabled", true)
@@ -108,33 +109,5 @@ $(document).ready(function () {
         $("#deleteTenantBtn").prop("disabled", true)
     });
 
-
-    (function worker() {
-        $.ajax({
-          dataType: "json",
-          url: '/tenants', 
-          success: function(data) {
-
-            var running = '<ul style="list-style-type:none;">';
-            var available = '<ul style="list-style-type:none;">';
-            $.each(data, function(index, item) {
-                if (item.Running) {
-                    running = running.concat("<li>",item.Namespace,"</li>")
-                } else {
-                    available = available.concat("<li>",item.Namespace,"</li>")
-                }
-            });
-
-            running = running.concat("</ul>")
-            available = available.concat("</ul>")
-            $('#running').html(running);
-            $('#available').html(available);
-          },
-          complete: function() {
-            // Schedule the next request when the current one's complete
-            setTimeout(worker, 5000);
-          }
-        });
-      })();
 
 });

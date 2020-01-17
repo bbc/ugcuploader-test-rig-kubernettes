@@ -2,7 +2,7 @@
 
 export TENNANT="$(cut -d'-' -f1 <<<"$2")"
 TEST_RUNNING="$(pidof jmeter)"
-echo "JMETER_PID=$TEST_RUNNING"
+echo "JMETER_PID=$TEST_RUNNING TENNAT=$TENNANT"
 if [ -z "$TEST_RUNNING" ]; then
     cat >/home/jmeter/bin/check_if_ended.sh <<EOF
 #!/usr/bin/env bash

@@ -200,9 +200,8 @@ func (kop *Operations) CreateJmeterSlaveDeployment(ns string, nbrnodes int32, aw
 							TTY:   true,
 							Stdin: true,
 							Name:  "jmmaster",
-							Image: fmt.Sprintf("%s.dkr.ecr.%s.amazonaws.com/ugcloadtest/jmeter-slave:latest", strconv.FormatInt(awsAcntNbr, 10), awsRegion),
-							Command: []string{"sh", "-c",
-								fmt.Sprintf("/bin/bash <<'EOF' \n\n /opt/apache-jmeter-5.1.1/bin/jmeter-server -Dserver.rmi.localport=50000 -Dserver_port=1099 \nEOF")},
+							Image: fmt.Sprintf("%s.dkr.ecr.%s.amazonaws.com/ugctestgrid/jmeter-slave:latest", strconv.FormatInt(awsAcntNbr, 10), awsRegion),
+							Args:  []string{"/bin/bash", "-c", "--", "while true; do sleep 30; done;"},
 							Ports: []v1.ContainerPort{
 								v1.ContainerPort{ContainerPort: int32(1099)},
 								v1.ContainerPort{ContainerPort: int32(50000)},
@@ -303,7 +302,7 @@ func (kop *Operations) CreateJmeterMasterDeployment(namespace string, awsAcntNbr
 							TTY:   true,
 							Stdin: true,
 							Name:  "jmmaster",
-							Image: fmt.Sprintf("%s.dkr.ecr.%s.amazonaws.com/ugcloadtest/jmeter-master:latest", strconv.FormatInt(awsAcntNbr, 10), awsRegion),
+							Image: fmt.Sprintf("%s.dkr.ecr.%s.amazonaws.com/ugctestgrid/jmeter-master:latest", strconv.FormatInt(awsAcntNbr, 10), awsRegion),
 							Args:  []string{"/bin/bash", "-c", "--", "while true; do sleep 30; done;"},
 							SecurityContext: &v1.SecurityContext{
 								RunAsUser:  int64Ptr(1000),
@@ -507,8 +506,9 @@ func (kop Operations) DeleteServiceAccount(ns string) (deleted bool, err string)
 
 //StopTest stops the test in the namespace
 func (kop Operations) StopTest(ns string) (started bool, err string) {
+	cmd := fmt.Sprintf("%s/%s", props.MustGet("tscripts"), "stop_test.sh")
 	args := []string{ns}
-	_, err = kop.executeCommand("stop_test.sh", args)
+	_, err = kop.executeCommand(cmd, args)
 	if err != "" {
 		log.WithFields(log.Fields{
 			"err": err,
@@ -522,8 +522,10 @@ func (kop Operations) StopTest(ns string) (started bool, err string) {
 
 //StartTest starts the uploaded test
 func (kop Operations) StartTest(testPath string, ns string, bandwidth string, nbrnodes int) (started bool, err string) {
+	cmd := fmt.Sprintf("%s/%s", props.MustGet("tscripts"), "start_test_controller.sh")
 	args := []string{testPath, ns, bandwidth, strconv.Itoa(nbrnodes)}
-	_, err = kop.executeCommand("start_test_controller.sh", args)
+	//_, err = kop.executeCommand("start_test_controller.sh", args)
+	_, err = kop.executeCommand(cmd, args)
 
 	if err != "" {
 		log.WithFields(log.Fields{

@@ -264,8 +264,8 @@ The following steps gives the controller the permission to be able to manage the
    + Add aws account: eg: <br>
 
      ```
-     mapAccount |
-          "546933502184
+     mapAccounts |
+          "546933502184"
      ```
 
      
@@ -280,6 +280,16 @@ The following steps gives the controller the permission to be able to manage the
            username: ugcupload-control
            
      ```
+
+or  soon you can do this instead: https://github.com/weaveworks/eksctl/issues/625
+
+```
+eksctl get aws-auth
+eksctl update aws-auth add-role arn:aws:iam::546933502184:role/eksctl-ugcloadtest-addon-iamserviceaccount-c-Role1-1LCQ6ML5AZSTM --username ugcupload-control --groups system:masters
+eksctl update aws-auth remove-role <arn>
+eksctl update aws-auth add-account 546933502184
+eksctl update aws-auth remove-account
+```
 
 ## Accessing Controller using SSH
 

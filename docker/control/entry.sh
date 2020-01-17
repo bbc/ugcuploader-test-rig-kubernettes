@@ -24,7 +24,7 @@ export AWS_SECRET_ACCESS_KEY="$(cat /tmp/irp-cred.txt | jq -r ".Credentials.Secr
 export AWS_SESSION_TOKEN="$(cat /tmp/irp-cred.txt | jq -r ".Credentials.SessionToken")"
 export AWS_DEFAULT_REGION=eu-west-2
 
-aws eks --region eu-west-2 update-kubeconfig --name ugcloadtest
+aws eks --region eu-west-2 update-kubeconfig --name ugctestgrid
 nohup kubectl port-forward --address 0.0.0.0 -n weave "$(kubectl get -n weave pod --selector=weave-scope-component=app -o jsonpath='{.items..metadata.name}')" 4040 &> weavscope.out&
 nohup go run /home/control/admin/cmd/ugcupload/main.go &> admincontroller.out&
 
@@ -77,6 +77,7 @@ sudo mv /home/control/start_admin_controller.sh /usr/local/bin
 sudo service sshd start
 sudo crond  -d 8 
 sudo rc-service lighttpd start
+sudo rc-service redis start
 echo "tart $@"
 # Hand off to the CMD
 exec "$@"

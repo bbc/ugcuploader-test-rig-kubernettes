@@ -2,7 +2,7 @@ apiVersion: eksctl.io/v1alpha5
 kind: ClusterConfig
 
 metadata:
-  name: ugcloadtest
+  name: ugctestgrid
   region: eu-west-2
 
 iam:
@@ -12,7 +12,7 @@ iam:
  #     name: ugcupload-jmeter
  #     # if no namespace is set, "default" will be used;
  #     # the namespace will be created if it doesn't exist already
- #     namespace: ugcloadtest-jmeter-ns
+ #     namespace: ugctestgrid-jmeter-ns
  #     labels: {aws-usage: "application"}
  #   attachPolicyARNs:
  #   - "arn:aws:iam::546933502184:policy/ugcupload-eks-jmeter-policy"

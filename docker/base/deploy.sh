@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-declare RESULT=($(eksctl utils describe-stacks --cluster ugcloadtest | grep StackId))  
+declare RESULT=($(eksctl utils describe-stacks --cluster ugctestgrid | grep StackId))  
 for i in "${RESULT[@]}"
 do
     var="${i%\"}"
@@ -16,9 +16,9 @@ done
 echo $region
 echo $aws_acnt_num
 
-REPO="$aws_acnt_num.dkr.ecr.$region.amazonaws.com/ugcloadtest/jmeter-base:latest"
-aws ecr delete-repository --force --repository-name ugcloadtest/jmeter-base
-aws ecr create-repository --repository-name ugcloadtest/jmeter-base 
-docker build --no-cache -t ugcloadtest/jmeter-base .
-docker tag ugcloadtest/jmeter-base:latest $REPO
+REPO="$aws_acnt_num.dkr.ecr.$region.amazonaws.com/ugctestgrid/jmeter-base:latest"
+aws ecr delete-repository --force --repository-name ugctestgrid/jmeter-base
+aws ecr create-repository --repository-name ugctestgrid/jmeter-base 
+docker build --no-cache -t ugctestgrid/jmeter-base .
+docker tag ugctestgrid/jmeter-base:latest $REPO
 docker push $REPO

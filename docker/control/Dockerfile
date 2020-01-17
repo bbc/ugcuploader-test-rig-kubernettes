@@ -3,7 +3,7 @@ FROM python:3.7-alpine
 
 USER root
 # Install some dependencies needed to build the project
-RUN apk update && apk --no-cache add curl git jq bash openssh openrc rsyslog rsync gcc g++ libc-dev bash go bzr git mercurial subversion openssh-client ca-certificates lighttpd
+RUN apk update && apk --no-cache add curl git jq bash openssh openrc rsyslog rsync gcc g++ libc-dev bash go bzr git mercurial subversion openssh-client ca-certificates lighttpd redis
 
 ARG JMETER_VERSION="5.1.1"
 ENV JMETER_HOME /opt/apache-jmeter-${JMETER_VERSION}
@@ -125,6 +125,6 @@ RUN sudo chmod 0777 /usr/local/bin/entry.sh
 RUN sudo pip install docopt
 RUN sudo pip install boto3
 COPY lighttpd.conf /etc/lighttpd/lighttpd.conf
-RUN mkidr graphs
+RUN mkdir graphs
 EXPOSE 1323
 ENTRYPOINT ["/usr/local/bin/entry.sh"]

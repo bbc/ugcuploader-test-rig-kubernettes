@@ -17,7 +17,7 @@ spec:
       serviceAccountName: ugcupload-jmeter
       containers:
       - name: jmmaster
-        image: 546933502184.dkr.ecr.eu-west-2.amazonaws.com/ugcloadtest/jmeter-master:latest
+        image: 546933502184.dkr.ecr.eu-west-2.amazonaws.com/ugctestgrid/jmeter-master:latest
         imagePullPolicy: Always
         args: [ "/bin/bash", "-c", "--", "while true; do sleep 30; done;" ]
         ports:

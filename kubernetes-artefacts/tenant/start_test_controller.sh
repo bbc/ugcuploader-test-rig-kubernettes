@@ -1,16 +1,19 @@
 #!/usr/bin/env bash
 
-uuid=$(python -c 'import sys,uuid; sys.stdout.write(uuid.uuid4().hex)')
+if [[ ! -z "$AWS_ROLE_ARN" ]]; 
+then
+   uuid=$(python -c 'import sys,uuid; sys.stdout.write(uuid.uuid4().hex)')
 
-aws sts assume-role-with-web-identity --role-arn $AWS_ROLE_ARN --role-session-name mh9test --web-identity-token file://$AWS_WEB_IDENTITY_TOKEN_FILE  --duration-second 3600  > "/tmp/$uuid.txt"
-aak='cat /tmp/$uuid.txt | jq -r ".Credentials.AccessKeyId"'
-sak='cat /tmp/$uuid.txt | jq -r ".Credentials.SecretAccessKey"'
-st='cat /tmp/$uuid.txt | jq -r ".Credentials.SessionToken"'
-export AWS_ACCESS_KEY_ID=$(eval "$aak")
-export AWS_SECRET_ACCESS_KEY=$(eval "$sak")
-export AWS_SESSION_TOKEN=$(eval "$st")
-export AWS_DEFAULT_REGION=eu-west-2
-rm "/tmp/$uuid.txt"
+   aws sts assume-role-with-web-identity --role-arn $AWS_ROLE_ARN --role-session-name mh9test --web-identity-token file://$AWS_WEB_IDENTITY_TOKEN_FILE --duration-second 3600  > "/tmp/$uuid.txt"
+   aak='cat /tmp/$uuid.txt | jq -r ".Credentials.AccessKeyId"'
+   sak='cat /tmp/$uuid.txt | jq -r ".Credentials.SecretAccessKey"'
+   st='cat /tmp/$uuid.txt | jq -r ".Credentials.SessionToken"'
+   export AWS_ACCESS_KEY_ID=$(eval "$aak")
+   export AWS_SECRET_ACCESS_KEY=$(eval "$sak")
+   export AWS_SESSION_TOKEN=$(eval "$st")
+   export AWS_DEFAULT_REGION=eu-west-2
+   rm "/tmp/$uuid.txt"
+fi
 
 
 k_p="kubectl get pods -n $2"
@@ -63,7 +66,8 @@ do
 done
 echo "done"
 
-working_dir="/home/control"
+#working_dir="/home/control"
+working_dir="/Users/baahk01/workspace/ugcuploader-test-kubernettes"
 
 echo "ork = $working_dir"
 
@@ -84,9 +88,15 @@ for i in "${slave_var[@]}"
 do
    if [[ $i == "jmeter-slave"* ]]; then
      echo "hmm $i"
-      kubectl cp "$working_dir/config/bandwidth/$3/bandwidth.csv" "$i:/opt/apache-jmeter/bin/jmeter.properties" -n $2
-      kubectl cp "$working_dir/data" "$i:/" -n $2
-      kubectl exec -i -n $2 $i -- bash -c /start.sh
+      kubectl cp "$working_dir/config/bandwidth/$3/bandwidth.csv" "$i:/opt/apache-jmeter/bin/jmeter.properties" -n $2 &
+      sleep 1
+      killall kubectl
+      kubectl cp "$working_dir/data" "$i:/" -n $2 &
+      sleep 1
+      killall kubectl
+      kubectl exec -it -n $2 $i -- bash -c /start.sh &
+      sleep 2
+      killall kubectl
    fi
 done
 
@@ -102,4 +112,4 @@ kubectl exec -it -n $2 $master_pod  -- bash -c "mkdir test/$path"
 kubectl cp "$working_dir/src/test/$test_to_run" "$master_pod:/home/jmeter/test/$path" -n $2
 echo "Starting Jmeter load test $test_to_run for $2 running on $master_pod  "
 
-kubectl exec -i -n $2 $master_pod -- bash -c "/home/jmeter/bin/load_test.sh /home/jmeter/test/$test_to_run $2" 
+kubectl exec -it -n $2 $master_pod -- bash -c "/home/jmeter/bin/load_test.sh /home/jmeter/test/$test_to_run $2" 
