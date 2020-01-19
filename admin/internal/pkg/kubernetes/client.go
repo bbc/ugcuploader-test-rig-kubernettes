@@ -19,13 +19,13 @@ import (
 	"github.com/magiconair/properties"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	intstr "k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	//autoscaling "k8s.io/api/autoscaling/v1"
 )
 
 //Operations used for communicating with kubernetics api
@@ -87,6 +87,38 @@ func int32Ptr(i int32) *int32 { return &i }
 
 func int64Ptr(i int64) *int64 { return &i }
 
+//ScaleDeployment used to scale the jmeter slave
+func (kop *Operations) ScaleDeployment(ns string, replica int32) {
+
+	scale, err := kop.ClientSet.AppsV1().Deployments(ns).GetScale("jmeter-slave", metav1.GetOptions{})
+	if err != nil {
+		log.WithFields(log.Fields{
+			"err":       err.Error(),
+			"replica":   replica,
+			"namespace": ns,
+		}).Errorf("Problem getting the scale")
+	}
+
+	if scale.Spec.Replicas != replica {
+		scale.Spec.Replicas = replica
+		deploymentsClient := kop.ClientSet.AppsV1().Deployments(ns)
+		a, e := deploymentsClient.UpdateScale("jmeter-slave", scale)
+		if e != nil {
+			log.WithFields(log.Fields{
+				"err":       e.Error(),
+				"replica":   replica,
+				"namespace": ns,
+			}).Errorf("Problem updating number of replicas")
+		} else {
+			log.WithFields(log.Fields{
+				"selector":  a.Status.Selector,
+				"replica":   a.Status.Replicas,
+				"namespace": ns,
+			}).Info("Status after replica update")
+		}
+	}
+}
+
 //DeleteDeployment used to delete a deployment
 func (kop *Operations) DeleteDeployment(namespace string) (deleted bool) {
 	// Delete Deployment
@@ -128,7 +160,7 @@ func (kop *Operations) DeleteNamespace(ns string) (deleted bool, err string) {
 //CreateNamespace create namespace
 func (kop *Operations) CreateNamespace(ns string) (created bool, err string) {
 
-	nsSpec := &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}
+	nsSpec := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}
 	_, e := kop.ClientSet.CoreV1().Namespaces().Create(nsSpec)
 	if e != nil {
 		log.WithFields(log.Fields{
@@ -147,6 +179,27 @@ type Tenant struct {
 	Name      string
 	Namespace string
 	Running   bool
+}
+
+//GetAllNodesWithPods gets all pods within a namespace
+func (kop *Operations) GetAllNodesWithPods(ns string) (pds []string, found bool) {
+	var pods []string
+	actual := metav1.ListOptions{}
+	res, e := kop.ClientSet.CoreV1().Pods(ns).List(actual)
+	if e != nil {
+		log.WithFields(log.Fields{
+			"err":       e.Error(),
+			"namespace": ns,
+		}).Error("Problems getting all pods in namespace")
+		found = false
+	} else {
+		for _, item := range res.Items {
+			pods = append(pods, item.Spec.NodeName)
+		}
+		pds = pods
+		found = true
+	}
+	return
 }
 
 //GetallTenants Retuns a list of tenants
@@ -187,24 +240,25 @@ func (kop *Operations) CreateJmeterSlaveDeployment(ns string, nbrnodes int32, aw
 					"jmeter_mode": "slave",
 				},
 			},
-			Template: v1.PodTemplateSpec{
+			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						"jmeter_mode": "slave",
 					},
 				},
-				Spec: v1.PodSpec{
+				Spec: corev1.PodSpec{
 					ServiceAccountName: "ugcupload-jmeter",
-					Containers: []v1.Container{
+					Containers: []corev1.Container{
 						{
 							TTY:   true,
 							Stdin: true,
 							Name:  "jmmaster",
 							Image: fmt.Sprintf("%s.dkr.ecr.%s.amazonaws.com/ugctestgrid/jmeter-slave:latest", strconv.FormatInt(awsAcntNbr, 10), awsRegion),
-							Args:  []string{"/bin/bash", "-c", "--", "while true; do sleep 30; done;"},
-							Ports: []v1.ContainerPort{
-								v1.ContainerPort{ContainerPort: int32(1099)},
-								v1.ContainerPort{ContainerPort: int32(50000)},
+							Args:  []string{"/bin/bash", "-c", "--", "/fileupload/upload > /fileuplouad.log 2>&1"},
+							Ports: []corev1.ContainerPort{
+								corev1.ContainerPort{ContainerPort: int32(1099)},
+								corev1.ContainerPort{ContainerPort: int32(50000)},
+								corev1.ContainerPort{ContainerPort: int32(1007)},
 							},
 						},
 					},
@@ -247,6 +301,7 @@ func (kop *Operations) CreateJmeterSlaveService(ns string) (created bool, err st
 			Ports: []corev1.ServicePort{
 				corev1.ServicePort{Name: "first", Port: int32(1099), TargetPort: intstr.IntOrString{StrVal: "1099"}},
 				corev1.ServicePort{Name: "second", Port: int32(5000), TargetPort: intstr.IntOrString{StrVal: "5000"}},
+				corev1.ServicePort{Name: "fileupload", Port: int32(1007), TargetPort: intstr.IntOrString{StrVal: "1007"}},
 			},
 			Selector: map[string]string{
 				"jmeter_mode": "slave",
@@ -289,26 +344,26 @@ func (kop *Operations) CreateJmeterMasterDeployment(namespace string, awsAcntNbr
 					"jmeter_mode": "master",
 				},
 			},
-			Template: v1.PodTemplateSpec{
+			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						"jmeter_mode": "master",
 					},
 				},
-				Spec: v1.PodSpec{
+				Spec: corev1.PodSpec{
 					ServiceAccountName: "ugcupload-jmeter",
-					Containers: []v1.Container{
+					Containers: []corev1.Container{
 						{
 							TTY:   true,
 							Stdin: true,
 							Name:  "jmmaster",
 							Image: fmt.Sprintf("%s.dkr.ecr.%s.amazonaws.com/ugctestgrid/jmeter-master:latest", strconv.FormatInt(awsAcntNbr, 10), awsRegion),
 							Args:  []string{"/bin/bash", "-c", "--", "while true; do sleep 30; done;"},
-							SecurityContext: &v1.SecurityContext{
+							SecurityContext: &corev1.SecurityContext{
 								RunAsUser:  int64Ptr(1000),
 								RunAsGroup: int64Ptr(1000),
 							},
-							Ports: []v1.ContainerPort{
+							Ports: []corev1.ContainerPort{
 								{
 									ContainerPort: 60000,
 								},
@@ -322,7 +377,7 @@ func (kop *Operations) CreateJmeterMasterDeployment(namespace string, awsAcntNbr
 
 	// Create Deployment
 	result, e := deploymentsClient.Create(deployment)
-	if err != "" {
+	if e != nil {
 		log.WithFields(log.Fields{
 			"err": e.Error(),
 		}).Error("Problems creating deployment")
@@ -337,9 +392,62 @@ func (kop *Operations) CreateJmeterMasterDeployment(namespace string, awsAcntNbr
 	return
 }
 
+//GetHostEndpoints used to get the endpoints assoicated with a service
+func (kop *Operations) GetHostEndpoints(ns string) (endpoints []string) {
+	var eps []string
+	ep, e := kop.ClientSet.CoreV1().Endpoints(ns).Get("jmeter-slaves-svc", metav1.GetOptions{})
+	if e != nil {
+		log.WithFields(log.Fields{
+			"err": e.Error(),
+		}).Error("Problems getting endpoint for the service")
+	} else {
+
+		for _, epsub := range ep.Subsets {
+			for _, epa := range epsub.Addresses {
+				log.WithFields(log.Fields{
+					"IP":       epa.IP,
+					"Hostname": epa.Hostname,
+				}).Info("Endpoint address")
+				eps = append(eps, string(epa.IP))
+			}
+		}
+	}
+	endpoints = eps
+	return
+}
+
+//GetHostNamesOfJmeterSlaves Gets the ip addresses of the slaves
+func (kop *Operations) GetHostNamesOfJmeterSlaves(ns string) (hostnames []string) {
+
+	var hn []string
+	labelSelector := metav1.LabelSelector{MatchLabels: map[string]string{"jmeter_mode": "slave"}}
+	actual := metav1.ListOptions{LabelSelector: labels.Set(labelSelector.MatchLabels).String()}
+	pods, err := kop.ClientSet.CoreV1().Pods(ns).List(actual)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"err":       err.Error(),
+			"namespace": ns,
+		}).Error("Unable to find any pods in the namespace")
+	} else {
+
+		//<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>
+		for _, pod := range pods.Items {
+			log.WithFields(log.Fields{
+				"hostIP": pod.Status.HostIP,
+				"name":   pod.Name,
+			}).Info("Jmeter slaves")
+			if strings.EqualFold(string(pod.Status.Phase), "Running") {
+				hn = append(hn, pod.Status.HostIP)
+			}
+		}
+		hostnames = hn
+	}
+	return
+}
+
 //CheckNamespaces check for the existence of a namespace
 func (kop *Operations) CheckNamespaces(namespace string) (exist bool) {
-	var list v1.NamespaceList
+	var list corev1.NamespaceList
 	d, err := kop.ClientSet.RESTClient().Get().AbsPath("/api/v1/namespaces").Param("pretty", "true").DoRaw()
 	if err != nil {
 		log.WithFields(log.Fields{
@@ -370,7 +478,7 @@ func (kop *Operations) CheckNamespaces(namespace string) (exist bool) {
 //LoadBalancerIP gets the load balancer ip of the service
 func (kop *Operations) LoadBalancerIP(namespace string) (host string) {
 
-	var list v1.ServiceList
+	var list corev1.ServiceList
 	err := kop.ClientSet.RESTClient().Get().AbsPath(fmt.Sprintf("/api/v1/namespaces/%s/services", namespace)).Param("pretty", "true").Do().Into(&list)
 	if err != nil {
 		log.WithFields(log.Fields{
@@ -524,6 +632,24 @@ func (kop Operations) StopTest(ns string) (started bool, err string) {
 func (kop Operations) StartTest(testPath string, ns string, bandwidth string, nbrnodes int) (started bool, err string) {
 	cmd := fmt.Sprintf("%s/%s", props.MustGet("tscripts"), "start_test_controller.sh")
 	args := []string{testPath, ns, bandwidth, strconv.Itoa(nbrnodes)}
+	//_, err = kop.executeCommand("start_test_controller.sh", args)
+	_, err = kop.executeCommand(cmd, args)
+
+	if err != "" {
+		log.WithFields(log.Fields{
+			"err": err,
+		}).Errorf("unable to start the test %v", strings.Join(args, ","))
+		started = false
+	} else {
+		started = true
+	}
+	return
+}
+
+//WaitForPodsToStart polls all pods in namespace until they are all running
+func (kop Operations) WaitForPodsToStart(ns string, pods int) (started bool, err string) {
+	cmd := fmt.Sprintf("%s/%s", props.MustGet("tscripts"), "wait-for-deployments.sh")
+	args := []string{ns, strconv.Itoa(pods)}
 	//_, err = kop.executeCommand("start_test_controller.sh", args)
 	_, err = kop.executeCommand(cmd, args)
 

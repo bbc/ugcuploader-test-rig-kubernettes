@@ -79,14 +79,14 @@ RUN go mod download
 COPY admin admin
 # And compile the project
 
-#RUN CGO_ENABLED=1 GOOS=linux go build -o bin/admin -a -tags netgo -ldflags '-w -extldflags "-static"' ./admin/cmd/ugcupload/main.go
+RUN sudo chown -R control:control admin
+#RUN go build -o ./admin/bin/admin  ./admin/cmd/ugcupload/main.go
 
 COPY etc /etc
 
 RUN curl --silent --location "https://github.com/weaveworks/eksctl/releases/download/latest_release/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
 RUN sudo mv /tmp/eksctl /usr/local/bin
 RUN sudo rc-update add sshd
-#RUN sudo touch /run/openrc/softlevel
 RUN sudo rc-update add rsyslog boot
 RUN curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.15.1/bin/linux/amd64/kubectl
 RUN sudo chmod u+x kubectl && sudo mv kubectl /bin/kubectl

@@ -1580,8 +1580,8 @@ cookieprop.setObjectValue(manager);
       </hashTree>
       <kg.apc.jmeter.threads.UltimateThreadGroup guiclass="kg.apc.jmeter.threads.UltimateThreadGroupGui" testclass="kg.apc.jmeter.threads.UltimateThreadGroup" testname="jp@gc - Ultimate Thread Group" enabled="true">
         <collectionProp name="ultimatethreadgroupdata">
-          <collectionProp name="674862943">
-            <stringProp name="48625">100</stringProp>
+          <collectionProp name="509367376">
+            <stringProp name="1603">25</stringProp>
             <stringProp name="0">0</stringProp>
             <stringProp name="49">1</stringProp>
             <stringProp name="53377398">86400</stringProp>
@@ -1598,8 +1598,8 @@ cookieprop.setObjectValue(manager);
         <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Upload-${__property(TENNANT,&quot;Not Found&quot;)}" enabled="true">
           <elementProp name="HTTPsampler.Files" elementType="HTTPFileArgs">
             <collectionProp name="HTTPFileArgs.files">
-              <elementProp name="${__P(test.data,&quot;hmm&quot;)}/1600px-Snake_River_5MB.jpg" elementType="HTTPFileArg">
-                <stringProp name="File.path">${__P(test.data,&quot;hmm&quot;)}/1600px-Snake_River_5MB.jpg</stringProp>
+              <elementProp name="${__P(test.data,&quot;hmm&quot;)}/200MB.txt" elementType="HTTPFileArg">
+                <stringProp name="File.path">${__P(test.data,&quot;hmm&quot;)}/200MB.txt</stringProp>
                 <stringProp name="File.paramname">data</stringProp>
                 <stringProp name="File.mimetype">image/jpeg</stringProp>
               </elementProp>

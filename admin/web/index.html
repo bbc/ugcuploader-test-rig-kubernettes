@@ -182,7 +182,7 @@
 
                                 <div class="form-group file-upload-wrapper">
                                     <label for="script-file-upload">Jmeter Script</label>
-                                    <input name="jmeter" id="script-file-upload" type="file" class="file-upload" />
+                                    <input name="jmeter" id="jmeter" type="file" class="file-upload" />
                                     <small id="dataHelp" class="form-text text-muted">This is the Jmeter script to
                                         upload</small>
                                 </div>
@@ -194,7 +194,7 @@
 
                                 <div class="form-group file-upload-wrapper">
                                     <label for="data-file-upload">Data</label>
-                                    <input name="data" id="data-file-upload" type="file" class="file-upload"
+                                    <input name="data" id="data" type="file" class="file-upload"
                                         aria-describedby="jmeterHelp" />
                                     <small id="jmeterHelp" class="form-text text-muted">This is the data file used
                                         by
@@ -202,7 +202,7 @@
                                 </div>
                                 {{if .GenericCreateTestMsg}}
                                 <div class="alert alert-primary" role="alert">
-                                    Some thing did not go right {{ .GenericCreateTestMsg }}
+                                    Some thing did not go right: {{ .GenericCreateTestMsg }}
                                 </div>
                                 {{end}}
 
@@ -319,7 +319,7 @@
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"
         integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl"
         crossorigin="anonymous"></script>
-    <script src="/script/js/upload.js?v=11"></script>
+    <script src="/script/js/upload.js?v=13"></script>
 </body>
 
 </html>

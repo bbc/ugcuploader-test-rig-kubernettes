@@ -2,14 +2,18 @@ package ugcupload
 
 import (
 	"fmt"
+	"io"
+	"io/ioutil"
 	"mime/multipart"
+	"net/http"
 	"os"
-
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/magiconair/properties"
 	log "github.com/sirupsen/logrus"
+
+	"bytes"
 
 	uuid "github.com/satori/go.uuid"
 )
@@ -22,21 +26,104 @@ type FileUploadOperations struct {
 	Context *gin.Context
 }
 
+// Creates a new file upload http request with optional extra params
+func newfileUploadRequest(file io.Reader, uri string, params map[string]string, filename string) (r *http.Request, e error) {
+
+	fileContents, err := ioutil.ReadAll(file)
+	if err != nil {
+		return nil, err
+	}
+
+	body := new(bytes.Buffer)
+	writer := multipart.NewWriter(body)
+	part, err := writer.CreateFormFile("file", filename)
+	if err != nil {
+		return nil, err
+	}
+	part.Write(fileContents)
+
+	for key, val := range params {
+		_ = writer.WriteField(key, val)
+	}
+	err = writer.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	r, e = http.NewRequest("POST", uri, body)
+
+	r.Header.Set("Content-Type", writer.FormDataContentType())
+	return
+
+}
+
+func (fop FileUploadOperations) UploadFile(file io.Reader, uri string, destFileName string) {
+
+	//prepare the reader instances to encode
+	extraParams := map[string]string{
+		"name": destFileName,
+	}
+
+	request, err := newfileUploadRequest(file, uri, extraParams, destFileName)
+	if err != nil {
+		log.Fatal(err)
+	}
+	client := &http.Client{}
+	resp, err := client.Do(request)
+	if err != nil {
+		log.Fatal(err)
+	} else {
+		var bodyContent []byte
+		fmt.Println(resp.StatusCode)
+		fmt.Println(resp.Header)
+		resp.Body.Read(bodyContent)
+		resp.Body.Close()
+		fmt.Println(bodyContent)
+	}
+}
+
 //ProcessData used to copy the supplied data file to right location
-func (fop FileUploadOperations) ProcessData() (destFilename string) {
+func (fop FileUploadOperations) ProcessData(uri string) (destFilename string) {
 
 	file, err := fop.Context.FormFile("data")
 	if err != nil {
 		log.WithFields(log.Fields{
 			"err": err.Error(),
-		}).Errorf("Unable to get the test data from the form")
+		}).Error("Unable to get the test data from the form")
 	}
 
 	if file != nil {
 		log.Println(file.Filename)
-		fop.Context.SaveUploadedFile(file, props.MustGet("data")+"/"+file.Filename)
+		f, err := file.Open()
+		if err != nil {
+			log.WithFields(log.Fields{
+				"err":      err.Error(),
+				"filename": file.Filename,
+			}).Error("Could not open the file")
+		} else {
+			fop.UploadFile(f, uri, file.Filename)
+		}
+		//fop.Context.SaveUploadedFile(file, props.MustGet("data")+"/"+file.Filename)
 	}
 	return
+}
+
+//UploadJmeterProps
+func (fop FileUploadOperations) UploadJmeterProps(uri string, bw string) {
+
+	home := os.Getenv("HOME")
+	bwLock := fmt.Sprintf("%s/config/bandwidth/%s/bandwidth.csv", home, bw)
+
+	r, err := os.Open(bwLock)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"err":      err.Error(),
+			"filename": bwLock,
+			"ur":       uri,
+		}).Error("Could not open bandwidth file")
+	}
+	fop.UploadFile(r, uri, "jmeter.properties")
+
 }
 
 //ProcessJmeter used to copy the supplied jmeter file to the right lcoation

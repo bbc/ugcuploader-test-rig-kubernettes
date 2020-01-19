@@ -16,6 +16,9 @@ done
 echo $region
 echo $aws_acnt_num
 
+rm -rf fileupload
+cp -R ../../fileupload .
+
 REPO="$aws_acnt_num.dkr.ecr.$region.amazonaws.com/ugctestgrid/jmeter-slave:latest"
 echo "Repo: $REPO"
 aws ecr delete-repository --force --repository-name ugctestgrid/jmeter-slave

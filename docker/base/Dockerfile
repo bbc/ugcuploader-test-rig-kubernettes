@@ -25,6 +25,7 @@ RUN    apk update \
 	&& tar -xzf /tmp/dependencies/apache-jmeter-${JMETER_VERSION}.tgz -C /opt  \
 	&& rm -rf /tmp/dependencies
 
+RUN apk add rsync openssh
 # Set global PATH such that "jmeter" command is found
 ENV PATH $PATH:$JMETER_BIN
 COPY plugins /opt/apache-jmeter-$JMETER_VERSION/lib/ext
