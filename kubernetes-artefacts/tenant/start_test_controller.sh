@@ -44,8 +44,6 @@ root=$(echo "$path" | cut -d "/" -f1)
 kubectl exec -it -n $2 $master_pod  -- bash -c "rm -rf test/$root"
 kubectl exec -it -n $2 $master_pod  -- bash -c "mkdir test/$path" 
 kubectl cp "$working_dir/src/test/$test_to_run" "$master_pod:/home/jmeter/test/$path" -n $2
-echo "Starting Jmeter load test $test_to_run for $2 running on $master_pod  "
+echo "Starting Jmeter load test $test_to_run for $2 running on $master_pod for the following slaves $3 "
 
-kubectl exec -it -n $2 $master_pod -- bash -c "/home/jmeter/bin/load_test.sh /home/jmeter/test/$test_to_run $2" 
-
-kubectl get pods -l jmeter_mode=slave -n moment | awk 'FNR > 1 {print$1}'
+kubectl exec -it -n $2 $master_pod -- bash -c "/home/jmeter/bin/load_test.sh /home/jmeter/test/$test_to_run $2 $3" 

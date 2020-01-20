@@ -22,7 +22,6 @@ var props = properties.MustLoadFile("/etc/ugcupload/loadtest.conf", properties.U
 
 //FileUploadOperations used to perform file upload
 type FileUploadOperations struct {
-	Form    *multipart.Form
 	Context *gin.Context
 }
 
@@ -109,7 +108,7 @@ func (fop FileUploadOperations) ProcessData(uri string) (destFilename string) {
 	return
 }
 
-//UploadJmeterProps
+//UploadJmeterProps use to upload the jmeter property file
 func (fop FileUploadOperations) UploadJmeterProps(uri string, bw string) {
 
 	home := os.Getenv("HOME")

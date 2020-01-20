@@ -36,7 +36,7 @@ EOF
     mkdir /home/jmeter/graphs
     rm -rf /home/jmeter/results.jtl
     touch /home/jmeter/results.jtl
-    nohup bash -c "jmeter -n -GTENNANT=$TENNANT -t $1 -l /home/jmeter/results.jtl -Dserver.rmi.ssl.disable=true -R $(getent ahostsv4 jmeter-slaves-svc | cut -d' ' -f1 | sort -u | awk -v ORS=, '{print $1}' | sed 's/,$//')  >/home/jmeter/start.log 2>&1 &"
+    nohup bash -c "jmeter -n -GTENNANT=$TENNANT -t $1 -l /home/jmeter/results.jtl -Dserver.rmi.ssl.disable=true -R $3 >/home/jmeter/start.log 2>&1 &"
     echo "started test $1"
 else
     echo "Test already running"

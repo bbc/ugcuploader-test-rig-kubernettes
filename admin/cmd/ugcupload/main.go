@@ -21,6 +21,8 @@ import (
 	"net/http/httputil"
 
 	"github.com/magiconair/properties"
+
+	types "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/types"
 )
 
 var control = controller.Controller{KubeOps: kubernetes.Operations{}, S3: aws.S3Operations{}}
@@ -83,7 +85,7 @@ func router01() http.Handler {
 	// Gin instance
 	r := gin.Default()
 
-	gob.Register(controller.UgcLoadRequest{})
+	gob.Register(types.UgcLoadRequest{})
 	store, _ := redis.NewStore(10, "tcp", "localhost:6379", "", []byte("secret"))
 	r.Use(sessions.Sessions("mysession", store))
 	r.Use(SetNoCacheHeader())
@@ -92,15 +94,36 @@ func router01() http.Handler {
 	r.GET("/", func(c *gin.Context) {
 
 		session := sessions.Default(c)
-		var ugcLoadRequest controller.UgcLoadRequest
+		var ugcLoadRequest types.UgcLoadRequest
 		if ulr := session.Get("ugcLoadRequest"); ulr != nil {
-			ugcLoadRequest = ulr.(controller.UgcLoadRequest)
+			ugcLoadRequest = ulr.(types.UgcLoadRequest)
 		} else {
-			ugcLoadRequest = controller.UgcLoadRequest{}
+			ugcLoadRequest = types.UgcLoadRequest{}
 		}
 		control.AddMonitorAndDashboard(&ugcLoadRequest)
 		control.AddTenants(&ugcLoadRequest)
 		c.HTML(http.StatusOK, "index.tmpl", ugcLoadRequest)
+		session.Clear()
+		if err := session.Save(); err != nil {
+			log.WithFields(log.Fields{
+				"err": err,
+			}).Error("Unable to save the session")
+		}
+
+	})
+
+	r.GET("/update", func(c *gin.Context) {
+
+		session := sessions.Default(c)
+		var ugcLoadRequest types.UgcLoadRequest
+		if ulr := session.Get("ugcLoadRequest"); ulr != nil {
+			ugcLoadRequest = ulr.(types.UgcLoadRequest)
+		} else {
+			ugcLoadRequest = types.UgcLoadRequest{}
+		}
+		control.AddMonitorAndDashboard(&ugcLoadRequest)
+		control.AddTenants(&ugcLoadRequest)
+		c.PureJSON(http.StatusOK, ugcLoadRequest)
 		session.Clear()
 		if err := session.Save(); err != nil {
 			log.WithFields(log.Fields{
@@ -114,6 +137,7 @@ func router01() http.Handler {
 	r.POST("/stop-test", control.StopTest)
 	r.POST("/delete-tenant", control.DeleteTenant)
 	r.GET("/tenantReport", control.S3Tenants)
+	r.GET("/running-tests", control.RunningTests)
 	r.POST("/genReport", control.GenerateReport)
 
 	r.GET("/tenants", ReverseProxy())

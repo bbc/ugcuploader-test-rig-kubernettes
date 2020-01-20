@@ -22,6 +22,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	shellExec "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/exec"
+	types "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/types"
 	//autoscaling "k8s.io/api/autoscaling/v1"
 )
 
@@ -171,13 +172,6 @@ func (kop *Operations) CreateNamespace(ns string) (created bool, err string) {
 	return
 }
 
-//Tenant Information about the tenant
-type Tenant struct {
-	Name      string
-	Namespace string
-	Running   bool
-}
-
 //GetAllNodesWithPods gets all pods within a namespace
 func (kop *Operations) GetAllNodesWithPods(ns string) (pds []string, found bool) {
 	var pods []string
@@ -200,8 +194,8 @@ func (kop *Operations) GetAllNodesWithPods(ns string) (pds []string, found bool)
 }
 
 //GetallTenants Retuns a list of tenants
-func (kop *Operations) GetallTenants() (ts []Tenant, err string) {
-	tenants := []Tenant{}
+func (kop *Operations) GetallTenants() (ts []types.Tenant, err string) {
+	tenants := []types.Tenant{}
 	labelSelector := metav1.LabelSelector{MatchLabels: map[string]string{"jmeter_mode": "master"}}
 	actual := metav1.ListOptions{LabelSelector: labels.Set(labelSelector.MatchLabels).String()}
 	res, e := kop.ClientSet.CoreV1().Pods("").List(actual)
@@ -212,7 +206,7 @@ func (kop *Operations) GetallTenants() (ts []Tenant, err string) {
 		err = e.Error()
 	} else {
 		for _, item := range res.Items {
-			tenants = append(tenants, Tenant{Name: item.Name, Namespace: item.Namespace})
+			tenants = append(tenants, types.Tenant{Name: item.Name, Namespace: item.Namespace})
 		}
 		ts = tenants
 	}
@@ -605,9 +599,9 @@ func (kop Operations) StopTest(ns string) (started bool, err string) {
 }
 
 //StartTest starts the uploaded test
-func (kop Operations) StartTest(testPath string, ns string, bandwidth string, nbrnodes int) (started bool, err string) {
+func (kop Operations) StartTest(testPath string, ns string, listOfNodes string) (started bool, err string) {
 	cmd := fmt.Sprintf("%s/%s", props.MustGet("tscripts"), "start_test_controller.sh")
-	args := []string{testPath, ns, bandwidth, strconv.Itoa(nbrnodes)}
+	args := []string{testPath, ns, listOfNodes}
 	se := shellExec.Exec{}
 	_, err = se.ExecuteCommand(cmd, args)
 

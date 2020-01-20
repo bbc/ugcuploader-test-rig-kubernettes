@@ -34,8 +34,8 @@ done
 while [ $found -lt $2 ]
 do
     check_if_all_started
-    if [$found -lt $2 ];then 
-        lef "found=0"
-    if
+    if [ $found -lt $2 ];then
+        let "found=0"
+    fi
 done
 

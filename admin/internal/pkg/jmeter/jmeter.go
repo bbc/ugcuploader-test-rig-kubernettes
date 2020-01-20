@@ -27,8 +27,6 @@ func (jmeter Jmeter) GetFileName(fn string) {
 			}).Errorf("Unable to initialize kubeconfig")
 		} else {
 
-			/jmeterTestPlan/hashTree/hashTree/hashTree/HTTPSamplerProxy/elementProp/collectionProp/elementProp
-
 			list := xmlquery.Find(doc, "//TestPlan[HTTPSamplerProxy[@enabled='true']/elementProp/collectionProp/elementProp/stringProp[@name='File.Path']")
 			for _, l := range list {
 				log.WithFields(log.Fields{

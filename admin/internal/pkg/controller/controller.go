@@ -1,8 +1,9 @@
 package controller
 
 import (
-	"encoding/json"
+	"bytes"
 	"fmt"
+	"html/template"
 	"net/http"
 	"strings"
 
@@ -10,9 +11,10 @@ import (
 
 	aws "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/aws"
 	cluster "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/cluster"
-	jmeter "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/jmeter"
 	"github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/kubernetes"
+	types "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/types"
 	ugl "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/ugcupload"
+	validate "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/validate"
 
 	"strconv"
 
@@ -24,16 +26,6 @@ import (
 )
 
 var props = properties.MustLoadFile("/etc/ugcupload/loadtest.conf", properties.UTF8)
-var nonValidNamespaces = []string{"control", "default", "kube-node-lease", "kube-public", "kube-system", "ugcload-reporter", "weave"}
-
-func stringInSlice(a string, list []string) bool {
-	for _, b := range list {
-		if b == a {
-			return true
-		}
-	}
-	return false
-}
 
 //Controller the web control layer
 type Controller struct {
@@ -41,38 +33,8 @@ type Controller struct {
 	S3      aws.S3Operations
 }
 
-//UgcLoadRequest This is used to map to the form data.. seems to only work with firefox
-type UgcLoadRequest struct {
-	Context              string `json:"context" form:"context" validate:"required"`
-	NumberOfNodes        int    `json:"numberOfNodes" form:"numberOfNodes" validate:"numeric,min=1"`
-	BandWidthSelection   string `json:"bandWidthSelection" form:"bandWidthSelection" validate:"required"`
-	Jmeter               string `json:"jmeter" form:"jmeter"`
-	Data                 string `json:"data" form:"data"`
-	MissingTenant        bool
-	MissingNumberOfNodes bool
-	MissingJmeter        bool
-	ProblemsBinding      bool
-	MonitorURL           string
-	DashboardURL         string
-	Success              string
-	InvalidTenantName    string
-	TenantDeleted        string
-	TenantContext        string `json:"TenantContext" form:"TenantContext"`
-	TenantMissing        bool
-	InvalidTenantDelete  string
-	TennantNotDeleted    string
-	GenericCreateTestMsg string
-	StopContext          string `json:"stopcontext" form:"stopcontext"`
-	StopTenantMissing    bool
-	InvalidTenantStop    string
-	TennantNotStopped    string
-	TenantStopped        string
-	TenantList           []string
-	ReportURL            string
-}
-
 //AddMonitorAndDashboard adds the url of the dashboard and monitor the request
-func (cnt *Controller) AddMonitorAndDashboard(ur *UgcLoadRequest) {
+func (cnt *Controller) AddMonitorAndDashboard(ur *types.UgcLoadRequest) {
 	cnt.KubeOps.RegisterClient()
 	ip := cnt.KubeOps.LoadBalancerIP("control")
 	ur.MonitorURL = fmt.Sprintf("http://%s:4040", ip)
@@ -81,22 +43,32 @@ func (cnt *Controller) AddMonitorAndDashboard(ur *UgcLoadRequest) {
 }
 
 //AddTenants adds a list of tenants to the request
-func (cnt *Controller) AddTenants(ur *UgcLoadRequest) {
+func (cnt *Controller) AddTenants(ur *types.UgcLoadRequest) {
 	cnt.KubeOps.RegisterClient()
 	ur.TenantList, _ = cnt.S3.GetBucketItems("ugcupload-jmeter", "", 0)
+
+	var running []types.Tenant
+	for _, t := range cnt.tenantStatus() {
+		if t.Running == true {
+			running = append(running, t)
+		}
+	}
+
+	ur.RunningTests = running
+
+	t, _ := cnt.KubeOps.GetallTenants()
+	ur.AllTenants = t
 }
 
-//AllTenants fetches all the tenants
-func (cnt *Controller) AllTenants(c *gin.Context) {
-
+func (cnt *Controller) tenantStatus() (tenants []types.Tenant) {
 	cnt.KubeOps.RegisterClient()
 	t, e := cnt.KubeOps.GetallTenants()
 
 	if e != "" {
-		c.String(http.StatusBadRequest, "Unable to fetch tenants")
+		return
 	}
 
-	nt := []kubernetes.Tenant{}
+	nt := []types.Tenant{}
 
 	for _, tenant := range t {
 		r, e := cnt.KubeOps.CheckIfRunningJava(tenant.Namespace, tenant.Name)
@@ -107,10 +79,35 @@ func (cnt *Controller) AllTenants(c *gin.Context) {
 		}
 		nt = append(nt, tenant)
 	}
-	r, _ := json.Marshal(nt)
-	c.String(http.StatusOK, string(r))
+
+	tenants = nt
+	return
 }
 
+//RunningTests gets all the running tests
+func (cnt *Controller) RunningTests(c *gin.Context) {
+
+	tenants := cnt.tenantStatus()
+	tpl, err := template.ParseFiles(fmt.Sprintf("%s/templates/runningtest.tmpl", props.MustGet("web")))
+	if err != nil {
+		log.WithFields(log.Fields{
+			"err": err.Error(),
+		}).Info("Unble to load the template for showing running tests")
+
+	}
+	var buf bytes.Buffer
+	tpl.Execute(&buf, tenants)
+	c.String(http.StatusOK, buf.String())
+}
+
+//AllTenants fetches all the tenants
+func (cnt *Controller) AllTenants(c *gin.Context) {
+
+	tenants := cnt.tenantStatus()
+	c.PureJSON(http.StatusOK, tenants)
+}
+
+//GenerateReport used for generating the jmeter reports
 func (cnt *Controller) GenerateReport(c *gin.Context) {
 
 	tenant, _ := c.GetPostForm("tenant")
@@ -125,6 +122,7 @@ func (cnt *Controller) GenerateReport(c *gin.Context) {
 	c.String(http.StatusOK, e)
 }
 
+//S3Tenants used to get all the tenants in the s3 bucket
 func (cnt *Controller) S3Tenants(c *gin.Context) {
 
 	type Items struct {
@@ -145,18 +143,16 @@ func (cnt *Controller) S3Tenants(c *gin.Context) {
 //StopTest used to stop the test
 func (cnt *Controller) StopTest(c *gin.Context) {
 
-	jmeter := jmeter.Jmeter{}
-	jmeter.GetFileName(fmt.Sprintf("%s/upload/upload.jmx", props.MustGet("jmeter")))
 	session := sessions.Default(c)
 	cnt.KubeOps.RegisterClient()
 
-	ugcLoadRequest := new(UgcLoadRequest)
+	ugcLoadRequest := new(types.UgcLoadRequest)
 
 	if err := c.ShouldBindWith(&ugcLoadRequest, binding.Form); err != nil {
 		ugcLoadRequest.ProblemsBinding = true
 		session.Set("ugcLoadRequest", ugcLoadRequest)
 		session.Save()
-		c.Redirect(http.StatusMovedPermanently, "/")
+		c.Redirect(http.StatusMovedPermanently, "/update")
 		c.Abort()
 		return
 	}
@@ -165,20 +161,12 @@ func (cnt *Controller) StopTest(c *gin.Context) {
 		"StopContext": ugcLoadRequest.StopContext,
 	}).Info("StopContext")
 
-	if ugcLoadRequest.StopContext == "" {
-		ugcLoadRequest.StopTenantMissing = true
-		session.Set("ugcLoadRequest", ugcLoadRequest)
-		session.Save()
-		c.Redirect(http.StatusMovedPermanently, "/")
-		c.Abort()
-		return
-	}
+	validator := validate.Validator{Context: c}
 
-	if stringInSlice(ugcLoadRequest.StopContext, nonValidNamespaces) {
-		ugcLoadRequest.InvalidTenantStop = strings.Join(nonValidNamespaces, ",")
+	if validator.ValidateStopTest(ugcLoadRequest) == false {
 		session.Set("ugcLoadRequest", ugcLoadRequest)
 		session.Save()
-		c.Redirect(http.StatusMovedPermanently, "/")
+		c.Redirect(http.StatusMovedPermanently, "/update")
 		c.Abort()
 		return
 	}
@@ -192,7 +180,7 @@ func (cnt *Controller) StopTest(c *gin.Context) {
 		ugcLoadRequest.TennantNotStopped = fmt.Sprintf("Unable to stop tenant: %s", errStr)
 		session.Set("ugcLoadRequest", ugcLoadRequest)
 		session.Save()
-		c.Redirect(http.StatusMovedPermanently, "/")
+		c.Redirect(http.StatusMovedPermanently, "/update")
 		c.Abort()
 		return
 	}
@@ -201,23 +189,24 @@ func (cnt *Controller) StopTest(c *gin.Context) {
 	ugcLoadRequest.StopContext = ""
 	session.Set("ugcLoadRequest", ugcLoadRequest)
 	session.Save()
-	c.Redirect(http.StatusMovedPermanently, "/")
+	c.Redirect(http.StatusMovedPermanently, "/update")
 	c.Abort()
 	return
 }
 
+//DeleteTenant used for deleting the tenant
 func (cnt *Controller) DeleteTenant(c *gin.Context) {
 
 	session := sessions.Default(c)
 
 	cnt.KubeOps.RegisterClient()
-	ugcLoadRequest := new(UgcLoadRequest)
-
+	ugcLoadRequest := new(types.UgcLoadRequest)
+	validator := validate.Validator{Context: c}
 	if err := c.ShouldBindWith(ugcLoadRequest, binding.Form); err != nil {
 		ugcLoadRequest.ProblemsBinding = true
 		session.Set("ugcLoadRequest", ugcLoadRequest)
 		session.Save()
-		c.Redirect(http.StatusMovedPermanently, "/")
+		c.Redirect(http.StatusMovedPermanently, "/update")
 		c.Abort()
 		return
 	}
@@ -226,20 +215,11 @@ func (cnt *Controller) DeleteTenant(c *gin.Context) {
 		"TenantContext": ugcLoadRequest.TenantContext,
 	}).Info("TenantContext")
 
-	if ugcLoadRequest.TenantContext == "" {
-		ugcLoadRequest.TenantMissing = true
+	ugcLoadRequest.TenantContext = strings.TrimSpace(ugcLoadRequest.TenantContext)
+	if validator.ValidateTenantDelete(ugcLoadRequest) == false {
 		session.Set("ugcLoadRequest", ugcLoadRequest)
 		session.Save()
-		c.Redirect(http.StatusMovedPermanently, "/")
-		c.Abort()
-		return
-	}
-
-	if stringInSlice(ugcLoadRequest.TenantContext, nonValidNamespaces) {
-		ugcLoadRequest.InvalidTenantDelete = strings.Join(nonValidNamespaces, ",")
-		session.Set("ugcLoadRequest", ugcLoadRequest)
-		session.Save()
-		c.Redirect(http.StatusMovedPermanently, "/")
+		c.Redirect(http.StatusMovedPermanently, "/update")
 		c.Abort()
 		return
 	}
@@ -257,7 +237,7 @@ func (cnt *Controller) DeleteTenant(c *gin.Context) {
 		ugcLoadRequest.TennantNotDeleted = fmt.Sprintf("Unable to delete service account: %s", errStr)
 		session.Set("ugcLoadRequest", ugcLoadRequest)
 		session.Save()
-		c.Redirect(http.StatusMovedPermanently, "/")
+		c.Redirect(http.StatusMovedPermanently, "/update")
 		c.Abort()
 		return
 	}
@@ -265,7 +245,7 @@ func (cnt *Controller) DeleteTenant(c *gin.Context) {
 	ugcLoadRequest.TenantContext = ""
 	session.Set("ugcLoadRequest", ugcLoadRequest)
 	session.Save()
-	c.Redirect(http.StatusMovedPermanently, "/")
+	c.Redirect(http.StatusMovedPermanently, "/update")
 	c.Abort()
 	return
 
@@ -276,43 +256,24 @@ func (cnt *Controller) Upload(c *gin.Context) {
 
 	session := sessions.Default(c)
 
-	cnt.KubeOps.RegisterClient()
-	ugcLoadRequest := new(UgcLoadRequest)
+	validator := validate.Validator{Context: c}
 
+	cnt.KubeOps.RegisterClient()
+	ugcLoadRequest := new(types.UgcLoadRequest)
 	if err := c.ShouldBindWith(ugcLoadRequest, binding.Form); err != nil {
 		ugcLoadRequest.ProblemsBinding = true
 		session.Set("ugcLoadRequest", ugcLoadRequest)
 		session.Save()
-		c.Redirect(http.StatusMovedPermanently, "/")
+		c.Redirect(http.StatusMovedPermanently, "/update")
 		c.Abort()
 		return
 	}
 
-	if len(strings.TrimSpace(ugcLoadRequest.Context)) < 3 {
-		ugcLoadRequest.MissingTenant = true
+	ugcLoadRequest.Context = strings.TrimSpace(ugcLoadRequest.Context)
+	if validator.ValidateUpload(ugcLoadRequest) == false {
 		session.Set("ugcLoadRequest", ugcLoadRequest)
 		session.Save()
-		c.Redirect(http.StatusMovedPermanently, "/")
-		c.Abort()
-		return
-
-	}
-
-	if ugcLoadRequest.NumberOfNodes < 1 {
-		ugcLoadRequest.MissingNumberOfNodes = true
-		session.Set("ugcLoadRequest", ugcLoadRequest)
-		session.Save()
-		c.Redirect(http.StatusMovedPermanently, "/")
-		c.Abort()
-		return
-
-	}
-
-	if stringInSlice(ugcLoadRequest.Context, nonValidNamespaces) {
-		ugcLoadRequest.InvalidTenantName = strings.Join(nonValidNamespaces, ",")
-		session.Set("ugcLoadRequest", ugcLoadRequest)
-		session.Save()
-		c.Redirect(http.StatusMovedPermanently, "/")
+		c.Redirect(http.StatusMovedPermanently, "/update")
 		c.Abort()
 		return
 	}
@@ -334,7 +295,7 @@ func (cnt *Controller) Upload(c *gin.Context) {
 			ugcLoadRequest.GenericCreateTestMsg = err.Error()
 			session.Set("ugcLoadRequest", ugcLoadRequest)
 			session.Save()
-			c.Redirect(http.StatusMovedPermanently, "/")
+			c.Redirect(http.StatusMovedPermanently, "/update")
 			c.Abort()
 			return
 		}
@@ -346,7 +307,7 @@ func (cnt *Controller) Upload(c *gin.Context) {
 			ugcLoadRequest.GenericCreateTestMsg = errNs
 			session.Set("ugcLoadRequest", ugcLoadRequest)
 			session.Save()
-			c.Redirect(http.StatusMovedPermanently, "/")
+			c.Redirect(http.StatusMovedPermanently, "/update")
 			c.Abort()
 			return
 		}
@@ -359,7 +320,7 @@ func (cnt *Controller) Upload(c *gin.Context) {
 			ugcLoadRequest.GenericCreateTestMsg = e
 			session.Set("ugcLoadRequest", ugcLoadRequest)
 			session.Save()
-			c.Redirect(http.StatusMovedPermanently, "/")
+			c.Redirect(http.StatusMovedPermanently, "/update")
 			c.Abort()
 			return
 		}
@@ -371,7 +332,7 @@ func (cnt *Controller) Upload(c *gin.Context) {
 			ugcLoadRequest.GenericCreateTestMsg = e
 			session.Set("ugcLoadRequest", ugcLoadRequest)
 			session.Save()
-			c.Redirect(http.StatusMovedPermanently, "/")
+			c.Redirect(http.StatusMovedPermanently, "/update")
 			c.Abort()
 			return
 		}
@@ -383,7 +344,7 @@ func (cnt *Controller) Upload(c *gin.Context) {
 			ugcLoadRequest.GenericCreateTestMsg = e
 			session.Set("ugcLoadRequest", ugcLoadRequest)
 			session.Save()
-			c.Redirect(http.StatusMovedPermanently, "/")
+			c.Redirect(http.StatusMovedPermanently, "/update")
 			c.Abort()
 			return
 		}
@@ -395,7 +356,7 @@ func (cnt *Controller) Upload(c *gin.Context) {
 			ugcLoadRequest.GenericCreateTestMsg = e
 			session.Set("ugcLoadRequest", ugcLoadRequest)
 			session.Save()
-			c.Redirect(http.StatusMovedPermanently, "/")
+			c.Redirect(http.StatusMovedPermanently, "/update")
 			c.Abort()
 			return
 		}
@@ -416,7 +377,7 @@ func (cnt *Controller) Upload(c *gin.Context) {
 		ugcLoadRequest.MissingJmeter = true
 		session.Set("ugcLoadRequest", ugcLoadRequest)
 		session.Save()
-		c.Redirect(http.StatusMovedPermanently, "/")
+		c.Redirect(http.StatusMovedPermanently, "/update")
 		c.Abort()
 		return
 	}
@@ -460,15 +421,25 @@ func (cnt *Controller) Upload(c *gin.Context) {
 		}
 
 	}
+	listOfHost := strings.Join(hostnames, ",")
 
-	s, er := cnt.KubeOps.StartTest(testPath, ugcLoadRequest.Context, ugcLoadRequest.BandWidthSelection, ugcLoadRequest.NumberOfNodes)
-
-	if s == false {
+	if len(listOfHost) > 0 {
+		s, er := cnt.KubeOps.StartTest(testPath, ugcLoadRequest.Context, listOfHost)
+		if s == false {
+			cnt.KubeOps.RegisterClient()
+			ugcLoadRequest.GenericCreateTestMsg = er
+			session.Set("ugcLoadRequest", ugcLoadRequest)
+			session.Save()
+			c.Redirect(http.StatusMovedPermanently, "/update")
+			c.Abort()
+			return
+		}
+	} else {
 		cnt.KubeOps.RegisterClient()
-		ugcLoadRequest.GenericCreateTestMsg = er
+		ugcLoadRequest.GenericCreateTestMsg = fmt.Sprintf("No slaves found: Test for started for [%s]", ugcLoadRequest.Context)
 		session.Set("ugcLoadRequest", ugcLoadRequest)
 		session.Save()
-		c.Redirect(http.StatusMovedPermanently, "/")
+		c.Redirect(http.StatusMovedPermanently, "/update")
 		c.Abort()
 		return
 	}
@@ -478,7 +449,7 @@ func (cnt *Controller) Upload(c *gin.Context) {
 	ugcLoadRequest.Context = ""
 	session.Set("ugcLoadRequest", ugcLoadRequest)
 	session.Save()
-	c.Redirect(http.StatusMovedPermanently, "/")
+	c.Redirect(http.StatusMovedPermanently, "/update")
 	c.Abort()
 	return
 }
