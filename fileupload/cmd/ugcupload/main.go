@@ -1,11 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"encoding/gob"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
-	"os/exec"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/gin-gonic/gin/binding"
 
+	shellExec "github.com/bbc/ugcuploader-test-rig-kubernettes/fileupload/internal/pkg/exec"
 	ugl "github.com/bbc/ugcuploader-test-rig-kubernettes/fileupload/internal/pkg/ugcupload"
 )
 
@@ -61,15 +63,27 @@ func UserProps(c *gin.Context) {
 	fop.SaveFile(fmt.Sprintf("%s/bin/user.properties", jh))
 }
 
+//NOTE: Had to do this because the bash script was hanging...
+func startJmeterServer() {
+
+	cmd := fmt.Sprintf("/start.sh")
+	args := []string{"<", "/dev/null"}
+	se := shellExec.Exec{}
+	_, err := se.ExecuteCommand(cmd, args)
+	if err != "" {
+		log.WithFields(log.Fields{
+			"err": err,
+		}).Error("unable to start the test")
+	}
+}
+
 //StartServer used to start jmeter server
 func StartServer(c *gin.Context) {
 
-	cmd := exec.Command("/start.sh")
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		c.String(http.StatusBadRequest, err.Error())
-	}
-	c.String(http.StatusOK, string(out))
+	go startJmeterServer()
+	//Just giving jmeter server time to start
+	time.Sleep(2 * time.Second)
+	c.String(http.StatusOK, "start test")
 	return
 }
 func main() {
@@ -108,4 +122,30 @@ func router01() http.Handler {
 	r.GET("/start-server", StartServer)
 
 	return r
+}
+
+// Code below taken from here: https://github.com/kjk/go-cookbook/blob/master/advanced-exec/03-live-progress-and-capture-v2.go
+// CapturingPassThroughWriter is a writer that remembers
+// data written to it and passes it to w
+type CapturingPassThroughWriter struct {
+	buf bytes.Buffer
+	w   io.Writer
+}
+
+// NewCapturingPassThroughWriter creates new CapturingPassThroughWriter
+func NewCapturingPassThroughWriter(w io.Writer) *CapturingPassThroughWriter {
+	return &CapturingPassThroughWriter{
+		w: w,
+	}
+}
+
+// Write writes data to the writer, returns number of bytes written and an error
+func (w *CapturingPassThroughWriter) Write(d []byte) (int, error) {
+	w.buf.Write(d)
+	return w.w.Write(d)
+}
+
+// Bytes returns bytes written to the writer
+func (w *CapturingPassThroughWriter) Bytes() []byte {
+	return w.buf.Bytes()
 }

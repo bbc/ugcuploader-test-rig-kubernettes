@@ -103,6 +103,7 @@ func (fop FileUploadOperations) ProcessData(uri string) (destFilename string) {
 		} else {
 			fop.UploadFile(f, uri, file.Filename)
 		}
+		f.Close()
 		//fop.Context.SaveUploadedFile(file, props.MustGet("data")+"/"+file.Filename)
 	}
 	return
@@ -123,6 +124,7 @@ func (fop FileUploadOperations) UploadJmeterProps(uri string, bw string) {
 		}).Error("Could not open bandwidth file")
 	}
 	fop.UploadFile(r, uri, "jmeter.properties")
+	r.Close()
 
 }
 

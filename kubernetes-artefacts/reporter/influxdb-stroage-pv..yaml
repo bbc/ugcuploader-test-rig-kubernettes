@@ -1,0 +1,27 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: influx-db-sc
+provisioner: kubernetes.io/aws-ebs
+parameters:
+  type: gp2
+reclaimPolicy: Retain
+allowVolumeExpansion: true
+mountOptions:
+  - debug
+volumeBindingMode: Immediate
+---
+apiVersion: "v1"
+kind: "PersistentVolume"
+metadata:
+  name: "influxdb-pv" 
+spec:
+  storageClassName: influx-db-sc
+  capacity:
+    storage: "40Gi" 
+  accessModes:
+    - "ReadWriteOnce"
+  persistentVolumeReclaimPolicy: Retain   
+  awsElasticBlockStore: 
+    fsType: "ext4" 
+    volumeID: "vol-0bd45ad076638f4f7" 

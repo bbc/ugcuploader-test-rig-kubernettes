@@ -3,7 +3,6 @@ package controller
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"strings"
 
@@ -11,6 +10,7 @@ import (
 
 	aws "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/aws"
 	cluster "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/cluster"
+	jmeter "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/jmeter"
 	"github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/kubernetes"
 	ugl "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/ugcupload"
 
@@ -145,6 +145,8 @@ func (cnt *Controller) S3Tenants(c *gin.Context) {
 //StopTest used to stop the test
 func (cnt *Controller) StopTest(c *gin.Context) {
 
+	jmeter := jmeter.Jmeter{}
+	jmeter.GetFileName(fmt.Sprintf("%s/upload/upload.jmx", props.MustGet("jmeter")))
 	session := sessions.Default(c)
 	cnt.KubeOps.RegisterClient()
 
@@ -429,20 +431,34 @@ func (cnt *Controller) Upload(c *gin.Context) {
 		fop.ProcessData(dataURI)
 		jmeterURI := fmt.Sprintf("http://%s:1007/jmeter-props", hn)
 		fop.UploadJmeterProps(jmeterURI, ugcLoadRequest.BandWidthSelection)
-		resp, err := http.Get(fmt.Sprintf("http://%s:1007/start-server", hn))
+		req, err := http.NewRequest("GET", fmt.Sprintf("http://%s:1007/start-server", hn), nil)
 		if err != nil {
 			log.WithFields(log.Fields{
 				"err":  err.Error(),
 				"host": hn,
-			}).Error("Problems starting the jmeter slave")
+			}).Error("Problems creating the request")
 			// handle error
-		}
-		defer resp.Body.Close()
-		body, err := ioutil.ReadAll(resp.Body)
+		} else {
 
-		log.WithFields(log.Fields{
-			"response": string(body),
-		}).Info("Response from starting the jmeter slave")
+			client := &http.Client{}
+			resp, errResp := client.Do(req)
+			if errResp != nil {
+				log.WithFields(log.Fields{
+					"err":  errResp.Error(),
+					"host": hn,
+				}).Error("Problems creating the request")
+
+			} else {
+
+				var bodyContent []byte
+				resp.Body.Read(bodyContent)
+				resp.Body.Close()
+				log.WithFields(log.Fields{
+					"response": string(bodyContent),
+				}).Info("Response from starting the jmeter slave")
+			}
+		}
+
 	}
 
 	s, er := cnt.KubeOps.StartTest(testPath, ugcLoadRequest.Context, ugcLoadRequest.BandWidthSelection, ugcLoadRequest.NumberOfNodes)

@@ -28,6 +28,8 @@ replace (
 )
 
 require (
+	github.com/antchfx/xmlquery v1.2.3
+	github.com/antchfx/xpath v1.1.4 // indirect
 	github.com/aws/aws-sdk-go v1.27.4
 	github.com/aws/aws-sdk-go-v2 v0.18.0
 	github.com/gin-contrib/location v0.0.1
