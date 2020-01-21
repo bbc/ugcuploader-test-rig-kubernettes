@@ -21,10 +21,12 @@ spec:
           imagePullPolicy: IfNotPresent
           name: influxdb
           volumeMounts:
-          - name: config-volume
-            mountPath: /etc/influxdb
-          - name: influxdb-jmeter
-            mountPath: /var/lib/influxdb
+            - mountPath: /var/lib/influxdb
+              name: influxdb-jmeter
+            - mountPath: /etc/influxdb/influxdb.conf
+              name: influxdb-config
+              subPath: influxdb.conf
+              readOnly: true
           ports:
             - containerPort: 8083
               name: influx
@@ -33,8 +35,9 @@ spec:
             - containerPort: 2003
               name: graphite
       volumes:
-      - name: config-volume
+      - name: influxdb-config
         configMap:
+          name: influxdb-config
       - name: influxdb-jmeter
         persistentVolumeClaim:
            claimName: influxdb-jmeter

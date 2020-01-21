@@ -51,20 +51,18 @@ RUN apk add --no-cache shadow sudo && \
 
 WORKDIR /home/control
 USER 1000
+COPY etc /etc
 RUN mkdir /home/control/admin
 
-
+COPY admin admin
+RUN sudo chown -R control:control admin
 # add credentials on build
 #ARG SSH_PRIVATE_KEY
 #RUN mkdir ~/.ssh/
 #RUN echo "${SSH_PRIVATE_KEY}" > ~/.ssh/id_rsa
-
+WORKDIR /home/control/admin
 # Force the go compiler to use modules 
 ENV GO111MODULE=on
-
-# We want to populate the module cache based on the go.{mod,sum} files. 
-COPY admin/go.mod .
-COPY admin/go.sum .
 
 #This is the ‘magic’ step that will download all the dependencies that are specified in 
 # the go.mod and go.sum file.
@@ -76,13 +74,12 @@ RUN go mod download
 
 # This image builds the weavaite server
 # Here we copy the rest of the source code
-COPY admin admin
+
 # And compile the project
 
-RUN sudo chown -R control:control admin
-#RUN go build -o ./admin/bin/admin  ./admin/cmd/ugcupload/main.go
 
-COPY etc /etc
+RUN go build -o ./bin/admin  ./cmd/ugcupload/main.go
+WORKDIR /home/control
 
 RUN curl --silent --location "https://github.com/weaveworks/eksctl/releases/download/latest_release/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
 RUN sudo mv /tmp/eksctl /usr/local/bin

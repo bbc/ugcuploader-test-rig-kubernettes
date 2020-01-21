@@ -26,7 +26,7 @@ export AWS_DEFAULT_REGION=eu-west-2
 
 aws eks --region eu-west-2 update-kubeconfig --name ugctestgrid
 nohup kubectl port-forward --address 0.0.0.0 -n weave "$(kubectl get -n weave pod --selector=weave-scope-component=app -o jsonpath='{.items..metadata.name}')" 4040 &> weavscope.out&
-nohup go run /home/control/admin/cmd/ugcupload/main.go &> admincontroller.out&
+nohup /home/control/admin/bin/admin &> admincontroller.out&
 
 sudo cat >/home/control/start_weavescope.sh<<EOF
 #!/usr/bin/env bash
