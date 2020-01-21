@@ -18,10 +18,10 @@ iam:
  #   - "arn:aws:iam::546933502184:policy/ugcupload-eks-jmeter-policy"
 
 nodeGroups:
-  - name: jmeter-slaves-v3
+  - name: jmeter-slaves-v4
     labels: { jmeter_mode : slaves }
     minSize: 2
-    maxSize: 50
+    maxSize: 100
     volumeSize: 50
     volumeType: gp2
     iam:

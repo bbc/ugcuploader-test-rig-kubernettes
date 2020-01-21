@@ -71,9 +71,11 @@ func (cnt *Controller) tenantStatus() (tenants []types.Tenant) {
 
 	for _, tenant := range t {
 		r, e := cnt.KubeOps.CheckIfRunningJava(tenant.Namespace, tenant.Name)
-		if len(e) < 1 && len(r) < 1 {
-			tenant.Running = true
-		} else if len(e) > 0 || len(r) < 1 {
+		log.WithFields(log.Fields{
+			"r": r,
+			"e": e,
+		}).Info("Values Returned from CheckifRunningInJava")
+		if len(e) > 0 || len(r) < 1 {
 			tenant.Running = false
 		} else {
 			tenant.Running = true
@@ -395,7 +397,6 @@ func (cnt *Controller) Upload(c *gin.Context) {
 				}).Error("Problems creating the request")
 
 			} else {
-
 				var bodyContent []byte
 				resp.Body.Read(bodyContent)
 				resp.Body.Close()
