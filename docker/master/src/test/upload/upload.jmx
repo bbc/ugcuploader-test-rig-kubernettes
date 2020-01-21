@@ -1598,8 +1598,8 @@ cookieprop.setObjectValue(manager);
         <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Upload-${__property(TENNANT,&quot;Not Found&quot;)}" enabled="true">
           <elementProp name="HTTPsampler.Files" elementType="HTTPFileArgs">
             <collectionProp name="HTTPFileArgs.files">
-              <elementProp name="${__P(test.data,&quot;hmm&quot;)}/200MB.txt" elementType="HTTPFileArg">
-                <stringProp name="File.path">${__P(test.data,&quot;hmm&quot;)}/200MB.txt</stringProp>
+              <elementProp name="${__P(test.data,&quot;hmm&quot;)}/colors_of_market.jpg" elementType="HTTPFileArg">
+                <stringProp name="File.path">${__P(test.data,&quot;hmm&quot;)}/colors_of_market.jpg</stringProp>
                 <stringProp name="File.paramname">data</stringProp>
                 <stringProp name="File.mimetype">image/jpeg</stringProp>
               </elementProp>

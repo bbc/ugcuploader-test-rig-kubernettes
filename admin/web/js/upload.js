@@ -174,6 +174,39 @@ $(document).ready(function () {
         );
         $("#startTestBtn").prop("disabled", true)
         $("#deleteTenantBtn").prop("disabled", true)
+        var form = $("#stopTestFrm")[0]; // You need to use standard javascript object here
+        var formData = new FormData(form);
+      
+        // Call ajax for pass data to other place
+        $.ajax({
+            type: 'POST',
+            enctype: 'multipart/form-data',
+            url: '/stop-test',
+            data: formData, // getting filed value in serialize form
+            processData: false,
+            contentType: false
+        }).done(function (data) { // if getting done then call.
+            $("#stopTestBtn").html(
+                `button type="submit" id="stopTestBtn" class="btn btn-primary">Stop Test</button>`
+            )
+            $("#startTestBtn").prop("disabled", false)
+            $("#deleteTenantBtn").prop("disabled", false)
+            alert(JSON.stringify(data))
+            populate(data)
+
+            })
+            .fail(function () { // if fail then getting message
+                $("#stopTestBtn").html(
+                    `button type="submit" id="stopTestBtn" class="btn btn-primary">Stop Test</button>`
+                )
+                $("#startTestBtn").prop("disabled", false)
+                $("#deleteTenantBtn").prop("disabled", false)
+                $("#GenericCreateTestMsg").empty()
+                $("#GenericCreateTestMsg").append('<div class="alert alert-warning" role="alert">SERVER HAS CRASHED</div>')
+            });
+
+        // to prevent refreshing the whole page page
+        return false;
     });
 
 });
@@ -315,8 +348,11 @@ function populate(data){
     }
     
 
+    if (_.isEmpty(data.Success)){
+        $("#Success").empty()
+    } else {
+        $("#Success").empty()
+        $("#Success").append('<div class="alert alert-success" role="alert"><strong>'+data.Success+'</strong></div>')
+    }
    
-
-
-
 }

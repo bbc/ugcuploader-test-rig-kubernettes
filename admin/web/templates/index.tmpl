@@ -26,28 +26,6 @@
 
     <div class="container-fluid">
         <div class="row">
-            <div class="col-md-2 text-center">&nbsp;
-            </div>
-            <div class="col-md-3 text-center">
-                <div class="card">
-                    <h5 class="card-header">Running Test</h5>
-                    <div class="card-body">
-                        <div  class="text-center" style="overflow: scroll; height: 100px;" id="running"></div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-1 text-center">&nbsp;
-            </div>
-            <div class="col-md-3 text-center">
-                <div class="card">
-                    <h5 class="card-header">Available</h5>
-                    <div class="card-body">
-                        <div class="text-center"  style="overflow: scroll; height: 100px;" id="available"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="row">
             <div class="col-md-12">
                 <hr style="width: 100%; color: black; height: 1px; background-color:black;" />
             </div>
@@ -193,11 +171,8 @@
                             </form>
                         </fieldset>
                     </div>
-                    {{if .Success}}
-                    <div class="alert alert-success" role="alert">
-                        <strong>{{ .Success}}</strong>
-                    </div>
-                    {{end}}
+                    <div i="Success"></div>
+    
                 </div>
 
             </div>

@@ -1,9 +1,7 @@
 package controller
 
 import (
-	"bytes"
 	"fmt"
-	"html/template"
 	"net/http"
 	"strings"
 
@@ -49,6 +47,7 @@ func (cnt *Controller) AddTenants(ur *types.UgcLoadRequest) {
 
 	var running []types.Tenant
 	for _, t := range cnt.tenantStatus() {
+		fmt.Println(fmt.Sprintf("%w runnn-----", t))
 		if t.Running == true {
 			running = append(running, t)
 		}
@@ -72,7 +71,9 @@ func (cnt *Controller) tenantStatus() (tenants []types.Tenant) {
 
 	for _, tenant := range t {
 		r, e := cnt.KubeOps.CheckIfRunningJava(tenant.Namespace, tenant.Name)
-		if len(e) > 0 || len(r) < 1 {
+		if len(e) < 1 && len(r) < 1 {
+			tenant.Running = true
+		} else if len(e) > 0 || len(r) < 1 {
 			tenant.Running = false
 		} else {
 			tenant.Running = true
@@ -82,22 +83,6 @@ func (cnt *Controller) tenantStatus() (tenants []types.Tenant) {
 
 	tenants = nt
 	return
-}
-
-//RunningTests gets all the running tests
-func (cnt *Controller) RunningTests(c *gin.Context) {
-
-	tenants := cnt.tenantStatus()
-	tpl, err := template.ParseFiles(fmt.Sprintf("%s/templates/runningtest.tmpl", props.MustGet("web")))
-	if err != nil {
-		log.WithFields(log.Fields{
-			"err": err.Error(),
-		}).Info("Unble to load the template for showing running tests")
-
-	}
-	var buf bytes.Buffer
-	tpl.Execute(&buf, tenants)
-	c.String(http.StatusOK, buf.String())
 }
 
 //AllTenants fetches all the tenants
