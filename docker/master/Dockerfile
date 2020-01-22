@@ -17,7 +17,7 @@ RUN apk add --no-cache shadow sudo && \
     echo "jmeter ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/jmeter && \
     chmod 0440 /etc/sudoers.d/jmeter
 
-RUN apk add jq
+RUN apk add jq go git
 
 RUN curl "https://s3.amazonaws.com/aws-cli/awscli-bundle.zip" -o "awscli-bundle.zip"
 RUN  unzip awscli-bundle.zip
@@ -33,6 +33,15 @@ RUN mkdir bin
 COPY bin bin
 COPY src/test $TEST_HOME
 COPY etc /etc
+
+RUN mkdir /jmeter-slave
+COPY jmeter-slave jmeter-slave
+
+WORKDIR /home/jmeter/jmeter-slave
+ENV GO111MODULE=on
+RUN go mod download
+RUN go build -o upload cmd/ugcupload/main.go
+
 USER root
 
 RUN chmod 0644 /home/jmeter/bin/crontab.txt
@@ -43,3 +52,4 @@ ENTRYPOINT ["/home/jmeter/bin/entrypoint.sh"]
 USER 1000
 RUN mkdir /home/jmeter/graphs
 EXPOSE 60000
+EXPOSE 1008

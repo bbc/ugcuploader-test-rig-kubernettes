@@ -355,9 +355,8 @@ func (kop *Operations) CreateJmeterMasterDeployment(namespace string, awsAcntNbr
 								RunAsGroup: int64Ptr(1000),
 							},
 							Ports: []corev1.ContainerPort{
-								{
-									ContainerPort: 60000,
-								},
+								corev1.ContainerPort{ContainerPort: int32(60000)},
+								corev1.ContainerPort{ContainerPort: int32(1008)},
 							},
 						},
 					},

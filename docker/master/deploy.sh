@@ -18,6 +18,8 @@ echo $aws_acnt_num
 
 rm -rf src
 cp -R ../../src .
+rm -rf jmeter-master
+cp -R ../../jmeter-master .
 REPO="$aws_acnt_num.dkr.ecr.$region.amazonaws.com/ugctestgrid/jmeter-master:latest"
 echo "Repo: $REPO"
 aws ecr delete-repository --force --repository-name ugctestgrid/jmeter-master

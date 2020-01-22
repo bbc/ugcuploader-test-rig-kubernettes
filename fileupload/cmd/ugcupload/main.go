@@ -1,10 +1,8 @@
 package main
 
 import (
-	"bytes"
 	"encoding/gob"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"time"
@@ -122,30 +120,4 @@ func router01() http.Handler {
 	r.GET("/start-server", StartServer)
 
 	return r
-}
-
-// Code below taken from here: https://github.com/kjk/go-cookbook/blob/master/advanced-exec/03-live-progress-and-capture-v2.go
-// CapturingPassThroughWriter is a writer that remembers
-// data written to it and passes it to w
-type CapturingPassThroughWriter struct {
-	buf bytes.Buffer
-	w   io.Writer
-}
-
-// NewCapturingPassThroughWriter creates new CapturingPassThroughWriter
-func NewCapturingPassThroughWriter(w io.Writer) *CapturingPassThroughWriter {
-	return &CapturingPassThroughWriter{
-		w: w,
-	}
-}
-
-// Write writes data to the writer, returns number of bytes written and an error
-func (w *CapturingPassThroughWriter) Write(d []byte) (int, error) {
-	w.buf.Write(d)
-	return w.w.Write(d)
-}
-
-// Bytes returns bytes written to the writer
-func (w *CapturingPassThroughWriter) Bytes() []byte {
-	return w.buf.Bytes()
 }

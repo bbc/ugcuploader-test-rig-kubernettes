@@ -26,7 +26,7 @@ export AWS_DEFAULT_REGION=eu-west-2
 
 aws eks --region eu-west-2 update-kubeconfig --name ugctestgrid
 nohup kubectl port-forward --address 0.0.0.0 -n weave "$(kubectl get -n weave pod --selector=weave-scope-component=app -o jsonpath='{.items..metadata.name}')" 4040 &> weavscope.out&
-nohup /home/control/admin/bin/admin &> admincontroller.out&
+
 
 sudo cat >/home/control/start_weavescope.sh<<EOF
 #!/usr/bin/env bash
@@ -78,6 +78,8 @@ sudo service sshd start
 sudo crond  -d 8 
 sudo rc-service lighttpd start
 sudo rc-service redis start
+# Need to start this after the redis is up otherwise it breaks.
+nohup /home/control/admin/bin/admin &> admincontroller.out&
 echo "tart $@"
 # Hand off to the CMD
 exec "$@"
