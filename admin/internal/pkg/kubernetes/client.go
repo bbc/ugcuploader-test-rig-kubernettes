@@ -356,7 +356,7 @@ func (kop *Operations) CreateJmeterMasterDeployment(namespace string, awsAcntNbr
 							},
 							Ports: []corev1.ContainerPort{
 								corev1.ContainerPort{ContainerPort: int32(60000)},
-								corev1.ContainerPort{ContainerPort: int32(1008)},
+								corev1.ContainerPort{ContainerPort: int32(1025)},
 							},
 						},
 					},
@@ -406,11 +406,40 @@ func (kop *Operations) GetHostEndpoints(ns string) (endpoints []string) {
 	return
 }
 
+//GetHostNamesOfJmeterMaster Gets the ip addresses of the slaves
+func (kop *Operations) GetHostNamesOfJmeterMaster(ns string) (hostnames []string) {
+
+	var hn []string
+	labelSelector := metav1.LabelSelector{MatchLabels: map[string]string{"jmeter_mode": "master"}}
+	actual := metav1.ListOptions{LabelSelector: labels.Set(labelSelector.MatchLabels).String()}
+	pods, err := kop.ClientSet.CoreV1().Pods(ns).List(actual)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"err":       err.Error(),
+			"namespace": ns,
+		}).Error("Unable to find any pods in the namespace")
+	} else {
+
+		//<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>
+		for _, pod := range pods.Items {
+			log.WithFields(log.Fields{
+				"hostIP": pod.Status.PodIP,
+				"name":   pod.Name,
+			}).Info("Jmeter slaves")
+			if strings.EqualFold(string(pod.Status.Phase), "Running") {
+				hn = append(hn, pod.Status.PodIP)
+			}
+		}
+		hostnames = hn
+	}
+	return
+}
+
 //GetHostNamesOfJmeterSlaves Gets the ip addresses of the slaves
 func (kop *Operations) GetHostNamesOfJmeterSlaves(ns string) (hostnames []string) {
 
 	var hn []string
-	labelSelector := metav1.LabelSelector{MatchLabels: map[string]string{"jmeter_mode": "slave"}}
+	labelSelector := metav1.LabelSelector{MatchLabels: map[string]string{"jmeter_mode": "master"}}
 	actual := metav1.ListOptions{LabelSelector: labels.Set(labelSelector.MatchLabels).String()}
 	pods, err := kop.ClientSet.CoreV1().Pods(ns).List(actual)
 	if err != nil {

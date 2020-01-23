@@ -4,11 +4,14 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
+	uuid "github.com/satori/go.uuid"
 	log "github.com/sirupsen/logrus"
 
 	aws "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/aws"
 	cluster "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/cluster"
+	jmeter "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/jmeter"
 	"github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/kubernetes"
 	types "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/types"
 	ugl "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/ugcupload"
@@ -357,17 +360,19 @@ func (cnt *Controller) Upload(c *gin.Context) {
 		"ugcLoadRequest.Jmeter":             ugcLoadRequest.Jmeter,
 		"ugcLoadRequest.Data":               ugcLoadRequest.Data,
 	}).Info("Request Properties")
-	fop := ugl.FileUploadOperations{Context: c}
-	testPath := fop.ProcessJmeter()
-	if testPath == "" {
-		cnt.KubeOps.RegisterClient()
-		ugcLoadRequest.MissingJmeter = true
-		session.Set("ugcLoadRequest", ugcLoadRequest)
-		session.Save()
-		c.Redirect(http.StatusMovedPermanently, "/update")
-		c.Abort()
-		return
-	}
+
+	/*
+		testPath := fop.ProcessJmeter()
+		if testPath == "" {
+			cnt.KubeOps.RegisterClient()
+			ugcLoadRequest.MissingJmeter = true
+			session.Set("ugcLoadRequest", ugcLoadRequest)
+			session.Save()
+			c.Redirect(http.StatusMovedPermanently, "/update")
+			c.Abort()
+			return
+		}
+	*/
 
 	cnt.KubeOps.ScaleDeployment(ugcLoadRequest.Context, int32(ugcLoadRequest.NumberOfNodes))
 	cnt.KubeOps.WaitForPodsToStart(ugcLoadRequest.Context, ugcLoadRequest.NumberOfNodes+1)
@@ -375,6 +380,7 @@ func (cnt *Controller) Upload(c *gin.Context) {
 	fmt.Println(fmt.Sprint("host names=%s", hostnames))
 
 	for _, hn := range hostnames {
+		fop := ugl.FileUploadOperations{Context: c}
 		dataURI := fmt.Sprintf("http://%s:1007/data", hn)
 		fop.ProcessData(dataURI)
 		jmeterURI := fmt.Sprintf("http://%s:1007/jmeter-props", hn)
@@ -410,16 +416,57 @@ func (cnt *Controller) Upload(c *gin.Context) {
 	listOfHost := strings.Join(hostnames, ",")
 
 	if len(listOfHost) > 0 {
-		s, er := cnt.KubeOps.StartTest(testPath, ugcLoadRequest.Context, listOfHost)
-		if s == false {
-			cnt.KubeOps.RegisterClient()
-			ugcLoadRequest.GenericCreateTestMsg = er
-			session.Set("ugcLoadRequest", ugcLoadRequest)
-			session.Save()
-			c.Redirect(http.StatusMovedPermanently, "/update")
-			c.Abort()
-			return
+		//s, er := cnt.KubeOps.StartTest(testPath, ugcLoadRequest.Context, listOfHost)
+
+		jm := jmeter.Jmeter{}
+
+		masters := cnt.KubeOps.GetHostNamesOfJmeterMaster(ugcLoadRequest.Context)
+
+		for _, master := range masters {
+			uri := fmt.Sprintf("http://%s:1025/start-test", master)
+			t := time.Now()
+			u2 := fmt.Sprintf("%s-%s", uuid.NewV4(), t.Format("20060102150405"))
+			path := fmt.Sprintf("%s/%s", props.MustGet("jmeter"), u2)
+			jmeterScript, err := c.FormFile("jmeter")
+			if err != nil {
+				log.WithFields(log.Fields{
+					"err": err.Error(),
+				}).Errorf("Unable to get the jmeter script from the form")
+				return
+			}
+
+			log.WithFields(log.Fields{
+				"path":       path,
+				"uri":        uri,
+				"tenant":     ugcLoadRequest.Context,
+				"listOfHost": listOfHost,
+			}).Info("Info about test being run")
+
+			f, err := jmeterScript.Open()
+			if err != nil {
+				log.WithFields(log.Fields{
+					"err":      err.Error(),
+					"filename": jmeterScript.Filename,
+				}).Error("Could not open the file")
+			} else {
+				errFromStartingJmeter, res := jm.StartTestOnMaster(f, uri, ugcLoadRequest.Context, listOfHost, path)
+				if res == false {
+					log.WithFields(log.Fields{
+						"err": errFromStartingJmeter,
+					}).Error("Could not start jmeter")
+					ugcLoadRequest.GenericCreateTestMsg = fmt.Sprintf("Problem starting test [%s]", errFromStartingJmeter)
+					session.Set("ugcLoadRequest", ugcLoadRequest)
+					session.Save()
+					c.Redirect(http.StatusMovedPermanently, "/update")
+					c.Abort()
+					return
+				}
+
+			}
+			f.Close()
+
 		}
+
 	} else {
 		cnt.KubeOps.RegisterClient()
 		ugcLoadRequest.GenericCreateTestMsg = fmt.Sprintf("No slaves found: Test for started for [%s]", ugcLoadRequest.Context)
@@ -430,7 +477,7 @@ func (cnt *Controller) Upload(c *gin.Context) {
 		return
 	}
 
-	ugcLoadRequest.Success = fmt.Sprintf("Test %s was succesfully created for tenant[%s]", testPath, ugcLoadRequest.Context)
+	ugcLoadRequest.Success = fmt.Sprintf("Test was succesfully created for tenant[%s]", ugcLoadRequest.Context)
 	ugcLoadRequest.NumberOfNodes = 0
 	ugcLoadRequest.Context = ""
 	session.Set("ugcLoadRequest", ugcLoadRequest)

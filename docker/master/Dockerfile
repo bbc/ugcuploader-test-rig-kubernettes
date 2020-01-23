@@ -23,8 +23,11 @@ RUN curl "https://s3.amazonaws.com/aws-cli/awscli-bundle.zip" -o "awscli-bundle.
 RUN  unzip awscli-bundle.zip
 RUN ./awscli-bundle/install -i /usr/local/aws -b /usr/local/bin/aws
 
-USER 1000
 WORKDIR /home/jmeter
+RUN mkdir jmeter-master
+COPY jmeter-master jmeter-master
+RUN chown -R jmeter:jmeter jmeter-master
+USER 1000
 
 ENV TEST_HOME=/home/jmeter/test
 
@@ -34,16 +37,13 @@ COPY bin bin
 COPY src/test $TEST_HOME
 COPY etc /etc
 
-RUN mkdir /jmeter-slave
-COPY jmeter-slave jmeter-slave
-
-WORKDIR /home/jmeter/jmeter-slave
+WORKDIR /home/jmeter/jmeter-master
 ENV GO111MODULE=on
 RUN go mod download
-RUN go build -o upload cmd/ugcupload/main.go
+RUN go build -o bin/jmeter-master cmd/ugcupload/main.go
 
+WORKDIR /home/jmeter
 USER root
-
 RUN chmod 0644 /home/jmeter/bin/crontab.txt
 RUN crontab -u jmeter /home/jmeter/bin/crontab.txt
 RUN chown -R jmeter:jmeter bin
@@ -52,4 +52,4 @@ ENTRYPOINT ["/home/jmeter/bin/entrypoint.sh"]
 USER 1000
 RUN mkdir /home/jmeter/graphs
 EXPOSE 60000
-EXPOSE 1008
+EXPOSE 1025

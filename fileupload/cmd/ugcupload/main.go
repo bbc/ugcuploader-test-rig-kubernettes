@@ -31,37 +31,48 @@ var (
 	g errgroup.Group
 )
 
+//Upload used to save the data file
 func Upload(c *gin.Context) {
 	fileUpload := new(FileUpload)
 	fop := ugl.FileUploadOperations{Context: c}
 	if err := c.ShouldBindWith(fileUpload, binding.Form); err != nil {
+		log.WithFields(log.Fields{
+			"err": err.Error(),
+		}).Error("Problems binding form")
 		return
 	}
-
 	fop.SaveFile(fmt.Sprintf("%s/%s", "/data", fileUpload.Name))
 }
 
+//JmeterProps used to save the jmeter
 func JmeterProps(c *gin.Context) {
 	fileUpload := new(FileUpload)
 	fop := ugl.FileUploadOperations{Context: c}
 	if err := c.ShouldBindWith(fileUpload, binding.Form); err != nil {
+		log.WithFields(log.Fields{
+			"err": err.Error(),
+		}).Error("Problems binding form")
 		return
 	}
 	jh := os.Getenv("JMETER_HOME")
 	fop.SaveFile(fmt.Sprintf("%s/bin/jmeter.properties", jh))
 }
 
+//UserProps user to save the user.properties
 func UserProps(c *gin.Context) {
 	fileUpload := new(FileUpload)
 	fop := ugl.FileUploadOperations{Context: c}
 	if err := c.ShouldBindWith(fileUpload, binding.Form); err != nil {
+		log.WithFields(log.Fields{
+			"err": err.Error(),
+		}).Error("Problems binding form")
 		return
 	}
 	jh := os.Getenv("JMETER_HOME")
 	fop.SaveFile(fmt.Sprintf("%s/bin/user.properties", jh))
 }
 
-//NOTE: Had to do this because the bash script was hanging...
+//StartJmeterServer NOTE: Had to do this because the bash script was hanging...
 func startJmeterServer() {
 
 	cmd := fmt.Sprintf("/start.sh")
@@ -84,6 +95,7 @@ func StartServer(c *gin.Context) {
 	c.String(http.StatusOK, "start test")
 	return
 }
+
 func main() {
 
 	server01 := &http.Server{
@@ -103,6 +115,7 @@ func main() {
 
 }
 
+//FileUpload This is the struct returned
 type FileUpload struct {
 	File string `json:"file" form:"file"`
 	Name string `json:"name" form:"name"`
