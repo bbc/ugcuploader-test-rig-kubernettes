@@ -13,6 +13,8 @@ Table of Contents
   - [Dependencies](#dependencies)
     
     + [Prerequisite](#prerequisite)  
+
+  - [Architectural Components](#architectural-components)
     
   - [Create Test Rig Cluster](#create--test--rig--cluster)
 
@@ -83,29 +85,6 @@ Use the following url: ```http:<<external-ip>>:1323/```
 
 
 
-Table below shows the possible values accepted for bandwidth.
-
-| Bandwidth            | Value       | Description                       |
-| -------------------- | ----------- | --------------------------------- |
-| 10gigabitEthernet    | 1280000000  | 10 Gigabit Ethernet : 10 Gbit/s   |
-| 100gigabitEthernet   | 12800000000 | 100 Gigabit Ethernet : 100 Gbit/s |
-| adsl                 | 1024000     | ADSL : 8 Mbit/s                   |
-| adsl2                | 1536000     | ADSL2 : 12 Mbit/s                 |
-| adsl2Plus            | 3072000     | ADSL2+ : 24 Mbit/s                |
-| ethernetLan          | 1280000     | Ethernet LAN ; 10 Mbit/s          |
-| fastEthernet         | 12800000    | Fast Ethernet :  100 Mbit/s       |
-| gigabitEthernet      | 128000000   | Gigabit Ethernet : 1 Gbit/s       |
-| mobileDataEdge       | 49152       | Mobile data EDGE : 384 kbit/s     |
-| mobileDataHspa       | 1843200     | Mobile data HSPA : 14,4 Mbp/s     |
-| mobileDatacHspaPlus  | 2688000     | Mobile data HSPA+ : 21 Mbp/s      |
-| mobileDataDcHspaPlus | 5376000     | Mobile data DC-HSPA+ : 42 Mbps    |
-| mobileDataLte        | 19200000    | Mobile data LTE : 150 Mbp/s       |
-| mobileDataGprs       | 21888       | Mobile data GPRS : 171 kbit/s     |
-| wifi80211a           | 6912000     | WIFI 802.11a/g : 54 Mbit/s        |
-| wifi80211n           | 76800000    | WIFI 802.11n : 600 Mbit/s         |
-
-
-
 # Dependencies
 
 1. EKSCTL: https://eksctl.io/introduction/installation/ <br>This is used to create and manipulate the cluster
@@ -136,6 +115,26 @@ os.chmod(home + '/workspace/setup-aws-env.sh', st.st_mode | stat.S_IEXEC)
 Following command can then be issued to set the AWS environmental variables.
 
 **source  ~/workspace/setup-aws-env.s**
+
+# Architectural Components
+
+The diagram below is an ilustration of the architecural components that exist within the system.
+
+**FileUpload**
+
+This an agent that is installed on each slave.  This is used to transfer files to the slave and also start jmeter slave on the container.
+
+**Master**
+
+This component is installed on the master and is used to start and stop the tests.
+
+**Admin Controller**
+
+This is the front end interface used by the user for test creation.
+
+
+
+![jmeter-test-control-env-5](jmeter-test-control-env-5.png)
 
 
 
@@ -184,7 +183,7 @@ There are two scripts:
 1. *create-report-env.sh* Used to create the reporting virtual environmnt in the cluster. <br> Usage:  `create-report-env.sh`  eg. *./create-report-env.sh* <br>Used the following to command to verify that the instances have succesfully started before moving to the next step. `kubectl get pods --all-namespaces`
 2. *configure-reporting.sh* Used to setup grafana and influxes. <br> Usage: `./configure-reporting.sh` <br> If you see the following error. It is safe to ignore<br>```wget: can't open 'datasources': Permission denied
    command terminated with exit code 1```
-3. *un-do.sh* Used to remove the reporting virtual environment from the cluster.<br>NOTE: Currently the PVC( Persistent Volume Claim) is also removed, which causes the associated volume to be also deleted.
+3. *un-do.sh* Used to remove the reporting virtual environment from the cluster.<br>
 
 The table below details the steps performed by the script to create the virtual environment.
 
