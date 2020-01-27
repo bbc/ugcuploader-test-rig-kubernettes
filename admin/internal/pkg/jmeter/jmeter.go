@@ -2,25 +2,176 @@ package jmeter
 
 import (
 	"bytes"
+	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
 	"os"
+	"sync"
+	"time"
 
 	"github.com/antchfx/xmlquery"
+	redis "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/redis"
+	types "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/types"
+	ugl "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/ugcupload"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/gin-gonic/gin"
+	"github.com/magiconair/properties"
+	uuid "github.com/satori/go.uuid"
 )
 
-//Jmeter used to perform jmeter operations
-type Jmeter struct{}
+var props = properties.MustLoadFile("/etc/ugcupload/loadtest.conf", properties.UTF8)
 
-//StopTestOnMaster Used to stop the test on master
-func (jmeter Jmeter) StopTestOnMaster(uri string) (error string, res bool) {
+//Jmeter used to perform jmeter operations
+type Jmeter struct {
+	Fop          ugl.FileUploadOperations
+	Context      *gin.Context
+	redisUtils   redis.Redis
+	RedisTenant  types.RedisTenant
+	Data         *multipart.File
+	DataFilename string
+	JmeterScript *multipart.File
+}
+
+//IsRunning check to see if jmeter is running on the pod
+func (jmeter Jmeter) IsRunning(podIP string) (error string, res bool) {
+	return jmeter.makeGetRequest(fmt.Sprintf("http://%s:1025/is-running", podIP))
+}
+
+func (jmeter Jmeter) sendToDataSlave(hn string, wg sync.WaitGroup, message sync.Map) {
+	wg.Add(1)
+	defer wg.Done()
+	dataURI := fmt.Sprintf("http://%s:1007/data", hn)
+	error, uploaded := jmeter.Fop.ProcessData(dataURI, jmeter.DataFilename, jmeter.Data)
+	if uploaded == false {
+		message.Store(fmt.Sprintf("ProblesmUploadingData", hn), error)
+	}
+}
+
+func (jmeter Jmeter) sendPropertiesToSlave(ugcLoadRequest types.UgcLoadRequest, hn string, wg sync.WaitGroup, message sync.Map) {
+	wg.Add(1)
+	defer wg.Done()
+	jmeterURI := fmt.Sprintf("http://%s:1007/jmeter-props", hn)
+	error, uploaded := jmeter.Fop.UploadJmeterProps(jmeterURI, ugcLoadRequest.BandWidthSelection)
+	if uploaded == false {
+		message.Store(fmt.Sprintf("ProblesmUploadingJmeterProps@", hn), error)
+	}
+}
+
+func (jmeter Jmeter) startSlave(hn string, wg sync.WaitGroup, message sync.Map) {
+	wg.Add(1)
+	defer wg.Done()
+	req, err := http.NewRequest("GET", fmt.Sprintf("http://%s:1007/start-server", hn), nil)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"err":  err.Error(),
+			"host": hn,
+		}).Error("Problems creating the request")
+		message.Store(fmt.Sprintf("ProblemsStartSlave@", hn), err.Error())
+	} else {
+
+		client := &http.Client{}
+		resp, errResp := client.Do(req)
+		if errResp != nil {
+			log.WithFields(log.Fields{
+				"err":  errResp.Error(),
+				"host": hn,
+			}).Error("Problems creating the request")
+			message.Store(fmt.Sprintf("ProblemsStartSlave@", hn), errResp.Error())
+
+		} else {
+			var bodyContent []byte
+			resp.Body.Read(bodyContent)
+			resp.Body.Close()
+			log.WithFields(log.Fields{
+				"response": string(bodyContent),
+			}).Info("Response from starting the jmeter slave")
+		}
+	}
+}
+
+//SetupSlaves used to seutp the slaves for testing
+func (jmeter Jmeter) SetupSlaves(ugcLoadRequest types.UgcLoadRequest, hostnames []string) (error string, result bool) {
+
+	var setupSlaveWaitGroup sync.WaitGroup
+	message := sync.Map{}
+	for _, hn := range hostnames {
+		go jmeter.sendToDataSlave(hn, setupSlaveWaitGroup, message)
+		go jmeter.sendPropertiesToSlave(ugcLoadRequest, hn, setupSlaveWaitGroup, message)
+	}
+	setupSlaveWaitGroup.Wait()
+
+	responses := make(map[interface{}]interface{})
+	message.Range(func(k, v interface{}) bool {
+		responses[k] = v
+		return true
+	})
+
+	if len(responses) != 0 {
+		b := new(bytes.Buffer)
+		for key, value := range responses {
+			fmt.Fprintf(b, "%s:\"%s\"\n", key, value)
+		}
+		error = b.String()
+		result = false
+		return
+	}
+
+	var startSlaveWaitGroup sync.WaitGroup
+	slaveStartMessage := sync.Map{}
+	for _, hn := range hostnames {
+		go jmeter.startSlave(hn, startSlaveWaitGroup, slaveStartMessage)
+	}
+	startSlaveWaitGroup.Wait()
+
+	responses = make(map[interface{}]interface{})
+	slaveStartMessage.Range(func(k, v interface{}) bool {
+		responses[k] = v
+		return true
+	})
+
+	if len(responses) != 0 {
+		b := new(bytes.Buffer)
+		for key, value := range responses {
+			fmt.Fprintf(b, "%s:\"%s\"\n", key, value)
+		}
+		error = b.String()
+		result = false
+		return
+	}
+
+	result = true
+	return
+
+}
+
+func (jmeter Jmeter) unMarshallResponse(body io.ReadCloser) (resp types.JmeterResponse) {
+
+	bdy, err := ioutil.ReadAll(body)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Error("Problems Reading Reponse")
+		return
+	}
+	var jr types.JmeterResponse
+	errMarshall := json.Unmarshal(bdy, &jr)
+	if errMarshall != nil {
+		log.WithFields(log.Fields{
+			"resp":  string(bdy),
+			"error": errMarshall.Error(),
+		}).Error("Unable to unmashall the response from jmeter pod")
+		return
+	}
+	return jr
+}
+func (jmeter Jmeter) makeGetRequest(uri string) (error string, res bool) {
 	client := &http.Client{}
 
 	req, err := http.NewRequest("GET", uri, nil)
-
 	if err != nil {
 		log.WithFields(log.Fields{
 			"err": err.Error(),
@@ -32,29 +183,51 @@ func (jmeter Jmeter) StopTestOnMaster(uri string) (error string, res bool) {
 	}
 
 	resp, errClient := client.Do(req)
-
 	if errClient != nil {
 		log.WithFields(log.Fields{
-			"err": err.Error(),
+			"err": errClient.Error(),
 			"uri": uri,
 		}).Error("Problems making call to stop the test")
 		res = false
-		error = err.Error()
+		error = errClient.Error()
 		return
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
+	var jmeterResponse = jmeter.unMarshallResponse(resp.Body)
+	if jmeterResponse.Code != 200 {
+		res = false
+		error = jmeterResponse.Message
+		return
+	}
+
 	log.WithFields(log.Fields{
-		"resp": string(body),
+		"resp": jmeterResponse,
 		"uri":  uri,
-	}).Info("Successfully stop test")
+	}).Info("GET Request to Jmeter Suceeded")
 
+	res = true
 	return
+}
 
+//StopTestOnMaster Used to stop the test on master
+func (jmeter Jmeter) StopTestOnMaster(podIP string) (error string, res bool) {
+	uri := fmt.Sprintf("http://%s:1025/stop-test", podIP)
+	return jmeter.makeGetRequest(uri)
+}
+
+//StartMasterTest used to start the master and tests
+func (jmeter Jmeter) StartMasterTest(master string, ugcLoadRequest types.UgcLoadRequest, listOfHost string) (error string, started bool) {
+
+	uri := fmt.Sprintf("http://%s:1025/start-test", master)
+	t := time.Now()
+	u2 := fmt.Sprintf("%s-%s", uuid.NewV4(), t.Format("20060102150405"))
+	path := fmt.Sprintf("%s/%s", props.MustGet("jmeter"), u2)
+	error, started = jmeter.startTestOnMaster(*jmeter.JmeterScript, uri, ugcLoadRequest.Context, listOfHost, path)
+	return
 }
 
 //StartTestOnMaster Used to start the test on master
-func (jmeter Jmeter) StartTestOnMaster(testFile io.Reader, uri, tenant string, hosts string, testFileName string) (error string, res bool) {
+func (jmeter Jmeter) startTestOnMaster(testFile io.Reader, uri, tenant string, hosts string, testFileName string) (error string, res bool) {
 
 	//prepare the reader instances to encode
 	extraParams := map[string]string{
@@ -65,7 +238,12 @@ func (jmeter Jmeter) StartTestOnMaster(testFile io.Reader, uri, tenant string, h
 
 	request, err := newfileUploadRequest(testFile, uri, extraParams, testFileName)
 	if err != nil {
-		log.Fatal(err)
+		log.WithFields(log.Fields{
+			"err": err.Error(),
+		}).Error("Problems creting request")
+		error = err.Error()
+		res = false
+		return
 	}
 	client := &http.Client{}
 	resp, err := client.Do(request)
@@ -78,14 +256,18 @@ func (jmeter Jmeter) StartTestOnMaster(testFile io.Reader, uri, tenant string, h
 		return
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
-	log.WithFields(log.Fields{
-		"err":         err.Error(),
-		"statusCode":  resp.StatusCode,
-		"bodyContent": string(body),
-	}).Info("Response from starting jmeter tests")
-	res = true
+	var jmeterResponse = jmeter.unMarshallResponse(resp.Body)
 
+	if jmeterResponse.Code != 200 {
+		log.WithFields(log.Fields{
+			"err":        jmeterResponse.Message,
+			"statusCode": jmeterResponse.Code,
+		}).Error("Response from starting jmeter tests")
+		error = jmeterResponse.Message
+		res = false
+		return
+	}
+	res = true
 	return
 }
 

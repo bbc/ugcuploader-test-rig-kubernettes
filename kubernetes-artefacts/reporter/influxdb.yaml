@@ -16,6 +16,8 @@ spec:
         app: influxdb-jmeter
     spec:
       serviceAccountName: ugcupload-jmeter
+      nodeSelector:
+         report : influxdb
       containers:
         - image: influxdb
           imagePullPolicy: IfNotPresent

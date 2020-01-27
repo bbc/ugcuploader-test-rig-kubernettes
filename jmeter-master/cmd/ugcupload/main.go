@@ -16,8 +16,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	shellExec "github.com/bbc/ugcuploader-test-rig-kubernettes/jmeter-master/internal/pkg/exec"
-
 	pss "github.com/mitchellh/go-ps"
 
 	"github.com/gin-gonic/gin/binding"
@@ -42,6 +40,10 @@ type StartTestCMD struct {
 	TestFile string `json:"testfile" form:"testfile"`
 	Tenant   string `json:"tenant" form:"tenant"`
 	Hosts    string `json:"hosts" form:"hosts"`
+}
+
+func runTest(args []string) {
+	executeCommand("/home/jmeter/bin/load_test.sh", args)
 }
 
 //StartTest used to start the jmeter tests
@@ -121,48 +123,75 @@ func StartTest(c *gin.Context) {
 		c.SaveUploadedFile(jmeterScript, destFileName)
 	}
 
-	args := fmt.Sprintf(" %s/upload.jmx %s %s ", path, startTestCMD.Tenant, startTestCMD.Hosts)
-
-	cmd := exec.Command("/usr/local/bin/start_test_controller.sh", args)
-	out, errExec := cmd.CombinedOutput()
-
-	if errExec != nil {
-		log.WithFields(log.Fields{
-			"err": errExec.Error(),
-		}).Error("Problems executing the script that starts jmeter")
-		res := Response{}
-		res.Message = "Unable to get the jmeter script from the form"
-		res.Code = 404
-		c.PureJSON(http.StatusBadRequest, res)
-		return
-
-	}
-
+	args := []string{fmt.Sprintf("%s/upload.jmx", path), startTestCMD.Tenant, startTestCMD.Hosts}
 	log.WithFields(log.Fields{
-		"out": string(out),
-	}).Info("Tests were correctly started")
+		"args": strings.Join(args, ","),
+	}).Info("Arguments being sent to jmeter script")
+
+	go runTest(args)
 
 	res := Response{}
-	res.Message = string(out)
+	res.Message = "test should have started"
 	res.Code = 200
 	c.PureJSON(http.StatusOK, res)
 	return
 
 }
 
+//IsRunning use to determine if the tenant is running
+func IsRunning(c *gin.Context) {
+	processes, err := pss.Processes()
+	if err != nil {
+		log.WithFields(log.Fields{
+			"err": err.Error(),
+		}).Error("Prolems listing all processes")
+		res := Response{}
+		res.Message = "Prolems listing all processes"
+		res.Code = 401
+		c.PureJSON(http.StatusOK, res)
+		return
+	}
+	for _, process := range processes {
+		if strings.EqualFold(process.Executable(), "java") || strings.EqualFold(process.Executable(), "jmeter") {
+			log.WithFields(log.Fields{
+				"executable": process.Executable(),
+				"pid":        process.Pid(),
+				"parent pid": process.PPid(),
+			}).Info("Processes")
+			res := Response{}
+			res.Message = "Test Are Running"
+			res.Code = 200
+			c.PureJSON(http.StatusOK, res)
+			return
+		}
+	}
+
+	res := Response{}
+	res.Message = "No Test Running"
+	res.Code = 400
+	c.PureJSON(http.StatusOK, res)
+	return
+}
+
+func executeCommand(c string, args []string) {
+	cmd := exec.Command(c, args...)
+	_, errExec := cmd.CombinedOutput()
+	if errExec != nil {
+		log.WithFields(log.Fields{
+			"err": errExec.Error(),
+		}).Error("Problems executing the script that starts jmeter")
+
+	}
+
+}
+
 //StopTest used to stop the tests
 func StopTest(c *gin.Context) {
-
-	cmd := fmt.Sprintf("/opt/apache-jmeter/bin/stoptest.sh")
-
-	args := []string{"<", "/dev/null"}
-	se := shellExec.Exec{}
-	_, err := se.ExecuteCommand(cmd, args)
-	if err != "" {
-		log.WithFields(log.Fields{
-			"err": err,
-		}).Error("unable to start the test")
-	}
+	executeCommand(fmt.Sprintf("/opt/apache-jmeter/bin/stoptest.sh"), []string{})
+	resp := Response{}
+	resp.Message = "Test stopped"
+	resp.Code = 200
+	c.PureJSON(http.StatusOK, resp)
 	return
 }
 
@@ -203,6 +232,7 @@ func router01() http.Handler {
 
 	r.GET("/stop-test", StopTest)
 	r.POST("/start-test", StartTest)
+	r.GET("/is-running", IsRunning)
 
 	return r
 }

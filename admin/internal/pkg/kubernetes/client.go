@@ -86,7 +86,7 @@ func int32Ptr(i int32) *int32 { return &i }
 func int64Ptr(i int64) *int64 { return &i }
 
 //ScaleDeployment used to scale the jmeter slave
-func (kop *Operations) ScaleDeployment(ns string, replica int32) {
+func (kop *Operations) ScaleDeployment(ns string, replica int32) (error string, scaled bool) {
 
 	scale, err := kop.ClientSet.AppsV1().Deployments(ns).GetScale("jmeter-slave", metav1.GetOptions{})
 	if err != nil {
@@ -95,26 +95,28 @@ func (kop *Operations) ScaleDeployment(ns string, replica int32) {
 			"replica":   replica,
 			"namespace": ns,
 		}).Errorf("Problem getting the scale")
+		error = err.Error()
+		scaled = false
+		return
 	}
 
 	if scale.Spec.Replicas != replica {
 		scale.Spec.Replicas = replica
 		deploymentsClient := kop.ClientSet.AppsV1().Deployments(ns)
-		a, e := deploymentsClient.UpdateScale("jmeter-slave", scale)
+		_, e := deploymentsClient.UpdateScale("jmeter-slave", scale)
 		if e != nil {
 			log.WithFields(log.Fields{
 				"err":       e.Error(),
 				"replica":   replica,
 				"namespace": ns,
 			}).Errorf("Problem updating number of replicas")
-		} else {
-			log.WithFields(log.Fields{
-				"selector":  a.Status.Selector,
-				"replica":   a.Status.Replicas,
-				"namespace": ns,
-			}).Info("Status after replica update")
+			error = e.Error()
+			scaled = false
+			return
 		}
 	}
+	scaled = true
+	return
 }
 
 //DeleteDeployment used to delete a deployment
@@ -206,7 +208,7 @@ func (kop *Operations) GetallTenants() (ts []types.Tenant, err string) {
 		err = e.Error()
 	} else {
 		for _, item := range res.Items {
-			tenants = append(tenants, types.Tenant{Name: item.Name, Namespace: item.Namespace})
+			tenants = append(tenants, types.Tenant{Name: item.Name, Namespace: item.Namespace, PodIP: item.Status.PodIP})
 		}
 		ts = tenants
 	}
@@ -238,12 +240,15 @@ func (kop *Operations) CreateJmeterSlaveDeployment(ns string, nbrnodes int32, aw
 					},
 				},
 				Spec: corev1.PodSpec{
+					NodeSelector: map[string]string{
+						"jmeter_mode": "slaves",
+					},
 					ServiceAccountName: "ugcupload-jmeter",
 					Containers: []corev1.Container{
 						{
 							TTY:   true,
 							Stdin: true,
-							Name:  "jmmaster",
+							Name:  "jmslave",
 							Image: fmt.Sprintf("%s.dkr.ecr.%s.amazonaws.com/ugctestgrid/jmeter-slave:latest", strconv.FormatInt(awsAcntNbr, 10), awsRegion),
 							Args:  []string{"/bin/bash", "-c", "--", "/fileupload/upload > /fileuplouad.log 2>&1"},
 							Ports: []corev1.ContainerPort{
@@ -342,6 +347,9 @@ func (kop *Operations) CreateJmeterMasterDeployment(namespace string, awsAcntNbr
 					},
 				},
 				Spec: corev1.PodSpec{
+					NodeSelector: map[string]string{
+						"jmeter_mode": "master",
+					},
 					ServiceAccountName: "ugcupload-jmeter",
 					Containers: []corev1.Container{
 						{
@@ -382,8 +390,8 @@ func (kop *Operations) CreateJmeterMasterDeployment(namespace string, awsAcntNbr
 	return
 }
 
-//GetHostEndpoints used to get the endpoints assoicated with a service
-func (kop *Operations) GetHostEndpoints(ns string) (endpoints []string) {
+//GetPodIpsForSlaves used to get the endpoints assoicated with a service
+func (kop *Operations) GetPodIpsForSlaves(ns string) (endpoints []string) {
 	var eps []string
 	ep, e := kop.ClientSet.CoreV1().Endpoints(ns).Get("jmeter-slaves-svc", metav1.GetOptions{})
 	if e != nil {
@@ -653,7 +661,7 @@ func (kop Operations) WaitForPodsToStart(ns string, pods int) (started bool, err
 	if err != "" {
 		log.WithFields(log.Fields{
 			"err": err,
-		}).Errorf("unable to start the test %v", strings.Join(args, ","))
+		}).Errorf("slave pods did not start %v", strings.Join(args, ","))
 		started = false
 	} else {
 		started = true

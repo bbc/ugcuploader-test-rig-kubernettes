@@ -56,7 +56,7 @@ func newfileUploadRequest(file io.Reader, uri string, params map[string]string, 
 
 }
 
-func (fop FileUploadOperations) UploadFile(file io.Reader, uri string, destFileName string) {
+func (fop FileUploadOperations) uploadFile(file io.Reader, uri string, destFileName string) (error string, uploaded bool) {
 
 	//prepare the reader instances to encode
 	extraParams := map[string]string{
@@ -65,51 +65,36 @@ func (fop FileUploadOperations) UploadFile(file io.Reader, uri string, destFileN
 
 	request, err := newfileUploadRequest(file, uri, extraParams, destFileName)
 	if err != nil {
-		log.Fatal(err)
+		log.WithFields(log.Fields{
+			"err": err.Error(),
+		}).Error("Problems creating request")
+		error = err.Error()
+		uploaded = false
 	}
+
 	client := &http.Client{}
-	resp, err := client.Do(request)
-	if err != nil {
-		log.Fatal(err)
-	} else {
-		var bodyContent []byte
-		fmt.Println(resp.StatusCode)
-		fmt.Println(resp.Header)
-		resp.Body.Read(bodyContent)
-		resp.Body.Close()
-		fmt.Println(bodyContent)
+	resp, errReq := client.Do(request)
+	if errReq != nil {
+		log.WithFields(log.Fields{
+			"err": errReq.Error(),
+		}).Error("Problems uploading file")
+		error = errReq.Error()
+		uploaded = false
+		return
 	}
+	resp.Body.Close()
+	uploaded = true
+	return
 }
 
 //ProcessData used to copy the supplied data file to right location
-func (fop FileUploadOperations) ProcessData(uri string) (destFilename string) {
-
-	file, err := fop.Context.FormFile("data")
-	if err != nil {
-		log.WithFields(log.Fields{
-			"err": err.Error(),
-		}).Error("Unable to get the test data from the form")
-	}
-
-	if file != nil {
-		log.Println(file.Filename)
-		f, err := file.Open()
-		if err != nil {
-			log.WithFields(log.Fields{
-				"err":      err.Error(),
-				"filename": file.Filename,
-			}).Error("Could not open the file")
-		} else {
-			fop.UploadFile(f, uri, file.Filename)
-		}
-		f.Close()
-		//fop.Context.SaveUploadedFile(file, props.MustGet("data")+"/"+file.Filename)
-	}
+func (fop FileUploadOperations) ProcessData(uri string, filename string, data *multipart.File) (error string, uploaded bool) {
+	error, uploaded = fop.uploadFile(*data, uri, filename)
 	return
 }
 
 //UploadJmeterProps use to upload the jmeter property file
-func (fop FileUploadOperations) UploadJmeterProps(uri string, bw string) {
+func (fop FileUploadOperations) UploadJmeterProps(uri string, bw string) (error string, upload bool) {
 
 	home := os.Getenv("HOME")
 	bwLock := fmt.Sprintf("%s/config/bandwidth/%s/bandwidth.csv", home, bw)
@@ -121,10 +106,13 @@ func (fop FileUploadOperations) UploadJmeterProps(uri string, bw string) {
 			"filename": bwLock,
 			"ur":       uri,
 		}).Error("Could not open bandwidth file")
+		upload = false
+		error = err.Error()
 	}
-	fop.UploadFile(r, uri, "jmeter.properties")
+	error, upload = fop.uploadFile(r, uri, "jmeter.properties")
+	upload = true
 	r.Close()
-
+	return
 }
 
 //ProcessJmeter used to copy the supplied jmeter file to the right lcoation

@@ -14,7 +14,7 @@ type Validator struct {
 	Context *gin.Context
 }
 
-func stringInSlice(a string, list []string) bool {
+func (v Validator) StringInSlice(a string, list []string) bool {
 	for _, b := range list {
 		if b == a {
 			return true
@@ -33,7 +33,7 @@ func (v Validator) ValidateStopTest(ugcLoadRequest *types.UgcLoadRequest) (resul
 		return
 	}
 
-	if stringInSlice(ugcLoadRequest.StopContext, nonValidNamespaces) {
+	if v.StringInSlice(ugcLoadRequest.StopContext, nonValidNamespaces) {
 		ugcLoadRequest.InvalidTenantStop = strings.Join(nonValidNamespaces, ",")
 		return
 	}
@@ -53,7 +53,7 @@ func (v Validator) ValidateTenantDelete(ugcLoadRequest *types.UgcLoadRequest) (r
 		return
 	}
 
-	if stringInSlice(ugcLoadRequest.TenantContext, nonValidNamespaces) {
+	if v.StringInSlice(ugcLoadRequest.TenantContext, nonValidNamespaces) {
 		ugcLoadRequest.InvalidTenantDelete = strings.Join(nonValidNamespaces, ",")
 		return
 	}
@@ -72,7 +72,7 @@ func (v Validator) ValidateUpload(ugcLoadRequest *types.UgcLoadRequest) (result 
 
 	}
 
-	if stringInSlice(ugcLoadRequest.Context, nonValidNamespaces) {
+	if v.StringInSlice(ugcLoadRequest.Context, nonValidNamespaces) {
 		ugcLoadRequest.InvalidTenantName = strings.Join(nonValidNamespaces, ",")
 		return
 	}

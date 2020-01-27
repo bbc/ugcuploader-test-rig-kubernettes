@@ -75,8 +75,6 @@ The following is the process that should be followed to create test and deploy t
 
 ## Running Tests
 
-The following scripts can be found in the folder *test-scripts*
-
 The screen shot below is the admin gui used to start and manage the tests. This can be accessed after installing the  [Admin Controller](#admin--controller). Used the following command to get the external ip: `kubectl get service -n control`
 
 Use the following url: ```http:<<external-ip>>:1323/```
@@ -118,7 +116,7 @@ Following command can then be issued to set the AWS environmental variables.
 
 # Architectural Components
 
-The diagram below is an ilustration of the architecural components that exist within the system.
+The diagram below is an illustration of the architecural components that exist within the system.
 
 **FileUpload**
 
@@ -152,7 +150,7 @@ The following command can be used to get the docker login command:
 
 **aws ecr get-login --no-include-email --region eu-west-2 | sed 's|https://||'**
 
-In the folder **docker** There are three sub folders **base**, **master** and **slave**
+In the folder **docker** There are three sub folders **base**, **control**, **master** and **slave**
 
 In each of these sub folders run the command:  `deploy.sh`
 
@@ -164,9 +162,7 @@ This is located in `docker/base`.
 
 If your test utilises any plugins the corresponding jar(s) should be put in the folder *plugins*
 
-Issues with docker:
 
-The delete the following file or fo
 
 # Provision Test Rig
 
@@ -263,7 +259,7 @@ The following steps gives the controller the permission to be able to manage the
    + Add aws account: eg: <br>
 
      ```
-     mapAccounts |
+     mapAccounts: |
           "546933502184"
      ```
 

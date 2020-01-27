@@ -55,7 +55,9 @@ COPY etc /etc
 RUN mkdir /home/control/admin
 
 COPY admin admin
-RUN sudo chown -R control:control admin
+USER root
+RUN chown -R control:control admin
+USER 1000
 # add credentials on build
 #ARG SSH_PRIVATE_KEY
 #RUN mkdir ~/.ssh/
@@ -80,48 +82,51 @@ RUN go mod download
 
 RUN go build -o ./bin/admin  ./cmd/ugcupload/main.go
 WORKDIR /home/control
-
+USER ROOT
 RUN curl --silent --location "https://github.com/weaveworks/eksctl/releases/download/latest_release/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
-RUN sudo mv /tmp/eksctl /usr/local/bin
-RUN sudo rc-update add sshd
-RUN sudo rc-update add rsyslog boot
+RUN mv /tmp/eksctl /usr/local/bin
+RUN rc-update add sshd
+RUN rc-update add rsyslog boot
 RUN curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.15.1/bin/linux/amd64/kubectl
-RUN sudo chmod u+x kubectl && sudo mv kubectl /bin/kubectl
+RUN chmod u+x kubectl && mv kubectl /bin/kubectl
 
 RUN curl "https://s3.amazonaws.com/aws-cli/awscli-bundle.zip" -o "awscli-bundle.zip"
 RUN unzip awscli-bundle.zip
-RUN sudo ./awscli-bundle/install -i /usr/local/aws -b /usr/local/bin/aws
+RUN ./awscli-bundle/install -i /usr/local/aws -b /usr/local/bin/aws
 RUN rm ./awscli-bundle.zip
 RUN rm -rf ./awscli-bundle/
 
 RUN curl -o aws-iam-authenticator https://amazon-eks.s3-us-west-2.amazonaws.com/1.14.6/2019-08-22/bin/linux/amd64/aws-iam-authenticator
 RUN chmod +x ./aws-iam-authenticator
-RUN sudo mv ./aws-iam-authenticator /usr/local/bin
 
 COPY crontab.txt crontab.txt
-RUN sudo chmod 0644 /home/control/crontab.txt
-RUN sudo crontab -u control /home/control/crontab.txt
+RUN chmod 0644 /home/control/crontab.txt
+RUN crontab -u control /home/control/crontab.txt
 
+USER 1000
 COPY bin/ /usr/local/bin
-run sudo chmod 0777 /usr/local/bin/gen-env.py
 COPY test-scripts/ /usr/local/bin
 RUN mkdir tenant
 COPY tenant tenant
-RUN sudo chown -R control:control tenant
 RUN mkdir src
 COPY test/ src/test
-RUN sudo chown -R control:control src
 RUN mkdir config
 COPY config config
-RUN sudo chown -R control:control config
 RUN mkdir data
-COPY data data
-RUN sudo chown -R control:control data
 COPY entry.sh /usr/local/bin
-RUN sudo chmod 0777 /usr/local/bin/entry.sh
-RUN sudo pip install docopt
-RUN sudo pip install boto3
 COPY lighttpd.conf /etc/lighttpd/lighttpd.conf
 RUN mkdir graphs
+
+USER root
+RUN chmod 0777 /usr/local/bin/gen-env.py
+RUN chown -R control:control tenant
+RUN chown -R control:control src
+RUN chown -R control:control config
+RUN chown -R control:control data
+RUN chmod 0777 /usr/local/bin/entry.sh
+RUN pip install docopt
+RUN pip install boto3
+RUN mv ./aws-iam-authenticator /usr/local/bin
+
 EXPOSE 1323
 ENTRYPOINT ["/usr/local/bin/entry.sh"]

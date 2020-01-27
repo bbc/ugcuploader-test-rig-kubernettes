@@ -1,6 +1,14 @@
 
 $(document).ready(function () {
 
+/*
+    function refreshData() {
+         x = 5;  // 5 Seconds
+         fetchTenantDetails()
+         setTimeout(refreshData, x*1000);
+    }
+    refreshData();
+  */
     var selected = []
     var tenant
     $('a.dropdown-item').on('click', function (e) {
@@ -90,7 +98,7 @@ $(document).ready(function () {
         $("#stopTestBtn").prop("disabled", true)
         var form = $("#deleteTenantFrm")[0]; // You need to use standard javascript object here
         var formData = new FormData(form);
-      
+
         // Call ajax for pass data to other place
         $.ajax({
             type: 'POST',
@@ -105,10 +113,9 @@ $(document).ready(function () {
             )
             $("#startTestBtn").prop("disabled", false)
             $("#stopTestBtn").prop("disabled", false)
-            alert(JSON.stringify(data))
             populate(data)
 
-            })
+        })
             .fail(function () { // if fail then getting message
                 $("#deleteTenantBtn").html(
                     `<button type="submit" id="deleteTenantBtn" class="btn btn-primary">Delete Tenant</button>`
@@ -130,10 +137,11 @@ $(document).ready(function () {
         );
         $("#deleteTenantBtn").prop("disabled", true)
         $("#stopTestBtn").prop("disabled", true)
+        $("#Success").empty()
         var form = $("#startTestFrm")[0]; // You need to use standard javascript object here
         var formData = new FormData(form);
-        formData.append('jmeter', $("#script-file-upload")[0].files[0]); 
-        formData.append('data', $("#data-file-upload")[0].files[0]); 
+        formData.append('jmeter', $("#script-file-upload")[0].files[0]);
+        formData.append('data', $("#data-file-upload")[0].files[0]);
 
         // Call ajax for pass data to other place
         $.ajax({
@@ -149,10 +157,9 @@ $(document).ready(function () {
             )
             $("#deleteTenantBtn").prop("disabled", false)
             $("#stopTestBtn").prop("disabled", false)
-            alert(JSON.stringify(data))
             populate(data)
 
-            })
+        })
             .fail(function () { // if fail then getting message
                 $("#startTestBtn").html(
                     `<button type="submit" id="startTestBtn" class="btn btn-primary">Run Test</button>`
@@ -160,7 +167,7 @@ $(document).ready(function () {
                 $("#deleteTenantBtn").prop("disabled", false)
                 $("#stopTestBtn").prop("disabled", false)
                 $("#GenericCreateTestMsg").empty()
-                $("#GenericCreateTestMsg").append('<div class="alert alert-warning" role="alert">SERVER HAS CRASHED</div>')
+                $("#GenericCreateTestMsg").append('<div class="alert alert-warning" role="alert">Something severe has occured: check logs</div>')
             });
 
         // to prevent refreshing the whole page page
@@ -176,7 +183,7 @@ $(document).ready(function () {
         $("#deleteTenantBtn").prop("disabled", true)
         var form = $("#stopTestFrm")[0]; // You need to use standard javascript object here
         var formData = new FormData(form);
-      
+
         // Call ajax for pass data to other place
         $.ajax({
             type: 'POST',
@@ -191,10 +198,10 @@ $(document).ready(function () {
             )
             $("#startTestBtn").prop("disabled", false)
             $("#deleteTenantBtn").prop("disabled", false)
-            alert(JSON.stringify(data))
             populate(data)
+            updateStatus()
 
-            })
+        })
             .fail(function () { // if fail then getting message
                 $("#stopTestBtn").html(
                     `button type="submit" id="stopTestBtn" class="btn btn-primary">Stop Test</button>`
@@ -209,57 +216,137 @@ $(document).ready(function () {
         return false;
     });
 
+    $("#PendingTests").on('click', function () {
+        updateStatus()
+        return false;
+    });
+
 });
 
-function populate(data){
+function updateStatus() {
+
+    $.ajax({
+        type: 'GET',
+        url: '/test-status',
+    }).done(function (data) { // if getting done then call.
+        addStatus(data)
+    }).fail(function () { // if fail then getting message
+         alert("something went wrong making the call")
+    });
+
+
+}
+function fetchTenantDetails() {
+    $.ajax({
+        type: 'GET',
+        url: '/tenants',
+    }).done(function (data) { // if getting done then call.
+        populate(data)
+    }).fail(function () { // if fail then getting message
+        alert("something went wrong making the call")
+    });
+
+}
+
+
+function addStatus(data) {
+    var started = false
+    var deleted = false
+    if (!_.isEmpty(data)) {
+        pending = '<br><table class="table-responsive table-bordered">' +
+        '<thead class="black white-text">' +
+        '<tr>' +
+        '<th scope="col">Tenant</th>' +
+        '<th scope="col">State</th>' +
+        '<th scope="col">Errors</th>' +
+        '</tr>' +
+        '</thead>' +
+        '<tbody>';
+
+        if (!_.isEmpty(data.Started)) {
+            started = true
+            $.each(data.Started, function (index, value) {
+                pending = pending.concat('<tr class="table-info"><th scope="row">' + value.Tenant + '</td><td>' + value.Started + '</td><td>' + value.Errors + '</td></tr>');
+            });
+        }
+
+        if (!_.isEmpty(data.BeingDeleted)) {
+            deleteed = true
+            $.each(data.BeingDeleted, function (index, value) {
+                pending = pending.concat('<tr class="table-primar"><th scope="row">' + value.Tenant + '</td><td>' + value.Started + '</td><td>' + value.Errors + '</td></tr>');
+            });
+        }
+
+        if (_.isEmpty(data.Started) && _.isEmpty(data.BeingDeleted)) {
+            $("#PendingList").empty()
+            $("#PendingList").append('<br><div class="alert alert-warning" role="alert">No test wating to start</div>')
+        } else {
+            end = '</tbody></table>'
+            pending = pending.concat(end)
+            $("#PendingList").empty()
+            $("#PendingList").append(pending)
+        }
+
+        if (started || deleted) {
+            fetchTenantDetails()
+        }
+
+    } else {
+        $("#PendingList").empty()
+        $("#PendingList").append('<br><div class="alert alert-warning" role="alert">No test wating to start</div>')
+    }
+
+}
+
+function populate(data) {
     if (!_.isEmpty(data.RunningTests) && (data.RunningTests.length > 0)) {
-        var form = '<div class="form-group">'+
-        '<label for="context">Tennant</label>'+
-        '<div id="RunningTests">'+
-        '<div>'+
-        '<select aria-label="Running Tests" class="form-control" name="stopcontext" id="stopcontext">'
-        $.each(data.RunningTests, function( index, value ) {
-            form = form.concat('<option value="'+value.Namespace+'">'+value.Namespace+'</option>');
-          });
-        
-        var end = '</select>'+
-          '<small id="tenantHelp" class="form-text text-muted">This is the tenant in which you want to stop the test for </small>'+
-        '</div>'+
-        '</div>'+
-        '</div>'+
-        '<button type="submit" id="stopTestBtn" class="btn btn-primary">Stop Test</button>'+
-        '<div id="TennantNotStopped"></div>'+
-       '<div id="TenantStopped"></div>';
-         form = form.concat(end)
-         $("#stopTestFrm").empty()
-         $("#stopTestFrm").append(form)
+        var form = '<div class="form-group">' +
+            '<label for="context">Tennant</label>' +
+            '<div id="RunningTests">' +
+            '<div>' +
+            '<select aria-label="Running Tests" class="form-control" name="stopcontext" id="stopcontext">'
+        $.each(data.RunningTests, function (index, value) {
+            form = form.concat('<option value="' + value.Namespace + '">' + value.Namespace + '</option>');
+        });
+
+        var end = '</select>' +
+            '<small id="tenantHelp" class="form-text text-muted">This is the tenant in which you want to stop the test for </small>' +
+            '</div>' +
+            '</div>' +
+            '</div>' +
+            '<button type="submit" id="stopTestBtn" class="btn btn-primary">Stop Test</button>' +
+            '<div id="TennantNotStopped"></div>' +
+            '<div id="TenantStopped"></div>';
+        form = form.concat(end)
+        $("#stopTestFrm").empty()
+        $("#stopTestFrm").append(form)
     } else {
         $("#stopTestFrm").empty()
         $("#stopTestFrm").append('<div class="alert alert-warning" role="alert">No Tests are running</div>')
     }
 
-    if (!_.isEmpty(data.AllTenants) && (data.AllTenants.length > 0) ){
-        var form = '<div class="form-group">'+
-        '<label for="context">Tennant</label>'+
-        '<div id="RunningTests">'+
-        '<div>'+
-        '<select aria-label="Running Tests" class="form-control" name="TenantContext" id="TenantContext">';
-        $.each(data.AllTenants, function( index, value ) {
-            form = form.concat('<option value="'+value.Namespace+'">'+value.Namespace+'</option>');
-          });
-        
-        var end = '</select>'+
-          '<small id="tenantHelp" class="form-text text-muted">This is the tenant in which you want to stop the test for </small>'+
-        '</div>'+
-        '</div>'+
-        '</div>'+
-        '<button type="submit" id="deleteTenantBtn" class="btn btn-primary">Delete Tenant</button>'+
-        '<div id="TennantNotDeleted"></div>'+
-       '<div id="TenantDeleted"></div>';
+    if (!_.isEmpty(data.AllTenants) && (data.AllTenants.length > 0)) {
+        var form = '<div class="form-group">' +
+            '<label for="context">Tennant</label>' +
+            '<div id="RunningTests">' +
+            '<div>' +
+            '<select aria-label="Running Tests" class="form-control" name="TenantContext" id="TenantContext">';
+        $.each(data.AllTenants, function (index, value) {
+            form = form.concat('<option value="' + value.Namespace + '">' + value.Namespace + '</option>');
+        });
 
-         form = form.concat(end)
-         $("#deleteTenantFrm").empty()
-         $("#deleteTenantFrm").append(form)
+        var end = '</select>' +
+            '<small id="tenantHelp" class="form-text text-muted">This is the tenant in which you want to stop the test for </small>' +
+            '</div>' +
+            '</div>' +
+            '</div>' +
+            '<button type="submit" id="deleteTenantBtn" class="btn btn-primary">Delete Tenant</button>' +
+            '<div id="TennantNotDeleted"></div>' +
+            '<div id="TenantDeleted"></div>';
+
+        form = form.concat(end)
+        $("#deleteTenantFrm").empty()
+        $("#deleteTenantFrm").append(form)
     } else {
         $("#deleteTenantFrm").empty()
         $("#deleteTenantFrm").append('<div class="alert alert-warning" role="alert">No tenants have been created</div>')
@@ -267,9 +354,9 @@ function populate(data){
     /**
      * Check for validation errors
     */
-     if (data.MissingTenant) {
+    if (data.MissingTenant) {
         $("#MissingTenant").empty()
-         $("#MissingTenant").append('<div class="alert alert-primary" role="alert"> You need to enter the tenant details</div>')
+        $("#MissingTenant").append('<div class="alert alert-primary" role="alert"> You need to enter the tenant details</div>')
         //Add missing tenant
     } else {
         //Remove missing tenant
@@ -290,8 +377,8 @@ function populate(data){
     } else {
         $("#InvalidTenantName").empty()
         $("#InvalidTenantName").append('<div class="alert alert-warning" role="alert">Following can not be used as tenant names: '
-        + data.InvalidTenantName +
-        '</div>')   
+            + data.InvalidTenantName +
+            '</div>')
     }
 
     if (_.isEmpty(data.GenericCreateTestMsg)) {
@@ -299,8 +386,8 @@ function populate(data){
     } else {
         $("#GenericCreateTestMsg").empty()
         $("#GenericCreateTestMsg").append('<div class="alert alert-primary" role="alert"> Some thing did not go right: '
-        + data.GenericCreateTestMsg +
-        '</div>')
+            + data.GenericCreateTestMsg +
+            '</div>')
     }
 
     if (data.MissingJmeter) {
@@ -320,39 +407,38 @@ function populate(data){
 
     if (_.isEmpty(data.TennantNotStopped)) {
         $("#TennantNotStopped").empty()
-    }else {
+    } else {
         $("#TennantNotStopped").empty()
-        $("#TennantNotStopped").append('<div class="alert alert-primary" role="alert"> <strong>Was not able to stop the test:'+data.TennantNotStopped+'</strong> </div>')
+        $("#TennantNotStopped").append('<div class="alert alert-primary" role="alert"> <strong>Was not able to stop the test:' + data.TennantNotStopped + '</strong> </div>')
     }
 
     if (_.isEmpty(data.TenantStopped)) {
         $("#TenantStopped").empty()
-    }else {
+    } else {
         $("#TenantStopped").empty()
-        $("#TenantStopped").append('<div class="alert alert-success" role="alert"> <strong>Test were stopped for: '+data.TenantStopped+'</strong> </div>')
+        $("#TenantStopped").append('<div class="alert alert-success" role="alert"> <strong>Test were stopped for: ' + data.TenantStopped + '</strong> </div>')
     }
-    
+
 
     if (_.isEmpty(data.TennantNotDeleted)) {
         $("#TennantNotDeleted").empty()
-    }else {
+    } else {
         $("#TennantNotDeleted").empty()
-        $("#TennantNotDeleted").append('<div class="alert alert-primary" role="alert"> <strong> Tenant not deleted:'+data.TennantNotDeleted+'</strong> </div>')
+        $("#TennantNotDeleted").append('<div class="alert alert-primary" role="alert"> <strong> Tenant not deleted:' + data.TennantNotDeleted + '</strong> </div>')
     }
 
     if (_.isEmpty(data.TenantDeleted)) {
         $("#TenantDeleted").empty()
-    }else {
+    } else {
         $("#TenantDeleted").empty()
-        $("#TenantDeleted").append('<div class="alert alert-success" role="alert"> <strong>Tenant "'+data.TenantDeleted+'" has been deleted </strong> </div>')
+        $("#TenantDeleted").append('<div class="alert alert-success" role="alert"> <strong>Tenant "' + data.TenantDeleted + '" has been deleted </strong> </div>')
     }
-    
 
-    if (_.isEmpty(data.Success)){
+    if (_.isEmpty(data.Success)) {
         $("#Success").empty()
     } else {
         $("#Success").empty()
-        $("#Success").append('<div class="alert alert-success" role="alert"><strong>'+data.Success+'</strong></div>')
+        $("#Success").append('<div class="alert alert-success" role="alert"><strong>' + data.Success + '</strong></div>')
     }
-   
+
 }

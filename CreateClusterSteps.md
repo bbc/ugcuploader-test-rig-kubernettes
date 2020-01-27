@@ -9,6 +9,8 @@ Table of Contents
     
   - [Increase Size of NodeGroup](#increase--size--of--nodegroup)
     
+  - [Autoscaling](#Autoscaling) 
+    
     
 
 
@@ -52,3 +54,11 @@ In the folder `kubernetes-util`use the script `scale-node-group.sh`. <br> Usage:
 Eg. To increase the amount of nodes for the slaves to 50.
 
 `./scale-node-group.sh jmeter-slaves 50`
+
+
+
+# Autoscaling
+
+Follow the instructions here to enable autoscaling for the cluster:
+
+https://eksctl.io/usage/autoscaling/

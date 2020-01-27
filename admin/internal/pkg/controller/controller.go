@@ -2,22 +2,20 @@ package controller
 
 import (
 	"fmt"
+	"mime/multipart"
 	"net/http"
 	"strings"
-	"time"
 
-	uuid "github.com/satori/go.uuid"
 	log "github.com/sirupsen/logrus"
 
 	aws "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/aws"
-	cluster "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/cluster"
 	jmeter "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/jmeter"
 	"github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/kubernetes"
+	admin "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/kubernetes/admin"
+	redis "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/redis"
 	types "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/types"
 	ugl "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/ugcupload"
 	validate "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/validate"
-
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/magiconair/properties"
@@ -27,6 +25,12 @@ import (
 )
 
 var props = properties.MustLoadFile("/etc/ugcupload/loadtest.conf", properties.UTF8)
+var redisUtils redis.Redis
+
+func init() {
+	redisUtils = redis.Redis{}
+	redisUtils.Setup()
+}
 
 //Controller the web control layer
 type Controller struct {
@@ -50,16 +54,25 @@ func (cnt *Controller) AddTenants(ur *types.UgcLoadRequest) {
 
 	var running []types.Tenant
 	for _, t := range cnt.tenantStatus() {
-		fmt.Println(fmt.Sprintf("%w runnn-----", t))
+		log.WithFields(log.Fields{
+			"tenant": t,
+		}).Info("Tenant")
 		if t.Running == true {
 			running = append(running, t)
 		}
 	}
 
 	ur.RunningTests = running
-
 	t, _ := cnt.KubeOps.GetallTenants()
-	ur.AllTenants = t
+	var filtered []types.Tenant
+	tbd, _, _ := redisUtils.FetchWaitingToBeDeleted()
+	validator := validate.Validator{}
+	for _, ten := range t {
+		if !validator.StringInSlice(ten.Namespace, tbd) {
+			filtered = append(filtered, ten)
+		}
+	}
+	ur.AllTenants = filtered
 }
 
 func (cnt *Controller) tenantStatus() (tenants []types.Tenant) {
@@ -72,20 +85,16 @@ func (cnt *Controller) tenantStatus() (tenants []types.Tenant) {
 
 	nt := []types.Tenant{}
 
+	jm := jmeter.Jmeter{}
 	for _, tenant := range t {
-		r, e := cnt.KubeOps.CheckIfRunningJava(tenant.Namespace, tenant.Name)
+		err, r := jm.IsRunning(tenant.PodIP)
 		log.WithFields(log.Fields{
 			"r": r,
-			"e": e,
-		}).Info("Values Returned from CheckifRunningInJava")
-		if len(e) > 0 || len(r) < 1 {
-			tenant.Running = false
-		} else {
-			tenant.Running = true
-		}
+			"e": err,
+		}).Info("response from check if running")
+		tenant.Running = r
 		nt = append(nt, tenant)
 	}
-
 	tenants = nt
 	return
 }
@@ -93,8 +102,9 @@ func (cnt *Controller) tenantStatus() (tenants []types.Tenant) {
 //AllTenants fetches all the tenants
 func (cnt *Controller) AllTenants(c *gin.Context) {
 
-	tenants := cnt.tenantStatus()
-	c.PureJSON(http.StatusOK, tenants)
+	request := types.UgcLoadRequest{}
+	cnt.AddTenants(&request)
+	c.PureJSON(http.StatusOK, request)
 }
 
 //GenerateReport used for generating the jmeter reports
@@ -161,8 +171,10 @@ func (cnt *Controller) StopTest(c *gin.Context) {
 		return
 	}
 
-	deleted, errStr := cnt.KubeOps.StopTest(ugcLoadRequest.StopContext)
-	if deleted == false {
+	jm := jmeter.Jmeter{}
+	hsnames := cnt.KubeOps.GetHostNamesOfJmeterMaster(ugcLoadRequest.StopContext)
+	errStr, resp := jm.StopTestOnMaster(hsnames[0])
+	if resp == false {
 		log.WithFields(log.Fields{
 			"Context": ugcLoadRequest.StopContext,
 			"err":     errStr,
@@ -175,6 +187,17 @@ func (cnt *Controller) StopTest(c *gin.Context) {
 		return
 	}
 
+	error, del := redisUtils.RemoveTenant(ugcLoadRequest.StopContext)
+	if del == false {
+		ugcLoadRequest.TennantNotStopped = fmt.Sprintf("Unable to remove tenant from redis: %s", error)
+		session.Set("ugcLoadRequest", ugcLoadRequest)
+		session.Save()
+		c.Redirect(http.StatusMovedPermanently, "/update")
+		c.Abort()
+		return
+
+	}
+
 	ugcLoadRequest.TenantStopped = ugcLoadRequest.StopContext
 	ugcLoadRequest.StopContext = ""
 	session.Set("ugcLoadRequest", ugcLoadRequest)
@@ -184,14 +207,28 @@ func (cnt *Controller) StopTest(c *gin.Context) {
 	return
 }
 
+func (cnt *Controller) removeTenant(tenant string) {
+	deleted, errStr := cnt.KubeOps.DeleteServiceAccount(tenant)
+	if deleted == false {
+		t := types.RedisTenant{Tenant: tenant, Errors: errStr, Started: "problems deleting tenant"}
+		redisUtils.AddToWaitingForDelete(t)
+	} else {
+
+		redisUtils.RemoveTenant(tenant)
+		redisUtils.RemoveFromWaitingTests(tenant)
+		redisUtils.RemoveTenantDelete(tenant)
+		redisUtils.RemoveFromWaitingForDelete(tenant)
+	}
+}
+
 //DeleteTenant used for deleting the tenant
 func (cnt *Controller) DeleteTenant(c *gin.Context) {
 
 	session := sessions.Default(c)
-
 	cnt.KubeOps.RegisterClient()
-	ugcLoadRequest := new(types.UgcLoadRequest)
 	validator := validate.Validator{Context: c}
+
+	ugcLoadRequest := new(types.UgcLoadRequest)
 	if err := c.ShouldBindWith(ugcLoadRequest, binding.Form); err != nil {
 		ugcLoadRequest.ProblemsBinding = true
 		session.Set("ugcLoadRequest", ugcLoadRequest)
@@ -214,23 +251,11 @@ func (cnt *Controller) DeleteTenant(c *gin.Context) {
 		return
 	}
 
-	deleted, errStr := cnt.KubeOps.DeleteServiceAccount(ugcLoadRequest.TenantContext)
-	log.WithFields(log.Fields{
-		"deleted": deleted,
-	}).Info("Deleted")
+	go cnt.removeTenant(ugcLoadRequest.TenantContext)
 
-	if deleted == false {
-		log.WithFields(log.Fields{
-			"Context": ugcLoadRequest.TenantContext,
-			"err":     errStr,
-		}).Info("UnableToDeleteServiceAccount")
-		ugcLoadRequest.TennantNotDeleted = fmt.Sprintf("Unable to delete service account: %s", errStr)
-		session.Set("ugcLoadRequest", ugcLoadRequest)
-		session.Save()
-		c.Redirect(http.StatusMovedPermanently, "/update")
-		c.Abort()
-		return
-	}
+	redisTenant := types.RedisTenant{Tenant: ugcLoadRequest.TenantContext, Started: "Started Deleting"}
+	redisUtils.AddToWaitingForDelete(redisTenant)
+	redisUtils.BeingDeleted(ugcLoadRequest.TenantContext)
 	ugcLoadRequest.TenantDeleted = ugcLoadRequest.TenantContext
 	ugcLoadRequest.TenantContext = ""
 	session.Set("ugcLoadRequest", ugcLoadRequest)
@@ -241,8 +266,168 @@ func (cnt *Controller) DeleteTenant(c *gin.Context) {
 
 }
 
-//Upload basicall does everything to start a test
-func (cnt *Controller) Upload(c *gin.Context) {
+func getFileFromContext(name string, context *gin.Context) (fileName string, file *multipart.File, error string, opened bool) {
+
+	fh, err := context.FormFile(name)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"err": err.Error(),
+		}).Error("Unable to get the test data from the form")
+		error = err.Error()
+		opened = false
+		return
+	}
+	fileName = fh.Filename
+
+	if fh != nil {
+		f, err := fh.Open()
+		if err != nil {
+			log.WithFields(log.Fields{
+				"err":      err.Error(),
+				"filename": fh.Filename,
+			}).Error("Could not open the file")
+			error = err.Error()
+			opened = false
+			return
+		}
+		opened = true
+		file = &f
+		return
+	}
+
+	error = "multipart header null"
+	opened = false
+	return
+}
+
+func (cnt *Controller) startTest(c *gin.Context, ugcLoadRequest types.UgcLoadRequest) {
+	cnt.KubeOps.RegisterClient()
+	redisTenant := types.RedisTenant{Tenant: ugcLoadRequest.Context}
+
+	redisTenant.Started = "Checking to see if namespace exist"
+	redisUtils.AddTenant(redisTenant)
+	nsExist := cnt.KubeOps.CheckNamespaces(ugcLoadRequest.Context)
+	if nsExist == false {
+		redisTenant.Started = "Creating tenant infrastructure: This can take several minutes"
+		redisUtils.AddTenant(redisTenant)
+		//Creating tenant infrastructure
+		kubeAdmin := admin.Admin{KubeOps: &cnt.KubeOps}
+		error, created := kubeAdmin.CreateTenantInfrastructure(ugcLoadRequest)
+		if created == false {
+			redisTenant.Started = "failed"
+			redisTenant.Errors = error
+			redisUtils.AddTenant(redisTenant)
+			return
+		}
+
+	} else {
+		redisTenant.Started = fmt.Sprintf("Scaling nodes to %d", ugcLoadRequest.NumberOfNodes)
+		redisUtils.AddTenant(redisTenant)
+		scaledError, scaled := cnt.KubeOps.ScaleDeployment(ugcLoadRequest.Context, int32(ugcLoadRequest.NumberOfNodes))
+		if scaled == false {
+			redisTenant.Started = "problems scaling nodes"
+			redisTenant.Errors = scaledError
+			redisUtils.AddTenant(redisTenant)
+			return
+		}
+	}
+	redisTenant.Started = fmt.Sprintf("Wait for %d nodes to start", ugcLoadRequest.NumberOfNodes+1)
+	redisUtils.AddTenant(redisTenant)
+	podsStarted, podsError := cnt.KubeOps.WaitForPodsToStart(ugcLoadRequest.Context, ugcLoadRequest.NumberOfNodes+1)
+	if podsStarted == false {
+		redisTenant.Started = "Problems starting slaves"
+		redisTenant.Errors = podsError
+		redisUtils.AddTenant(redisTenant)
+		return
+	}
+
+	ips := cnt.KubeOps.GetPodIpsForSlaves(ugcLoadRequest.Context)
+
+	if len(ips) > 0 {
+		listOfHost := strings.Join(ips, ",")
+		fileName, dataFile, errData, fndData := getFileFromContext("data", c)
+		if fndData == false {
+			redisTenant.Started = "failed"
+			redisTenant.Errors = errData
+			redisUtils.AddTenant(redisTenant)
+			return
+		}
+
+		_, fileJmeter, errJmeter, fndJmeter := getFileFromContext("jmeter", c)
+		if fndJmeter == false {
+			redisTenant.Started = "failed"
+			redisTenant.Errors = errJmeter
+			redisUtils.AddTenant(redisTenant)
+			return
+		}
+
+		redisTenant.Started = fmt.Sprintf("Starting slaves: %s", listOfHost)
+		redisUtils.AddTenant(redisTenant)
+		jm := jmeter.Jmeter{Fop: ugl.FileUploadOperations{Context: c},
+			Context: c, Data: dataFile, JmeterScript: fileJmeter, DataFilename: fileName}
+
+		error, uploaded := jm.SetupSlaves(ugcLoadRequest, ips)
+		if uploaded == false {
+			redisTenant.Started = "failed"
+			redisTenant.Errors = error
+			redisUtils.AddTenant(redisTenant)
+			return
+		}
+
+		masters := cnt.KubeOps.GetHostNamesOfJmeterMaster(ugcLoadRequest.Context)
+		redisTenant.Started = fmt.Sprintf("start master %s", strings.Join(masters, ","))
+		redisUtils.AddTenant(redisTenant)
+		for _, master := range masters {
+			e, started := jm.StartMasterTest(master, ugcLoadRequest, listOfHost)
+			tenant := types.RedisTenant{Tenant: ugcLoadRequest.Context}
+			if started == false {
+				tenant.Started = "Unable To Start"
+				tenant.Errors = e
+			} else {
+				tenant.Started = "Running"
+			}
+			redisUtils.AddTenant(tenant)
+		}
+
+	} else {
+		redisUtils.AddTenant(types.RedisTenant{Tenant: ugcLoadRequest.Context, Started: "failed", Errors: fmt.Sprintf("No slaves found: Test for started for [%s]", ugcLoadRequest.Context)})
+		return
+	}
+
+}
+
+//TestStatus used to get the status test
+func (cnt *Controller) TestStatus(c *gin.Context) {
+
+	tenants, _, _ := redisUtils.FetchWaitingTests()
+	var redistTenants []types.RedisTenant
+	for _, tenant := range tenants {
+		rt, _, found := redisUtils.GetTenant(tenant)
+		if found {
+			if len(rt.Tenant) > 0 {
+				redistTenants = append(redistTenants, rt)
+			}
+		}
+	}
+
+	tenants, _, _ = redisUtils.FetchWaitingToBeDeleted()
+	var deletedTenants []types.RedisTenant
+	for _, tenant := range tenants {
+		rt, _, found := redisUtils.GetTenantFromDelete(tenant)
+		if found {
+			deletedTenants = append(deletedTenants, rt)
+		}
+	}
+
+	ts := types.TestStatus{}
+	ts.Started = redistTenants
+	ts.BeingDeleted = deletedTenants
+	c.PureJSON(http.StatusOK, ts)
+
+}
+
+//StartTest basicall does everything to start a test
+func (cnt *Controller) StartTest(c *gin.Context) {
 
 	session := sessions.Default(c)
 
@@ -268,91 +453,6 @@ func (cnt *Controller) Upload(c *gin.Context) {
 		return
 	}
 
-	nsExist := cnt.KubeOps.CheckNamespaces(ugcLoadRequest.Context)
-	if nsExist == false {
-		clusterops := cluster.Operations{}
-		awsRegion, awsAcntNumber := clusterops.DescribeCluster("ugctestgrid")
-		log.WithFields(log.Fields{
-			"awsAcntNumber": awsAcntNumber,
-			"awsRegion":     awsRegion,
-		}).Info("Cluster Info")
-
-		aan, err := strconv.ParseInt(awsAcntNumber, 10, 64)
-		if err != nil {
-			log.WithFields(log.Fields{
-				"err": err.Error(),
-			}).Error("Unable to Parse Integer")
-			ugcLoadRequest.GenericCreateTestMsg = err.Error()
-			session.Set("ugcLoadRequest", ugcLoadRequest)
-			session.Save()
-			c.Redirect(http.StatusMovedPermanently, "/update")
-			c.Abort()
-			return
-		}
-		created, errNs := cnt.KubeOps.CreateNamespace(ugcLoadRequest.Context)
-		if created == false {
-			log.WithFields(log.Fields{
-				"err": errNs,
-			}).Error("Unable to create namespace")
-			ugcLoadRequest.GenericCreateTestMsg = errNs
-			session.Set("ugcLoadRequest", ugcLoadRequest)
-			session.Save()
-			c.Redirect(http.StatusMovedPermanently, "/update")
-			c.Abort()
-			return
-		}
-		policyArn := fmt.Sprintf("arn:aws:iam::%s:policy/ugcupload-eks-jmeter-policy", awsAcntNumber)
-		crtd, e := cnt.KubeOps.CreateServiceaccount(ugcLoadRequest.Context, policyArn)
-		if crtd == false {
-			log.WithFields(log.Fields{
-				"err": e,
-			}).Error("Unable To Create ServiceAccount")
-			ugcLoadRequest.GenericCreateTestMsg = e
-			session.Set("ugcLoadRequest", ugcLoadRequest)
-			session.Save()
-			c.Redirect(http.StatusMovedPermanently, "/update")
-			c.Abort()
-			return
-		}
-		crtd, e = cnt.KubeOps.CreateJmeterMasterDeployment(ugcLoadRequest.Context, aan, awsRegion)
-		if crtd == false {
-			log.WithFields(log.Fields{
-				"err": e,
-			}).Error("Unable To Create Jmeter Master Deployment")
-			ugcLoadRequest.GenericCreateTestMsg = e
-			session.Set("ugcLoadRequest", ugcLoadRequest)
-			session.Save()
-			c.Redirect(http.StatusMovedPermanently, "/update")
-			c.Abort()
-			return
-		}
-		crtd, e = cnt.KubeOps.CreateJmeterSlaveService(ugcLoadRequest.Context)
-		if crtd == false {
-			log.WithFields(log.Fields{
-				"err": e,
-			}).Error("Unable To Create Jmeter Slave Service")
-			ugcLoadRequest.GenericCreateTestMsg = e
-			session.Set("ugcLoadRequest", ugcLoadRequest)
-			session.Save()
-			c.Redirect(http.StatusMovedPermanently, "/update")
-			c.Abort()
-			return
-		}
-		crtd, e = cnt.KubeOps.CreateJmeterSlaveDeployment(ugcLoadRequest.Context, int32(ugcLoadRequest.NumberOfNodes), aan, awsRegion)
-		if crtd == false {
-			log.WithFields(log.Fields{
-				"err": e,
-			}).Error("Unable To Create Jmeter Slave Deployment")
-			ugcLoadRequest.GenericCreateTestMsg = e
-			session.Set("ugcLoadRequest", ugcLoadRequest)
-			session.Save()
-			c.Redirect(http.StatusMovedPermanently, "/update")
-			c.Abort()
-			return
-		}
-
-	}
-
 	log.WithFields(log.Fields{
 		"ugcLoadRequest.Context":            ugcLoadRequest.Context,
 		"ugcLoadRequest.NumberOfNodes":      ugcLoadRequest.NumberOfNodes,
@@ -361,115 +461,9 @@ func (cnt *Controller) Upload(c *gin.Context) {
 		"ugcLoadRequest.Data":               ugcLoadRequest.Data,
 	}).Info("Request Properties")
 
-	/*
-		testPath := fop.ProcessJmeter()
-		if testPath == "" {
-			cnt.KubeOps.RegisterClient()
-			ugcLoadRequest.MissingJmeter = true
-			session.Set("ugcLoadRequest", ugcLoadRequest)
-			session.Save()
-			c.Redirect(http.StatusMovedPermanently, "/update")
-			c.Abort()
-			return
-		}
-	*/
-
-	cnt.KubeOps.ScaleDeployment(ugcLoadRequest.Context, int32(ugcLoadRequest.NumberOfNodes))
-	cnt.KubeOps.WaitForPodsToStart(ugcLoadRequest.Context, ugcLoadRequest.NumberOfNodes+1)
-	hostnames := cnt.KubeOps.GetHostEndpoints(ugcLoadRequest.Context)
-	fmt.Println(fmt.Sprint("host names=%s", hostnames))
-
-	for _, hn := range hostnames {
-		fop := ugl.FileUploadOperations{Context: c}
-		dataURI := fmt.Sprintf("http://%s:1007/data", hn)
-		fop.ProcessData(dataURI)
-		jmeterURI := fmt.Sprintf("http://%s:1007/jmeter-props", hn)
-		fop.UploadJmeterProps(jmeterURI, ugcLoadRequest.BandWidthSelection)
-		req, err := http.NewRequest("GET", fmt.Sprintf("http://%s:1007/start-server", hn), nil)
-		if err != nil {
-			log.WithFields(log.Fields{
-				"err":  err.Error(),
-				"host": hn,
-			}).Error("Problems creating the request")
-			// handle error
-		} else {
-
-			client := &http.Client{}
-			resp, errResp := client.Do(req)
-			if errResp != nil {
-				log.WithFields(log.Fields{
-					"err":  errResp.Error(),
-					"host": hn,
-				}).Error("Problems creating the request")
-
-			} else {
-				var bodyContent []byte
-				resp.Body.Read(bodyContent)
-				resp.Body.Close()
-				log.WithFields(log.Fields{
-					"response": string(bodyContent),
-				}).Info("Response from starting the jmeter slave")
-			}
-		}
-
-	}
-	listOfHost := strings.Join(hostnames, ",")
-
-	if len(listOfHost) > 0 {
-		//s, er := cnt.KubeOps.StartTest(testPath, ugcLoadRequest.Context, listOfHost)
-
-		jm := jmeter.Jmeter{}
-
-		masters := cnt.KubeOps.GetHostNamesOfJmeterMaster(ugcLoadRequest.Context)
-
-		for _, master := range masters {
-			uri := fmt.Sprintf("http://%s:1025/start-test", master)
-			t := time.Now()
-			u2 := fmt.Sprintf("%s-%s", uuid.NewV4(), t.Format("20060102150405"))
-			path := fmt.Sprintf("%s/%s", props.MustGet("jmeter"), u2)
-			jmeterScript, err := c.FormFile("jmeter")
-			if err != nil {
-				log.WithFields(log.Fields{
-					"err": err.Error(),
-				}).Errorf("Unable to get the jmeter script from the form")
-				return
-			}
-
-			log.WithFields(log.Fields{
-				"path":       path,
-				"uri":        uri,
-				"tenant":     ugcLoadRequest.Context,
-				"listOfHost": listOfHost,
-			}).Info("Info about test being run")
-
-			f, err := jmeterScript.Open()
-			if err != nil {
-				log.WithFields(log.Fields{
-					"err":      err.Error(),
-					"filename": jmeterScript.Filename,
-				}).Error("Could not open the file")
-			} else {
-				errFromStartingJmeter, res := jm.StartTestOnMaster(f, uri, ugcLoadRequest.Context, listOfHost, path)
-				if res == false {
-					log.WithFields(log.Fields{
-						"err": errFromStartingJmeter,
-					}).Error("Could not start jmeter")
-					ugcLoadRequest.GenericCreateTestMsg = fmt.Sprintf("Problem starting test [%s]", errFromStartingJmeter)
-					session.Set("ugcLoadRequest", ugcLoadRequest)
-					session.Save()
-					c.Redirect(http.StatusMovedPermanently, "/update")
-					c.Abort()
-					return
-				}
-
-			}
-			f.Close()
-
-		}
-
-	} else {
-		cnt.KubeOps.RegisterClient()
-		ugcLoadRequest.GenericCreateTestMsg = fmt.Sprintf("No slaves found: Test for started for [%s]", ugcLoadRequest.Context)
+	redisTenant, error, found := redisUtils.GetTenant(ugcLoadRequest.Context)
+	if found == false {
+		ugcLoadRequest.GenericCreateTestMsg = error
 		session.Set("ugcLoadRequest", ugcLoadRequest)
 		session.Save()
 		c.Redirect(http.StatusMovedPermanently, "/update")
@@ -477,10 +471,52 @@ func (cnt *Controller) Upload(c *gin.Context) {
 		return
 	}
 
-	ugcLoadRequest.Success = fmt.Sprintf("Test was succesfully created for tenant[%s]", ugcLoadRequest.Context)
-	ugcLoadRequest.NumberOfNodes = 0
-	ugcLoadRequest.Context = ""
-	session.Set("ugcLoadRequest", ugcLoadRequest)
+	if !strings.EqualFold(redisTenant.Tenant, "") {
+		ugcLoadRequest.GenericCreateTestMsg = fmt.Sprintf("Waiting for [%s] to start: [%s] : [%s]", ugcLoadRequest.Context, redisTenant.Started, redisTenant.Errors)
+		session.Set("ugcLoadRequest", ugcLoadRequest)
+		session.Save()
+		c.Redirect(http.StatusMovedPermanently, "/update")
+		c.Abort()
+		return
+
+	}
+
+	beingDeleted, _, _ := redisUtils.CheckIfBeingDeleted(ugcLoadRequest.Context)
+	if beingDeleted {
+		ugcLoadRequest.GenericCreateTestMsg = fmt.Sprintf("Need to wait for tenant [%s] to be deleted ", ugcLoadRequest.Context)
+		session.Set("ugcLoadRequest", ugcLoadRequest)
+		session.Save()
+		c.Redirect(http.StatusMovedPermanently, "/update")
+		c.Abort()
+		return
+	}
+
+	redisTenant = types.RedisTenant{Tenant: ugcLoadRequest.Context, Started: "not-yet"}
+	error, added := redisUtils.AddTenant(redisTenant)
+	if added == false {
+		ugcLoadRequest.GenericCreateTestMsg = fmt.Sprintf("Unable to add test to list of pending test [%s]: %s", ugcLoadRequest.Context, error)
+		session.Set("ugcLoadRequest", ugcLoadRequest)
+		session.Save()
+		c.Redirect(http.StatusMovedPermanently, "/update")
+		c.Abort()
+		return
+	}
+
+	error, added = redisUtils.AddToListOfStarted(ugcLoadRequest.Context)
+	if added == false {
+		ugcLoadRequest.GenericCreateTestMsg = fmt.Sprintf("Unable to add test details to list of started tests [%s]: %s", ugcLoadRequest.Context, error)
+		session.Set("ugcLoadRequest", ugcLoadRequest)
+		session.Save()
+		c.Redirect(http.StatusMovedPermanently, "/update")
+		c.Abort()
+		return
+	}
+
+	go cnt.startTest(c, *ugcLoadRequest)
+
+	responseContext := types.UgcLoadRequest{}
+	responseContext.Success = fmt.Sprintf("Test for [%s] has been initiated", ugcLoadRequest.Context)
+	session.Set("ugcLoadRequest", responseContext)
 	session.Save()
 	c.Redirect(http.StatusMovedPermanently, "/update")
 	c.Abort()

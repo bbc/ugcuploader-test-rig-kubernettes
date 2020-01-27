@@ -1,2 +1,2 @@
 
-eksctl scale nodegroup --cluster=ugcload-test --name=$1 --nodes=$2
+eksctl scale nodegroup --cluster=ugctestgrid --name=$1 --nodes=$2

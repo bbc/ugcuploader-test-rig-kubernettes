@@ -41,7 +41,7 @@ export AWS_SECRET_ACCESS_KEY="\$(cat /tmp/irp-cred.txt | jq -r ".Credentials.Sec
 export AWS_SESSION_TOKEN="\$(cat /tmp/irp-cred.txt | jq -r ".Credentials.SessionToken")"
 export AWS_DEFAULT_REGION=eu-west-2
 
-nohup kubectl port-forward --address 0.0.0.0 -n weave "$(kubectl get -n weave pod --selector=weave-scope-component=app -o jsonpath='{.items..metadata.name}')" 4040 &> weavscope.out&
+nohup kubectl port-forward -n weave "$(kubectl get pod --selector=name=weave-scope-app -o jsonpath={.items..metadata.name} -n weave)" 4040 &> /home/control/weavescope.out&
 
 EOF
 sudo chmod 0777 /home/control/start_weavescope.sh

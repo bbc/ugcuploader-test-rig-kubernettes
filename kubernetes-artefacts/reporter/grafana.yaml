@@ -42,6 +42,8 @@ spec:
       labels:
         app: jmeter-grafana
     spec:
+      nodeSelector:
+         report : grafana
       serviceAccountName: ugcupload-jmeter
       containers:
         - image: grafana/grafana:6.5.0

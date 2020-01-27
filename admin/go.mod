@@ -36,6 +36,7 @@ require (
 	github.com/gin-contrib/sessions v0.0.3
 	github.com/gin-gonic/gin v1.5.0
 	github.com/go-playground/validator/v10 v10.1.0
+	github.com/gomodule/redigo v2.0.0+incompatible
 	github.com/google/go-cmp v0.3.2-0.20191028172631-481baca67f93 // indirect
 	github.com/imdario/mergo v0.3.8 // indirect
 	github.com/labstack/echo/v4 v4.1.13

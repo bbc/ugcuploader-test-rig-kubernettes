@@ -18,7 +18,7 @@ iam:
  #   - "arn:aws:iam::546933502184:policy/ugcupload-eks-jmeter-policy"
 
 nodeGroups:
-  - name: jmeter-slaves-v4
+  - name: jmeter-slaves-v1
     labels: { jmeter_mode : slaves }
     minSize: 2
     maxSize: 100
@@ -32,7 +32,7 @@ nodeGroups:
         ebs: true
     instanceType: t2.micro
 
-  - name: jmeter-master-v3
+  - name: jmeter-master-v1
     labels: { jmeter_mode : master }
     minSize: 1
     maxSize: 25
@@ -46,9 +46,10 @@ nodeGroups:
         externalDNS: true
         ebs: true
 
-  - name: grafana-v3
+  - name: grafana-v1
     labels: { report : grafana }
-    minSize: 1
+    minSize: 3
+    maxSize: 3
     volumeSize: 50
     volumeType: gp2
     iam:
@@ -65,9 +66,10 @@ nodeGroups:
             CSIBlockVolume: true
             RotateKubeletServerCertificate: true # according to this must always be included: https://eksctl.io/usage/customizing-the-kubelet/
 
-  - name: influxdb-v3
-    labels: { report : influxd }
-    minSize: 1
+  - name: influxdb-v1
+    labels: { report : influxdb }
+    minSize: 3
+    maxSize: 3
     volumeSize: 50
     volumeType: gp2
     iam:
@@ -77,10 +79,12 @@ nodeGroups:
         externalDNS: true
         ebs: true
     instanceType: t2.micro
+    availabilityZones: ["eu-west-2a"]
 
-  - name: admin-controller-v3
+  - name: admin-controller-v2
     labels: { control : admin }
-    minSize: 1
+    minSize: 3
+    maxSize: 3
     volumeSize: 50
     volumeType: gp2
     ssh:

@@ -1580,11 +1580,11 @@ cookieprop.setObjectValue(manager);
       </hashTree>
       <kg.apc.jmeter.threads.UltimateThreadGroup guiclass="kg.apc.jmeter.threads.UltimateThreadGroupGui" testclass="kg.apc.jmeter.threads.UltimateThreadGroup" testname="jp@gc - Ultimate Thread Group" enabled="true">
         <collectionProp name="ultimatethreadgroupdata">
-          <collectionProp name="509367376">
-            <stringProp name="1603">25</stringProp>
-            <stringProp name="0">0</stringProp>
+          <collectionProp name="1700574064">
             <stringProp name="49">1</stringProp>
-            <stringProp name="53377398">86400</stringProp>
+            <stringProp name="48577203">30000</stringProp>
+            <stringProp name="49">1</stringProp>
+            <stringProp name="51">3</stringProp>
             <stringProp name="10">10</stringProp>
           </collectionProp>
         </collectionProp>

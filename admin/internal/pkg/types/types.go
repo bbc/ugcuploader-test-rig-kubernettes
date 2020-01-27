@@ -1,5 +1,18 @@
 package types
 
+//RedisTenant used to store infor about tenant in redi
+type RedisTenant struct {
+	Started string `redis:"started"`
+	Errors  string `redis:"errors"`
+	Tenant  string `redis:"tenant"`
+}
+
+//TestStatus Used to return the status of all running test
+type TestStatus struct {
+	Started      []RedisTenant
+	BeingDeleted []RedisTenant
+}
+
 //UgcLoadRequest This is used to map to the form data.. seems to only work with firefox
 type UgcLoadRequest struct {
 	Context              string `json:"context" form:"context" validate:"required"`
@@ -38,4 +51,11 @@ type Tenant struct {
 	Name      string
 	Namespace string
 	Running   bool
+	PodIP     string
+}
+
+//JmeterResponse the response message recieved from the request to the jmeter agent
+type JmeterResponse struct {
+	Message string
+	Code    int
 }
