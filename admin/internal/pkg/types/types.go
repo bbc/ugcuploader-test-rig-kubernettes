@@ -59,3 +59,26 @@ type JmeterResponse struct {
 	Message string
 	Code    int
 }
+
+//SlaveStatus the status of the slave
+type SlaveStatus struct {
+	Name  string
+	Phase string
+}
+
+//NodeCondition The condition of the node
+type NodeCondition struct {
+	Type              string
+	Status            string
+	LastHeartbeatTime string
+	Reason            string
+	Message           string
+}
+
+//NodePhase a struct holding the different phases of nodes
+type NodePhase struct {
+	Phase          string
+	Name           string
+	InstanceID     string
+	NodeConditions []NodeCondition
+}

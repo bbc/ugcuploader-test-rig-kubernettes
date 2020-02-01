@@ -14,6 +14,7 @@ import (
 	"github.com/magiconair/properties"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	intstr "k8s.io/apimachinery/pkg/util/intstr"
@@ -174,22 +175,86 @@ func (kop *Operations) CreateNamespace(ns string) (created bool, err string) {
 	return
 }
 
-//GetAllNodesWithPods gets all pods within a namespace
-func (kop *Operations) GetAllNodesWithPods(ns string) (pds []string, found bool) {
-	var pods []string
+//GetAlFailingNodes returns a list of nodes that have failed
+func (kop *Operations) GetAlFailingNodes() (nodes []types.NodePhase, found bool) {
 	actual := metav1.ListOptions{}
-	res, e := kop.ClientSet.CoreV1().Pods(ns).List(actual)
+	var nodePhases []types.NodePhase
+	res, e := kop.ClientSet.CoreV1().Nodes().List(actual)
 	if e != nil {
 		log.WithFields(log.Fields{
-			"err":       e.Error(),
-			"namespace": ns,
-		}).Error("Problems getting all pods in namespace")
+			"err": e.Error(),
+		}).Error("Problems getting all nodes")
+		found = false
+		return
+	} else {
+		for _, item := range res.Items {
+
+			if len(item.Spec.Taints) > 0 {
+
+				first := true
+				out := ""
+				for _, taint := range item.Spec.Taints {
+
+					if !first {
+						out = "," + out
+					} else {
+						first = false
+					}
+					out = out + taint.Key + ":" + taint.Value + "|"
+				}
+				nodePhase := types.NodePhase{}
+				var nodeConditions []types.NodeCondition
+				nodePhase.Phase = out
+				nodePhase.InstanceID = item.Labels["alpha.eksctl.io/instance-id"]
+				nodePhase.Name = item.Name
+				for _, condition := range item.Status.Conditions {
+					con := types.NodeCondition{}
+					con.Type = string(condition.Type)
+					con.Status = string(condition.Status)
+					con.LastHeartbeatTime = condition.LastHeartbeatTime.String()
+					con.Reason = condition.Reason
+					con.Message = condition.Message
+					nodeConditions = append(nodeConditions, con)
+				}
+				nodePhase.NodeConditions = nodeConditions
+				nodePhases = append(nodePhases, nodePhase)
+				found = true
+			}
+		}
+		nodes = nodePhases
+		return
+	}
+	found = false
+	return
+}
+
+//GetallJmeterSlaves gets all the jmeter slaves
+func (kop *Operations) GetallJmeterSlaves(tenant string) (slvs []types.SlaveStatus, err string, found bool) {
+	slaves := []types.SlaveStatus{}
+	labelSelector := metav1.LabelSelector{MatchLabels: map[string]string{"jmeter_mode": "slave"}}
+	actual := metav1.ListOptions{LabelSelector: labels.Set(labelSelector.MatchLabels).String()}
+	res, e := kop.ClientSet.CoreV1().Pods(tenant).List(actual)
+	if e != nil {
+		log.WithFields(log.Fields{
+			"err":    e.Error(),
+			"Tenant": tenant,
+		}).Error("Problems getting all slaves")
+		err = e.Error()
 		found = false
 	} else {
 		for _, item := range res.Items {
-			pods = append(pods, item.Spec.NodeName)
+			slaves = append(slaves, types.SlaveStatus{Name: item.Name, Phase: string(item.Status.Phase)})
 		}
-		pds = pods
+
+		if len(slaves) < 1 {
+			log.WithFields(log.Fields{
+				"err":    "maybe the selector is wrong",
+				"Tenant": tenant,
+			}).Error("Problems getting all slaves")
+			err = "something abnormal happened"
+			found = false
+		}
+		slvs = slaves
 		found = true
 	}
 	return
@@ -215,9 +280,122 @@ func (kop *Operations) GetallTenants() (ts []types.Tenant, err string) {
 	return
 }
 
+//CreateTelegrafConfigMap the config map used by the telgraf sidecar
+func (kop *Operations) CreateTelegrafConfigMap(ns string) (created bool, err string) {
+
+	connfigmapsclient := kop.ClientSet.CoreV1().ConfigMaps(ns)
+
+	configmap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "telegraf-config-map",
+			Namespace: ns},
+		Data: map[string]string{
+			"telegraf.conf": `
+				[global_tags]
+					env = "$ENV"
+		  	[agent]
+				hostname = "$HOSTNAME"
+		  		[[outputs.influxdb]]
+					urls = ["http://influxdb-jmeter.ugcload-reporter.svc.cluster.local:8086"]
+					skip_database_creation = false
+					database = "jmeter-slaves"
+					write_consistency = "any"
+					timeout = "5s"
+				
+					[[inputs.jolokia2_agent.metric]]
+					name  = "java_runtime"
+					mbean = "java.lang:type=Runtime"
+					paths = ["Uptime"]
+				
+				[[inputs.jolokia2_agent.metric]]
+					name  = "java_memory"
+					mbean = "java.lang:type=Memory"
+					paths = ["HeapMemoryUsage", "NonHeapMemoryUsage", "ObjectPendingFinalizationCount"]
+				
+				[[inputs.jolokia2_agent.metric]]
+					name     = "java_garbage_collector"
+					mbean    = "java.lang:name=*,type=GarbageCollector"
+					paths    = ["CollectionTime", "CollectionCount"]
+					tag_keys = ["name"]
+				
+				[[inputs.jolokia2_agent.metric]]
+					name  = "java_last_garbage_collection"
+					mbean = "java.lang:name=*,type=GarbageCollector"
+					paths = ["LastGcInfo"]
+					tag_keys = ["name"]
+				
+				[[inputs.jolokia2_agent.metrics]]
+					name  = "java_threading"
+					mbean = "java.lang:type=Threading"
+					paths = ["TotalStartedThreadCount", "ThreadCount", "DaemonThreadCount", "PeakThreadCount"]
+				
+				[[inputs.jolokia2_agent.metrics]]
+					name  = "java_class_loading"
+					mbean = "java.lang:type=ClassLoading"
+					paths = ["LoadedClassCount", "UnloadedClassCount", "TotalLoadedClassCount"]
+				
+				[[inputs.jolokia2_agent.metrics]]
+					name     = "java_memory_pool"
+					mbean    = "java.lang:name=*,type=MemoryPool"
+					paths    = ["Usage", "PeakUsage", "CollectionUsage"]
+					tag_keys = ["name"]
+			`,
+		},
+	}
+
+	result, e := connfigmapsclient.Create(configmap)
+	if e != nil {
+		log.WithFields(log.Fields{
+			"err": e.Error(),
+		}).Error("Problems creating config map")
+		created = false
+		err = e.Error()
+	} else {
+		log.WithFields(log.Fields{
+			"name": result.GetObjectMeta().GetName(),
+		}).Info("Deployment succesful created config map")
+		created = true
+	}
+	return
+}
+
 //CreateJmeterSlaveDeployment creates deployment for jmeter slaves
 func (kop *Operations) CreateJmeterSlaveDeployment(ns string, nbrnodes int32, awsAcntNbr int64, awsRegion string) (created bool, err string) {
 
+	values := []string{"slaves"}
+	nodeSelectorRequirement := corev1.NodeSelectorRequirement{Key: "jmeter_mode", Operator: corev1.NodeSelectorOpIn, Values: values}
+	nodeSelectorRequirements := []corev1.NodeSelectorRequirement{nodeSelectorRequirement}
+	nodeSelectorTerm := corev1.NodeSelectorTerm{MatchExpressions: nodeSelectorRequirements}
+	nodeSelectorTerms := []corev1.NodeSelectorTerm{nodeSelectorTerm}
+	nodeSelector := &corev1.NodeSelector{NodeSelectorTerms: nodeSelectorTerms}
+	nodeAffinity := &corev1.NodeAffinity{RequiredDuringSchedulingIgnoredDuringExecution: nodeSelector}
+	affinity := &corev1.Affinity{NodeAffinity: nodeAffinity}
+
+	configmapVolumeSource := &corev1.ConfigMapVolumeSource{
+		LocalObjectReference: corev1.LocalObjectReference{Name: "telegraf-config-map"},
+		Items: []corev1.KeyToPath{
+			{
+				Key:  "telegraf.conf",
+				Path: "telegraf.conf",
+			},
+		},
+	}
+
+	volumeSource := corev1.VolumeSource{
+		ConfigMap: configmapVolumeSource,
+	}
+
+	cpuformat := fmt.Sprintf("%v", resource.NewMilliQuantity(500, resource.DecimalSI))
+	memformat := fmt.Sprintf("%v", resource.NewQuantity(30*1024*1024, resource.BinarySI))
+	resourcerequirements := corev1.ResourceRequirements{
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse(cpuformat),
+			corev1.ResourceMemory: resource.MustParse(memformat),
+		},
+	}
+
+	toleration := corev1.Toleration{Key: "jmeter_slave", Operator: corev1.TolerationOpExists, Value: "", Effect: corev1.TaintEffectNoSchedule}
+	tolerations := []corev1.Toleration{toleration}
 	deploymentsClient := kop.ClientSet.AppsV1().Deployments(ns)
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -240,10 +418,15 @@ func (kop *Operations) CreateJmeterSlaveDeployment(ns string, nbrnodes int32, aw
 					},
 				},
 				Spec: corev1.PodSpec{
-					NodeSelector: map[string]string{
-						"jmeter_mode": "slaves",
-					},
+					Affinity:           affinity,
+					Tolerations:        tolerations,
 					ServiceAccountName: "ugcupload-jmeter",
+					Volumes: []corev1.Volume{
+						{
+							Name:         "telegraf-config-map",
+							VolumeSource: volumeSource,
+						},
+					},
 					Containers: []corev1.Container{
 						{
 							TTY:   true,
@@ -255,7 +438,26 @@ func (kop *Operations) CreateJmeterSlaveDeployment(ns string, nbrnodes int32, aw
 								corev1.ContainerPort{ContainerPort: int32(1099)},
 								corev1.ContainerPort{ContainerPort: int32(50000)},
 								corev1.ContainerPort{ContainerPort: int32(1007)},
+								corev1.ContainerPort{ContainerPort: int32(5005)},
+								corev1.ContainerPort{ContainerPort: int32(8778)},
 							},
+						},
+						{
+							Name:  "telegraf",
+							Image: "docker.io/telegraf:1.11.5-alpine",
+							Ports: []corev1.ContainerPort{
+								corev1.ContainerPort{ContainerPort: int32(8125)},
+								corev1.ContainerPort{ContainerPort: int32(8092)},
+								corev1.ContainerPort{ContainerPort: int32(8094)},
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "telegraf-config-map",
+									MountPath: "/etc/telegraf/telegraf.conf",
+									SubPath:   "telegraf.conf",
+								},
+							},
+							Resources: resourcerequirements,
 						},
 					},
 				},
@@ -326,6 +528,18 @@ func (kop *Operations) CreateJmeterSlaveService(ns string) (created bool, err st
 func (kop *Operations) CreateJmeterMasterDeployment(namespace string, awsAcntNbr int64, awsRegion string) (created bool, err string) {
 
 	deploymentsClient := kop.ClientSet.AppsV1().Deployments(namespace)
+	values := []string{"master"}
+	nodeSelectorRequirement := corev1.NodeSelectorRequirement{Key: "jmeter_mode", Operator: corev1.NodeSelectorOpIn, Values: values}
+	nodeSelectorRequirements := []corev1.NodeSelectorRequirement{nodeSelectorRequirement}
+	nodeSelectorTerm := corev1.NodeSelectorTerm{MatchExpressions: nodeSelectorRequirements}
+	nodeSelectorTerms := []corev1.NodeSelectorTerm{nodeSelectorTerm}
+	nodeSelector := &corev1.NodeSelector{NodeSelectorTerms: nodeSelectorTerms}
+	nodeAffinity := &corev1.NodeAffinity{RequiredDuringSchedulingIgnoredDuringExecution: nodeSelector}
+	affinity := &corev1.Affinity{NodeAffinity: nodeAffinity}
+
+	toleration := corev1.Toleration{Key: "jmeter_master", Operator: corev1.TolerationOpExists, Value: "", Effect: corev1.TaintEffectNoSchedule}
+	tolerations := []corev1.Toleration{toleration}
+
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "jmeter-master",
@@ -347,9 +561,8 @@ func (kop *Operations) CreateJmeterMasterDeployment(namespace string, awsAcntNbr
 					},
 				},
 				Spec: corev1.PodSpec{
-					NodeSelector: map[string]string{
-						"jmeter_mode": "master",
-					},
+					Affinity:           affinity,
+					Tolerations:        tolerations,
 					ServiceAccountName: "ugcupload-jmeter",
 					Containers: []corev1.Container{
 						{
@@ -414,7 +627,7 @@ func (kop *Operations) GetPodIpsForSlaves(ns string) (endpoints []string) {
 	return
 }
 
-//GetHostNamesOfJmeterMaster Gets the ip addresses of the slaves
+//GetHostNamesOfJmeterMaster Gets the ip addresses of the master
 func (kop *Operations) GetHostNamesOfJmeterMaster(ns string) (hostnames []string) {
 
 	var hn []string
@@ -428,7 +641,6 @@ func (kop *Operations) GetHostNamesOfJmeterMaster(ns string) (hostnames []string
 		}).Error("Unable to find any pods in the namespace")
 	} else {
 
-		//<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>
 		for _, pod := range pods.Items {
 			log.WithFields(log.Fields{
 				"hostIP": pod.Status.PodIP,
@@ -564,23 +776,6 @@ func (kop Operations) GenerateReport(data string) (created bool, err string) {
 	return
 }
 
-//CheckIfRunningJava Used to check if the pod has java running
-func (kop Operations) CheckIfRunningJava(ns string, pod string) (resp string, err string) {
-	cmd := fmt.Sprintf("%s/%s", props.MustGet("tscripts"), "check-if-jmeter-running.sh")
-	args := []string{ns, pod}
-	se := shellExec.Exec{}
-	_, err = se.ExecuteCommand(cmd, args)
-	if err != "" {
-		log.WithFields(log.Fields{
-			"err":       err,
-			"namespace": ns,
-			"pod":       pod,
-		}).Errorf("failed checking if java is running on the pod")
-	}
-	return
-
-}
-
 //CreateServiceaccount create service account
 func (kop Operations) CreateServiceaccount(ns string, policyarn string) (created bool, err string) {
 
@@ -627,41 +822,6 @@ func (kop Operations) StopTest(ns string) (started bool, err string) {
 		log.WithFields(log.Fields{
 			"err": err,
 		}).Errorf("unable to stop the test %v", strings.Join(args, ","))
-		started = false
-	} else {
-		started = true
-	}
-	return
-}
-
-//StartTest starts the uploaded test
-func (kop Operations) StartTest(testPath string, ns string, listOfNodes string) (started bool, err string) {
-	cmd := fmt.Sprintf("%s/%s", props.MustGet("tscripts"), "start_test_controller.sh")
-	args := []string{testPath, ns, listOfNodes}
-	se := shellExec.Exec{}
-	_, err = se.ExecuteCommand(cmd, args)
-
-	if err != "" {
-		log.WithFields(log.Fields{
-			"err": err,
-		}).Errorf("unable to start the test %v", strings.Join(args, ","))
-		started = false
-	} else {
-		started = true
-	}
-	return
-}
-
-//WaitForPodsToStart polls all pods in namespace until they are all running
-func (kop Operations) WaitForPodsToStart(ns string, pods int) (started bool, err string) {
-	cmd := fmt.Sprintf("%s/%s", props.MustGet("tscripts"), "wait-for-deployments.sh")
-	args := []string{ns, strconv.Itoa(pods)}
-	se := shellExec.Exec{}
-	_, err = se.ExecuteCommand(cmd, args)
-	if err != "" {
-		log.WithFields(log.Fields{
-			"err": err,
-		}).Errorf("slave pods did not start %v", strings.Join(args, ","))
 		started = false
 	} else {
 		started = true

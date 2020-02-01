@@ -5,6 +5,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"strings"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 
@@ -279,6 +280,11 @@ func getFileFromContext(name string, context *gin.Context) (fileName string, fil
 	}
 	fileName = fh.Filename
 
+	log.WithFields(log.Fields{
+		"size": fh.Size,
+		"name": name,
+	}).Error("Size of files")
+
 	if fh != nil {
 		f, err := fh.Open()
 		if err != nil {
@@ -300,7 +306,54 @@ func getFileFromContext(name string, context *gin.Context) (fileName string, fil
 	return
 }
 
-func (cnt *Controller) startTest(c *gin.Context, ugcLoadRequest types.UgcLoadRequest) {
+//waitForSlavesToStartRunning used to wait for all slaves to start running
+func (cnt *Controller) waitForSlavesToStartRunning(ugcLoadRequest types.UgcLoadRequest) (running bool) {
+
+	numNodes := ugcLoadRequest.NumberOfNodes + 1
+	redisTenant := types.RedisTenant{}
+	redisTenant.Tenant = ugcLoadRequest.Context
+	redisTenant.Started = fmt.Sprintf("Waiting for maximum of 30 minutes for %d nodes to start", numNodes)
+	redisUtils.AddTenant(redisTenant)
+
+	count := 0
+	found := 0
+	ticker := time.NewTicker(5 * time.Second)
+	for range ticker.C {
+
+		fmt.Println("tock")
+		slaves, err, fnd := cnt.KubeOps.GetallJmeterSlaves(ugcLoadRequest.Context)
+		if fnd == false {
+			redisTenant.Errors = err
+			redisTenant.Started = fmt.Sprintf("Only %d out of %d nodes were started", found, numNodes)
+			redisUtils.AddTenant(redisTenant)
+			return
+		}
+
+		for _, slave := range slaves {
+			if strings.EqualFold(fmt.Sprintf("%s",slave.Phase), "Running") {
+				found = found + 1
+			}
+		
+		}
+
+		redisTenant.Tenant = ugcLoadRequest.Context
+		redisTenant.Started = fmt.Sprintf("%d out of %d nodes were started", found, numNodes)
+		redisUtils.AddTenant(redisTenant)
+		if found > numNodes {
+			running = true
+			return
+		}
+
+		if count == 360 {
+			running = false
+			return
+		}
+		count = count + 1
+	}
+	return
+}
+
+func (cnt *Controller) startTest(c *gin.Context, ugcLoadRequest types.UgcLoadRequest, jm jmeter.Jmeter) {
 	cnt.KubeOps.RegisterClient()
 	redisTenant := types.RedisTenant{Tenant: ugcLoadRequest.Context}
 
@@ -311,7 +364,7 @@ func (cnt *Controller) startTest(c *gin.Context, ugcLoadRequest types.UgcLoadReq
 		redisTenant.Started = "Creating tenant infrastructure: This can take several minutes"
 		redisUtils.AddTenant(redisTenant)
 		//Creating tenant infrastructure
-		kubeAdmin := admin.Admin{KubeOps: &cnt.KubeOps}
+		kubeAdmin := admin.Admin{KubeOps: &cnt.KubeOps, RedisUtil: redisUtils}
 		error, created := kubeAdmin.CreateTenantInfrastructure(ugcLoadRequest)
 		if created == false {
 			redisTenant.Started = "failed"
@@ -331,41 +384,13 @@ func (cnt *Controller) startTest(c *gin.Context, ugcLoadRequest types.UgcLoadReq
 			return
 		}
 	}
-	redisTenant.Started = fmt.Sprintf("Wait for %d nodes to start", ugcLoadRequest.NumberOfNodes+1)
-	redisUtils.AddTenant(redisTenant)
-	podsStarted, podsError := cnt.KubeOps.WaitForPodsToStart(ugcLoadRequest.Context, ugcLoadRequest.NumberOfNodes+1)
-	if podsStarted == false {
-		redisTenant.Started = "Problems starting slaves"
-		redisTenant.Errors = podsError
-		redisUtils.AddTenant(redisTenant)
-		return
-	}
 
+	slavesStarted := cnt.waitForSlavesToStartRunning(ugcLoadRequest)
 	ips := cnt.KubeOps.GetPodIpsForSlaves(ugcLoadRequest.Context)
-
-	if len(ips) > 0 {
+	if slavesStarted && len(ips) > 0 {
 		listOfHost := strings.Join(ips, ",")
-		fileName, dataFile, errData, fndData := getFileFromContext("data", c)
-		if fndData == false {
-			redisTenant.Started = "failed"
-			redisTenant.Errors = errData
-			redisUtils.AddTenant(redisTenant)
-			return
-		}
-
-		_, fileJmeter, errJmeter, fndJmeter := getFileFromContext("jmeter", c)
-		if fndJmeter == false {
-			redisTenant.Started = "failed"
-			redisTenant.Errors = errJmeter
-			redisUtils.AddTenant(redisTenant)
-			return
-		}
-
 		redisTenant.Started = fmt.Sprintf("Starting slaves: %s", listOfHost)
 		redisUtils.AddTenant(redisTenant)
-		jm := jmeter.Jmeter{Fop: ugl.FileUploadOperations{Context: c},
-			Context: c, Data: dataFile, JmeterScript: fileJmeter, DataFilename: fileName}
-
 		error, uploaded := jm.SetupSlaves(ugcLoadRequest, ips)
 		if uploaded == false {
 			redisTenant.Started = "failed"
@@ -373,10 +398,10 @@ func (cnt *Controller) startTest(c *gin.Context, ugcLoadRequest types.UgcLoadReq
 			redisUtils.AddTenant(redisTenant)
 			return
 		}
-
 		masters := cnt.KubeOps.GetHostNamesOfJmeterMaster(ugcLoadRequest.Context)
 		redisTenant.Started = fmt.Sprintf("start master %s", strings.Join(masters, ","))
 		redisUtils.AddTenant(redisTenant)
+		time.Sleep(2 * time.Minute)
 		for _, master := range masters {
 			e, started := jm.StartMasterTest(master, ugcLoadRequest, listOfHost)
 			tenant := types.RedisTenant{Tenant: ugcLoadRequest.Context}
@@ -394,6 +419,13 @@ func (cnt *Controller) startTest(c *gin.Context, ugcLoadRequest types.UgcLoadReq
 		return
 	}
 
+}
+
+//FailingNodes get all failling nodes
+func (cnt *Controller) FallingNodes(c *gin.Context) {
+	cnt.KubeOps.RegisterClient()
+	nodes, _ := cnt.KubeOps.GetAlFailingNodes()
+	c.PureJSON(http.StatusOK, nodes)
 }
 
 //TestStatus used to get the status test
@@ -512,7 +544,28 @@ func (cnt *Controller) StartTest(c *gin.Context) {
 		return
 	}
 
-	go cnt.startTest(c, *ugcLoadRequest)
+	fileName, dataFile, errData, fndData := getFileFromContext("data", c)
+	if fndData == false {
+		redisTenant.Started = "failed"
+		redisTenant.Errors = errData
+		redisUtils.AddTenant(redisTenant)
+		return
+	}
+
+
+
+	_, fileJmeter, errJmeter, fndJmeter := getFileFromContext("jmeter", c)
+	if fndJmeter == false {
+		redisTenant.Started = "failed"
+		redisTenant.Errors = errJmeter
+		redisUtils.AddTenant(redisTenant)
+		return
+	}
+
+	jm := jmeter.Jmeter{Fop: ugl.FileUploadOperations{Context: c},
+		Context: c, Data: dataFile, JmeterScript: fileJmeter, DataFilename: fileName}
+
+	go cnt.startTest(c, *ugcLoadRequest, jm)
 
 	responseContext := types.UgcLoadRequest{}
 	responseContext.Success = fmt.Sprintf("Test for [%s] has been initiated", ugcLoadRequest.Context)

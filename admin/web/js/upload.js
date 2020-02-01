@@ -1,14 +1,14 @@
 
 $(document).ready(function () {
 
-/*
-    function refreshData() {
-         x = 5;  // 5 Seconds
-         fetchTenantDetails()
-         setTimeout(refreshData, x*1000);
-    }
-    refreshData();
-  */
+    /*
+        function refreshData() {
+             x = 5;  // 5 Seconds
+             fetchTenantDetails()
+             setTimeout(refreshData, x*1000);
+        }
+        refreshData();
+      */
     var selected = []
     var tenant
     $('a.dropdown-item').on('click', function (e) {
@@ -221,7 +221,55 @@ $(document).ready(function () {
         return false;
     });
 
+    $("#FailingNodes").on('click', function () {
+        fetchFailingNodes()
+        return false;
+    });
+
 });
+
+function fetchFailingNodes() {
+    $.ajax({
+        type: 'GET',
+        url: '/failing-nodes',
+    }).done(function (data) { // if getting done then call.
+        updateFailingNodes(data)
+    }).fail(function () { // if fail then getting message
+        alert("something went wrong making the call")
+    });
+
+
+}
+
+function updateFailingNodes(data) {
+    var started = false
+    var deleted = false
+    if (!_.isEmpty(data)) {
+        pending = '<br><div class="alert alert-warning" role="alert">Items marked unreeachable should be restarted in AWS</div><br><table class="table-responsive table-bordered">' +
+            '<thead class="black white-text">' +
+            '<tr>' +
+            '<th scope="col">Name</th>' +
+            '<th scope="col">Taints</th>' +
+            '<th scope="col">InstanceID</th>' +
+            '</tr>' +
+            '</thead>' +
+            '<tbody>';
+
+        $.each(data, function (index, value) {
+            pending = pending.concat('<tr class="table-info"><th scope="row">' + value.Name + '</td><td>' + value.Phase + '</td><td>' + value.InstanceID + '</td></tr>');
+        });
+
+        end = '</tbody></table>'
+        pending = pending.concat(end)
+        $("#FailingNodesList").empty()
+        $("#FailingNodesList").append(pending)
+     
+    } else {
+        $("#FailingNodesList").empty()
+        $("#FailingNodesList").append('<br><div class="alert alert-warning" role="alert">No nodes with problems </div>')
+    }
+
+}
 
 function updateStatus() {
 
@@ -231,7 +279,7 @@ function updateStatus() {
     }).done(function (data) { // if getting done then call.
         addStatus(data)
     }).fail(function () { // if fail then getting message
-         alert("something went wrong making the call")
+        alert("something went wrong making the call")
     });
 
 
@@ -254,14 +302,14 @@ function addStatus(data) {
     var deleted = false
     if (!_.isEmpty(data)) {
         pending = '<br><table class="table-responsive table-bordered">' +
-        '<thead class="black white-text">' +
-        '<tr>' +
-        '<th scope="col">Tenant</th>' +
-        '<th scope="col">State</th>' +
-        '<th scope="col">Errors</th>' +
-        '</tr>' +
-        '</thead>' +
-        '<tbody>';
+            '<thead class="black white-text">' +
+            '<tr>' +
+            '<th scope="col">Tenant</th>' +
+            '<th scope="col">State</th>' +
+            '<th scope="col">Errors</th>' +
+            '</tr>' +
+            '</thead>' +
+            '<tbody>';
 
         if (!_.isEmpty(data.Started)) {
             started = true
