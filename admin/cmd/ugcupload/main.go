@@ -138,6 +138,7 @@ func router01() http.Handler {
 	r.POST("/delete-tenant", control.DeleteTenant)
 	r.GET("/tenantReport", control.S3Tenants)
 	r.GET("/test-status", control.TestStatus)
+	r.GET("/failing-nodes", control.FallingNodes)
 	r.POST("/genReport", control.GenerateReport)
 
 	r.GET("/tenants", ReverseProxy())

@@ -11,6 +11,7 @@ import (
 
 	"strconv"
 
+	"github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/redis"
 	"github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/types"
 
 	"sync"
@@ -18,7 +19,8 @@ import (
 
 //Admin used to perform administrative operations on the cluster
 type Admin struct {
-	KubeOps *kubernetes.Operations
+	KubeOps   *kubernetes.Operations
+	RedisUtil redis.Redis
 }
 
 //DeployMaster used to deploy the master on kubernetes
@@ -36,6 +38,10 @@ func (admin *Admin) DeployMaster(ugcLoadRequest types.UgcLoadRequest,
 		}).Error("Unable To Create Jmeter Master Deployment")
 		message.Store("masterDeploymentFailure", e)
 	}
+
+	log.WithFields(log.Fields{
+		"info": "finished",
+	}).Info("Deploying master")
 }
 
 //DeploySlaveService usedf to the deploy the jmeter slaves on kubernetes
@@ -50,6 +56,10 @@ func (admin *Admin) DeploySlaveService(ugcLoadRequest types.UgcLoadRequest, mess
 		message.Store("masterDeploymentFailure", e)
 	}
 
+	log.WithFields(log.Fields{
+		"info": "finished",
+	}).Info("Deploying slave service")
+
 }
 
 //DeploySlavePods used to create the deployment for the slaves
@@ -63,10 +73,22 @@ func (admin *Admin) DeploySlavePods(ugcLoadRequest types.UgcLoadRequest, aan int
 		}).Error("Unable To Create Jmeter Slave Deployment")
 		message.Store("masterDeploymentFailure", e)
 	}
+
+	log.WithFields(log.Fields{
+		"info": "finished",
+	}).Info("Deploying slaves")
+}
+
+func (admin *Admin) addStartMessage(ugcLoadRequest types.UgcLoadRequest, message string, err string) {
+	redisTenant := types.RedisTenant{Tenant: ugcLoadRequest.Context}
+	redisTenant.Started = message
+	redisTenant.Errors = err
+	admin.RedisUtil.AddTenant(redisTenant)
 }
 
 //CreateTenantInfrastructure used to create the infrastructure for the tenant
 func (admin *Admin) CreateTenantInfrastructure(ugcLoadRequest types.UgcLoadRequest) (error string, result bool) {
+
 	admin.KubeOps.RegisterClient()
 	clusterops := cluster.Operations{}
 	awsRegion, awsAcntNumber := clusterops.DescribeCluster("ugctestgrid")
@@ -85,6 +107,7 @@ func (admin *Admin) CreateTenantInfrastructure(ugcLoadRequest types.UgcLoadReque
 		return
 	}
 
+	admin.addStartMessage(ugcLoadRequest, "creating namespace", "")
 	created, errNs := admin.KubeOps.CreateNamespace(ugcLoadRequest.Context)
 	if created == false {
 		log.WithFields(log.Fields{
@@ -94,6 +117,8 @@ func (admin *Admin) CreateTenantInfrastructure(ugcLoadRequest types.UgcLoadReque
 		result = false
 		return
 	}
+
+	admin.addStartMessage(ugcLoadRequest, "creating service account", "")
 	policyArn := fmt.Sprintf("arn:aws:iam::%s:policy/ugcupload-eks-jmeter-policy", awsAcntNumber)
 	crtd, e := admin.KubeOps.CreateServiceaccount(ugcLoadRequest.Context, policyArn)
 	if crtd == false {
@@ -105,9 +130,19 @@ func (admin *Admin) CreateTenantInfrastructure(ugcLoadRequest types.UgcLoadReque
 		return
 	}
 
+	admin.KubeOps.CreateTelegrafConfigMap(ugcLoadRequest.Context)
+	if crtd == false {
+		log.WithFields(log.Fields{
+			"err": e,
+		}).Error("Unable To Create ConfigMap for telegraf")
+		error = e
+		result = false
+		return
+	}
 	var wg sync.WaitGroup
 	message := sync.Map{}
 
+	admin.addStartMessage(ugcLoadRequest, "creating deployments", "")
 	go admin.DeployMaster(ugcLoadRequest, aan, awsRegion, message, wg)
 	go admin.DeploySlaveService(ugcLoadRequest, message, wg)
 	go admin.DeploySlavePods(ugcLoadRequest, aan, awsRegion, message, wg)
