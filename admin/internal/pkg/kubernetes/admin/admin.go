@@ -3,18 +3,14 @@ package kubernetes
 import (
 	"bytes"
 	"fmt"
-
-	log "github.com/sirupsen/logrus"
+	"strconv"
+	"sync"
 
 	cluster "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/cluster"
 	"github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/kubernetes"
-
-	"strconv"
-
 	"github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/redis"
 	"github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/types"
-
-	"sync"
+	log "github.com/sirupsen/logrus"
 )
 
 //Admin used to perform administrative operations on the cluster
@@ -66,7 +62,7 @@ func (admin *Admin) DeploySlaveService(ugcLoadRequest types.UgcLoadRequest, mess
 func (admin *Admin) DeploySlavePods(ugcLoadRequest types.UgcLoadRequest, aan int64, awsRegion string, message sync.Map, wg sync.WaitGroup) {
 	wg.Add(1)
 	defer wg.Done()
-	crtd, e := admin.KubeOps.CreateJmeterSlaveDeployment(ugcLoadRequest.Context, int32(ugcLoadRequest.NumberOfNodes), aan, awsRegion)
+	crtd, e := admin.KubeOps.CreateJmeterSlaveDeployment(ugcLoadRequest, int32(ugcLoadRequest.NumberOfNodes), aan, awsRegion)
 	if crtd == false {
 		log.WithFields(log.Fields{
 			"err": e,

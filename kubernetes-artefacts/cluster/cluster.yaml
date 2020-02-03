@@ -20,6 +20,11 @@ iam:
 nodeGroups:
   - name: jmeter-slaves-v1
     labels: { jmeter_mode : slaves }
+    taints:
+      jmeter_slave: "true:NoSchedule"
+    tags:
+      k8s.io/cluster-autoscaler/node-template/label/jmeter_mode: slaves
+      k8s.io/cluster-autoscaler/node-template/taint/jmeter_slave: "true:NoSchedule"
     minSize: 2
     maxSize: 100
     volumeSize: 50
@@ -32,8 +37,51 @@ nodeGroups:
         ebs: true
     instanceType: t2.micro
 
+  - name: jmeter-slaves-t2-medium-v1
+    labels: { jmeter_mode : slaves }
+    taints:
+      jmeter_slave: "true:NoSchedule"
+    tags:
+      k8s.io/cluster-autoscaler/node-template/label/jmeter_mode: slaves
+      k8s.io/cluster-autoscaler/node-template/taint/jmeter_slave: "true:NoSchedule"
+    minSize: 2
+    maxSize: 100
+    volumeSize: 50
+    volumeType: gp2
+    iam:
+      withAddonPolicies:
+        imageBuilder: true
+        autoScaler: true
+        externalDNS: true
+        ebs: true
+    instanceType: t2.medium
+  
+  - name: jmeter-slaves-t2-xlarge-v1
+    labels: { jmeter_mode : slaves }
+    taints:
+      jmeter_slave: "true:NoSchedule"
+    tags:
+      k8s.io/cluster-autoscaler/node-template/label/jmeter_mode: slaves
+      k8s.io/cluster-autoscaler/node-template/taint/jmeter_slave: "true:NoSchedule"
+    minSize: 2
+    maxSize: 100
+    volumeSize: 50
+    volumeType: gp2
+    iam:
+      withAddonPolicies:
+        imageBuilder: true
+        autoScaler: true
+        externalDNS: true
+        ebs: true
+    instanceType: t2.xlarge
+
   - name: jmeter-master-v1
     labels: { jmeter_mode : master }
+    taints:
+      jmeter_master: "true:NoSchedule"
+    tags:
+      k8s.io/cluster-autoscaler/node-template/label/jmeter_mode: master
+      k8s.io/cluster-autoscaler/node-template/taint/jmeter_master: "true:NoSchedule"
     minSize: 1
     maxSize: 25
     volumeSize: 50
@@ -48,6 +96,11 @@ nodeGroups:
 
   - name: grafana-v1
     labels: { report : grafana }
+    taints:
+      grafana: "true:NoSchedule"
+    tags:
+      k8s.io/cluster-autoscaler/node-template/label/report: grafana
+      k8s.io/cluster-autoscaler/node-template/taint/grafana: "true:NoSchedule"
     minSize: 3
     maxSize: 3
     volumeSize: 50
@@ -68,6 +121,11 @@ nodeGroups:
 
   - name: influxdb-v1
     labels: { report : influxdb }
+    taints:
+      influxdb: "true:NoSchedule"
+    tags:
+      k8s.io/cluster-autoscaler/node-template/label/report: influxdb
+      k8s.io/cluster-autoscaler/node-template/taint/influxdb: "true:NoSchedule"
     minSize: 3
     maxSize: 3
     volumeSize: 50
@@ -83,6 +141,11 @@ nodeGroups:
 
   - name: admin-controller-v2
     labels: { control : admin }
+    taints:
+      admin: "true:NoSchedule"
+    tags:
+      k8s.io/cluster-autoscaler/node-template/label/control: admin
+      k8s.io/cluster-autoscaler/node-template/taint/admin: "true:NoSchedule"
     minSize: 3
     maxSize: 3
     volumeSize: 50

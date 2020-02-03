@@ -41,6 +41,7 @@ require (
 	github.com/imdario/mergo v0.3.8 // indirect
 	github.com/labstack/echo/v4 v4.1.13
 	github.com/magiconair/properties v1.8.1
+	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/satori/go.uuid v1.2.0
 	github.com/sirupsen/logrus v1.4.2
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d // indirect

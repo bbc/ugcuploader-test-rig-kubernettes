@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"os"
 	"sync"
 	"time"
@@ -16,11 +17,10 @@ import (
 	redis "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/redis"
 	types "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/types"
 	ugl "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/ugcupload"
-	log "github.com/sirupsen/logrus"
-
 	"github.com/gin-gonic/gin"
 	"github.com/magiconair/properties"
 	uuid "github.com/satori/go.uuid"
+	log "github.com/sirupsen/logrus"
 )
 
 var props = properties.MustLoadFile("/etc/ugcupload/loadtest.conf", properties.UTF8)
@@ -39,6 +39,29 @@ type Jmeter struct {
 //IsRunning check to see if jmeter is running on the pod
 func (jmeter Jmeter) IsRunning(podIP string) (error string, res bool) {
 	return jmeter.makeGetRequest(fmt.Sprintf("http://%s:1025/is-running", podIP))
+}
+
+//IsSlaveRunning check to see if jmeter is running on the pod
+func (jmeter Jmeter) IsSlaveRunning(podIP string) (res bool) {
+
+	resp, err := getRequest(fmt.Sprintf("http://%s:1007/is-running", podIP))
+	if err != nil {
+		log.WithFields(log.Fields{
+			"err": err.Error(),
+			"uri": podIP,
+		}).Error("Slave is not running")
+		res = false
+		return
+	}
+
+	if resp.StatusCode != 200 {
+		log.WithFields(log.Fields{
+			"uri": podIP,
+		}).Error("Slave is not running")
+		res = false
+		return
+	}
+	return
 }
 
 func (jmeter Jmeter) sendToDataSlave(hn string, wg sync.WaitGroup, message sync.Map) {
@@ -61,36 +84,34 @@ func (jmeter Jmeter) sendPropertiesToSlave(ugcLoadRequest types.UgcLoadRequest, 
 	}
 }
 
-func (jmeter Jmeter) startSlave(hn string, wg sync.WaitGroup, message sync.Map) {
+func (jmeter Jmeter) startSlave(ugcLoadRequest types.UgcLoadRequest, hn string, wg sync.WaitGroup, message sync.Map) {
 	wg.Add(1)
 	defer wg.Done()
-	req, err := http.NewRequest("GET", fmt.Sprintf("http://%s:1007/start-server", hn), nil)
+
+	fv := url.Values{
+		"xmx": {ugcLoadRequest.Xmx},
+		"xms": {ugcLoadRequest.Xms},
+		"cpu": {ugcLoadRequest.CPU},
+		"ram": {ugcLoadRequest.RAM},
+	}
+
+	resp, err := http.PostForm(fmt.Sprintf("http://%s:1007/start-server", hn), fv)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"err":  err.Error(),
 			"host": hn,
+			"args": fv,
 		}).Error("Problems creating the request")
 		message.Store(fmt.Sprintf("ProblemsStartSlave@", hn), err.Error())
 	} else {
-
-		client := &http.Client{}
-		resp, errResp := client.Do(req)
-		if errResp != nil {
-			log.WithFields(log.Fields{
-				"err":  errResp.Error(),
-				"host": hn,
-			}).Error("Problems creating the request")
-			message.Store(fmt.Sprintf("ProblemsStartSlave@", hn), errResp.Error())
-
-		} else {
-			var bodyContent []byte
-			resp.Body.Read(bodyContent)
-			resp.Body.Close()
-			log.WithFields(log.Fields{
-				"response": string(bodyContent),
-			}).Info("Response from starting the jmeter slave")
-		}
+		var bodyContent []byte
+		resp.Body.Read(bodyContent)
+		resp.Body.Close()
+		log.WithFields(log.Fields{
+			"response": string(bodyContent),
+		}).Info("Response from starting the jmeter slave")
 	}
+
 }
 
 //SetupSlaves used to seutp the slaves for testing
@@ -123,7 +144,7 @@ func (jmeter Jmeter) SetupSlaves(ugcLoadRequest types.UgcLoadRequest, hostnames 
 	var startSlaveWaitGroup sync.WaitGroup
 	slaveStartMessage := sync.Map{}
 	for _, hn := range hostnames {
-		go jmeter.startSlave(hn, startSlaveWaitGroup, slaveStartMessage)
+		go jmeter.startSlave(ugcLoadRequest, hn, startSlaveWaitGroup, slaveStartMessage)
 	}
 	startSlaveWaitGroup.Wait()
 
@@ -168,21 +189,27 @@ func (jmeter Jmeter) unMarshallResponse(body io.ReadCloser) (resp types.JmeterRe
 	}
 	return jr
 }
-func (jmeter Jmeter) makeGetRequest(uri string) (error string, res bool) {
+
+func getRequest(uri string) (res *http.Response, err error) {
+
 	client := &http.Client{}
 
-	req, err := http.NewRequest("GET", uri, nil)
-	if err != nil {
+	req, e := http.NewRequest("GET", uri, nil)
+	if e != nil {
 		log.WithFields(log.Fields{
-			"err": err.Error(),
+			"err": e.Error(),
 			"uri": uri,
 		}).Error("Unable to create the html request to stop the test")
-		error = err.Error()
-		res = false
+		err = e
 		return
 	}
 
-	resp, errClient := client.Do(req)
+	return client.Do(req)
+}
+
+func (jmeter Jmeter) makeGetRequest(uri string) (error string, res bool) {
+
+	resp, errClient := getRequest(uri)
 	if errClient != nil {
 		log.WithFields(log.Fields{
 			"err": errClient.Error(),

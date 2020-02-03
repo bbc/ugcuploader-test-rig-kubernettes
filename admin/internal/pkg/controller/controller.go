@@ -1,13 +1,14 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 	"mime/multipart"
 	"net/http"
+	"os"
+	"strconv"
 	"strings"
 	"time"
-
-	log "github.com/sirupsen/logrus"
 
 	aws "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/aws"
 	jmeter "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/jmeter"
@@ -17,14 +18,15 @@ import (
 	types "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/types"
 	ugl "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/ugcupload"
 	validate "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/validate"
-
-	"github.com/gin-gonic/gin"
-	"github.com/magiconair/properties"
-
 	"github.com/gin-contrib/sessions"
+	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
+	"github.com/magiconair/properties"
+	cache "github.com/patrickmn/go-cache"
+	log "github.com/sirupsen/logrus"
 )
 
+var systemCache = cache.New(cache.NoExpiration, 100*time.Minute)
 var props = properties.MustLoadFile("/etc/ugcupload/loadtest.conf", properties.UTF8)
 var redisUtils redis.Redis
 
@@ -53,17 +55,21 @@ func (cnt *Controller) AddTenants(ur *types.UgcLoadRequest) {
 	cnt.KubeOps.RegisterClient()
 	ur.TenantList, _ = cnt.S3.GetBucketItems("ugcupload-jmeter", "", 0)
 
-	var running []types.Tenant
-	for _, t := range cnt.tenantStatus() {
-		log.WithFields(log.Fields{
-			"tenant": t,
-		}).Info("Tenant")
-		if t.Running == true {
-			running = append(running, t)
+	envRun := os.Getenv("ADMIN_CONTROLLER_PORT_1323_TCP")
+	if envRun != "" {
+		var running []types.Tenant
+		for _, t := range cnt.tenantStatus() {
+			log.WithFields(log.Fields{
+				"tenant": t,
+			}).Info("Tenant")
+			if t.Running == true {
+				running = append(running, t)
+			}
 		}
+
+		ur.RunningTests = running
 	}
 
-	ur.RunningTests = running
 	t, _ := cnt.KubeOps.GetallTenants()
 	var filtered []types.Tenant
 	tbd, _, _ := redisUtils.FetchWaitingToBeDeleted()
@@ -330,10 +336,10 @@ func (cnt *Controller) waitForSlavesToStartRunning(ugcLoadRequest types.UgcLoadR
 		}
 
 		for _, slave := range slaves {
-			if strings.EqualFold(fmt.Sprintf("%s",slave.Phase), "Running") {
+			if strings.EqualFold(fmt.Sprintf("%s", slave.Phase), "Running") {
 				found = found + 1
 			}
-		
+
 		}
 
 		redisTenant.Tenant = ugcLoadRequest.Context
@@ -353,7 +359,64 @@ func (cnt *Controller) waitForSlavesToStartRunning(ugcLoadRequest types.UgcLoadR
 	return
 }
 
-func (cnt *Controller) startTest(c *gin.Context, ugcLoadRequest types.UgcLoadRequest, jm jmeter.Jmeter) {
+func (cnt *Controller) monitorMe(ugcloaddRequest types.UgcLoadRequest, slaves []string, jm jmeter.Jmeter) {
+
+	var stopChannel chan string
+	if x, found := systemCache.Get(ugcloaddRequest.Context); found {
+		stopChannel = x.(chan string)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		for {
+			select {
+			case message := <-stopChannel:
+				log.WithFields(log.Fields{
+					"message": message,
+					"tenant":  ugcloaddRequest.Context,
+				}).Info("Received stop message: ending monitoring")
+				return
+			case <-ctx.Done():
+				//Grab hold of the semaphore
+				for _, slave := range slaves {
+					yes := jm.IsSlaveRunning(slave)
+					if yes == false {
+						log.WithFields(log.Fields{
+							"node":   slave,
+							"tenant": ugcloaddRequest.Context,
+						}).Error("Node has failed restarting test")
+						//Stopping any tests that are running
+						hsnames := cnt.KubeOps.GetHostNamesOfJmeterMaster(ugcloaddRequest.Context)
+						_, _ = jm.StopTestOnMaster(hsnames[0])
+
+						//Waiting a few seonds for all slaves to be notified
+						time.Sleep(5 * time.Second)
+
+						//Restart Test:
+						cpu, _ := strconv.Atoi(ugcloaddRequest.CPU)
+						ram, _ := strconv.Atoi(ugcloaddRequest.RAM)
+						mmss, _ := strconv.Atoi(ugcloaddRequest.MaxMetaspaceSize)
+						xms, _ := strconv.Atoi(ugcloaddRequest.Xms)
+						xmx, _ := strconv.Atoi(ugcloaddRequest.Xmx)
+						ugcloaddRequest.CPU = strconv.Itoa(cpu + 1)
+						ugcloaddRequest.RAM = strconv.Itoa(ram + 1)
+						ugcloaddRequest.MaxMetaspaceSize = strconv.Itoa(mmss + 256)
+
+						ugcloaddRequest.Xms = strconv.Itoa(xms + 1)
+						ugcloaddRequest.Xmx = strconv.Itoa(xmx + 1)
+						cancel()
+						go cnt.startTest(ugcloaddRequest, jm)
+						//Release semaphore
+						return
+					}
+				}
+				cancel()
+				ctx, cancel = context.WithTimeout(context.Background(), 1*time.Second)
+			}
+		}
+	}
+
+}
+
+func (cnt *Controller) startTest(ugcLoadRequest types.UgcLoadRequest, jm jmeter.Jmeter) {
 	cnt.KubeOps.RegisterClient()
 	redisTenant := types.RedisTenant{Tenant: ugcLoadRequest.Context}
 
@@ -414,6 +477,10 @@ func (cnt *Controller) startTest(c *gin.Context, ugcLoadRequest types.UgcLoadReq
 			redisUtils.AddTenant(tenant)
 		}
 
+		ch := make(chan string, 1)
+		systemCache.Set(ugcLoadRequest.Context, ch, cache.NoExpiration)
+		go cnt.monitorMe(ugcLoadRequest, ips, jm)
+
 	} else {
 		redisUtils.AddTenant(types.RedisTenant{Tenant: ugcLoadRequest.Context, Started: "failed", Errors: fmt.Sprintf("No slaves found: Test for started for [%s]", ugcLoadRequest.Context)})
 		return
@@ -421,7 +488,7 @@ func (cnt *Controller) startTest(c *gin.Context, ugcLoadRequest types.UgcLoadReq
 
 }
 
-//FailingNodes get all failling nodes
+//FallingNodes get all failling nodes
 func (cnt *Controller) FallingNodes(c *gin.Context) {
 	cnt.KubeOps.RegisterClient()
 	nodes, _ := cnt.KubeOps.GetAlFailingNodes()
@@ -491,6 +558,11 @@ func (cnt *Controller) StartTest(c *gin.Context) {
 		"ugcLoadRequest.BandWidthSelection": ugcLoadRequest.BandWidthSelection,
 		"ugcLoadRequest.Jmeter":             ugcLoadRequest.Jmeter,
 		"ugcLoadRequest.Data":               ugcLoadRequest.Data,
+		"ugcLoadRequest.Xmx":                ugcLoadRequest.Xmx,
+		"ugcLoadRequest.Xms":                ugcLoadRequest.Xms,
+		"ugcLoadRequest.CPU":                ugcLoadRequest.CPU,
+		"ugcLoadRequest.RAM":                ugcLoadRequest.RAM,
+		"ugcLoadRequest.MaxMetaspaceSize":   ugcLoadRequest.MaxMetaspaceSize,
 	}).Info("Request Properties")
 
 	redisTenant, error, found := redisUtils.GetTenant(ugcLoadRequest.Context)
@@ -552,8 +624,6 @@ func (cnt *Controller) StartTest(c *gin.Context) {
 		return
 	}
 
-
-
 	_, fileJmeter, errJmeter, fndJmeter := getFileFromContext("jmeter", c)
 	if fndJmeter == false {
 		redisTenant.Started = "failed"
@@ -565,7 +635,7 @@ func (cnt *Controller) StartTest(c *gin.Context) {
 	jm := jmeter.Jmeter{Fop: ugl.FileUploadOperations{Context: c},
 		Context: c, Data: dataFile, JmeterScript: fileJmeter, DataFilename: fileName}
 
-	go cnt.startTest(c, *ugcLoadRequest, jm)
+	go cnt.startTest(*ugcLoadRequest, jm)
 
 	responseContext := types.UgcLoadRequest{}
 	responseContext.Success = fmt.Sprintf("Test for [%s] has been initiated", ugcLoadRequest.Context)

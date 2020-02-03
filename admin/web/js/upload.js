@@ -142,6 +142,11 @@ $(document).ready(function () {
         var formData = new FormData(form);
         formData.append('jmeter', $("#script-file-upload")[0].files[0]);
         formData.append('data', $("#data-file-upload")[0].files[0]);
+        formData.append('xms',  $("#xms option:selected").val() );
+        formData.append('xmx',  $("#xmx option:selected").val() );
+        formData.append('cpu',  $("#cpu option:selected").val() );
+        formData.append('ram',  $("#ram option:selected").val() );
+        formData.append('maxMetaspaceSize',  $("#maxMetaspaceSize option:selected").val() );
 
         // Call ajax for pass data to other place
         $.ajax({

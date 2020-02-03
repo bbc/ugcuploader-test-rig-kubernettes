@@ -9,9 +9,10 @@ import (
 	"strconv"
 	"strings"
 
-	log "github.com/sirupsen/logrus"
-
+	shellExec "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/exec"
+	types "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/types"
 	"github.com/magiconair/properties"
+	log "github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -21,9 +22,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-
-	shellExec "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/exec"
-	types "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/types"
 	//autoscaling "k8s.io/api/autoscaling/v1"
 )
 
@@ -186,44 +184,43 @@ func (kop *Operations) GetAlFailingNodes() (nodes []types.NodePhase, found bool)
 		}).Error("Problems getting all nodes")
 		found = false
 		return
-	} else {
-		for _, item := range res.Items {
-
-			if len(item.Spec.Taints) > 0 {
-
-				first := true
-				out := ""
-				for _, taint := range item.Spec.Taints {
-
-					if !first {
-						out = "," + out
-					} else {
-						first = false
-					}
-					out = out + taint.Key + ":" + taint.Value + "|"
-				}
-				nodePhase := types.NodePhase{}
-				var nodeConditions []types.NodeCondition
-				nodePhase.Phase = out
-				nodePhase.InstanceID = item.Labels["alpha.eksctl.io/instance-id"]
-				nodePhase.Name = item.Name
-				for _, condition := range item.Status.Conditions {
-					con := types.NodeCondition{}
-					con.Type = string(condition.Type)
-					con.Status = string(condition.Status)
-					con.LastHeartbeatTime = condition.LastHeartbeatTime.String()
-					con.Reason = condition.Reason
-					con.Message = condition.Message
-					nodeConditions = append(nodeConditions, con)
-				}
-				nodePhase.NodeConditions = nodeConditions
-				nodePhases = append(nodePhases, nodePhase)
-				found = true
-			}
-		}
-		nodes = nodePhases
-		return
 	}
+
+	for _, item := range res.Items {
+
+		if len(item.Spec.Taints) > 0 {
+
+			first := true
+			out := ""
+			for _, taint := range item.Spec.Taints {
+
+				if !first {
+					out = "," + out
+				} else {
+					first = false
+				}
+				out = out + taint.Key + ":" + taint.Value + "|"
+			}
+			nodePhase := types.NodePhase{}
+			var nodeConditions []types.NodeCondition
+			nodePhase.Phase = out
+			nodePhase.InstanceID = item.Labels["alpha.eksctl.io/instance-id"]
+			nodePhase.Name = item.Name
+			for _, condition := range item.Status.Conditions {
+				con := types.NodeCondition{}
+				con.Type = string(condition.Type)
+				con.Status = string(condition.Status)
+				con.LastHeartbeatTime = condition.LastHeartbeatTime.String()
+				con.Reason = condition.Reason
+				con.Message = condition.Message
+				nodeConditions = append(nodeConditions, con)
+			}
+			nodePhase.NodeConditions = nodeConditions
+			nodePhases = append(nodePhases, nodePhase)
+			found = true
+		}
+	}
+	nodes = nodePhases
 	found = false
 	return
 }
@@ -301,8 +298,11 @@ func (kop *Operations) CreateTelegrafConfigMap(ns string) (created bool, err str
 					database = "jmeter-slaves"
 					write_consistency = "any"
 					timeout = "5s"
+	
+				[[inputs.jolokia2_agent]]
+					urls = ["http://localhost:8778/jolokia"]
 				
-					[[inputs.jolokia2_agent.metric]]
+				[[inputs.jolokia2_agent.metric]]
 					name  = "java_runtime"
 					mbean = "java.lang:type=Runtime"
 					paths = ["Uptime"]
@@ -324,22 +324,114 @@ func (kop *Operations) CreateTelegrafConfigMap(ns string) (created bool, err str
 					paths = ["LastGcInfo"]
 					tag_keys = ["name"]
 				
-				[[inputs.jolokia2_agent.metrics]]
+				[[inputs.jolokia2_agent.metric]]
 					name  = "java_threading"
 					mbean = "java.lang:type=Threading"
 					paths = ["TotalStartedThreadCount", "ThreadCount", "DaemonThreadCount", "PeakThreadCount"]
 				
-				[[inputs.jolokia2_agent.metrics]]
+				[[inputs.jolokia2_agent.metric]]
 					name  = "java_class_loading"
 					mbean = "java.lang:type=ClassLoading"
 					paths = ["LoadedClassCount", "UnloadedClassCount", "TotalLoadedClassCount"]
 				
-				[[inputs.jolokia2_agent.metrics]]
+				[[inputs.jolokia2_agent.metric]]
 					name     = "java_memory_pool"
 					mbean    = "java.lang:name=*,type=MemoryPool"
 					paths    = ["Usage", "PeakUsage", "CollectionUsage"]
 					tag_keys = ["name"]
-			`,
+				
+				[[inputs.cgroup]]
+				paths = [
+				"/cgroup/memory",           # root cgroup
+					"/cgroup/memory/child1",    # container cgroup
+					"/cgroup/memory/child2/*",  # all children cgroups under child2, but not child2 itself
+					]
+				files = ["memory.*usage*", "memory.limit_in_bytes"]
+				
+				[[inputs.cgroup]]
+				paths = [
+				"/cgroup/cpu",              # root cgroup
+				"/cgroup/cpu/*",            # all container cgroups
+				"/cgroup/cpu/*/*",          # all children cgroups under each container cgroup
+				]
+				files = ["cpuacct.usage", "cpu.cfs_period_us", "cpu.cfs_quota_us"]		
+				
+				
+				[[inputs.filecount]]
+					directory = "/test-output/**"
+				
+				[[inputs.mem]]
+
+				# Read metrics about cpu usage
+				[[inputs.cpu]]
+				## Whether to report per-cpu stats or not
+				percpu = true
+				## Whether to report total system cpu stats or not
+				totalcpu = true
+				## Comment this line if you want the raw CPU time metrics
+				fielddrop = ["time_*"]
+				
+				
+				# Read metrics about disk usage by mount point
+				[[inputs.disk]]
+				## By default, telegraf gather stats for all mountpoints.
+				## Setting mountpoints will restrict the stats to the specified mountpoints.
+				# mount_points = ["/"]
+				
+				## Ignore some mountpoints by filesystem type. For example (dev)tmpfs (usually
+				## present on /run, /var/run, /dev/shm or /dev).
+				ignore_fs = ["tmpfs", "devtmpfs"]
+				
+				
+				# Read metrics about disk IO by device
+				[[inputs.diskio]]
+				## By default, telegraf will gather stats for all devices including
+				## disk partitions.
+				## Setting devices will restrict the stats to the specified devices.
+				# devices = ["sda", "sdb"]
+				## Uncomment the following line if you need disk serial numbers.
+				# skip_serial_number = false
+					
+				# Get kernel statistics from /proc/stat
+				[[inputs.kernel]]
+				# no configuration
+				
+				
+				# Read metrics about memory usage
+				[[inputs.mem]]
+				# no configuration
+				
+				
+				# Get the number of processes and group them by status
+				[[inputs.processes]]
+				# no configuration
+				
+				
+				# Read metrics about swap memory usage
+				[[inputs.swap]]
+				# no configuration
+				
+				
+				# Read metrics about system load & uptime
+				[[inputs.system]]
+				# no configuration
+				
+				# Read metrics about network interface usage
+				[[inputs.net]]
+				# collect data only about specific interfaces
+				# interfaces = ["eth0"]
+				
+				
+				[[inputs.netstat]]
+				# no configuration
+				
+				[[inputs.interrupts]]
+				# no configuration
+				
+				[[inputs.linux_sysctl_fs]]
+				# no configuration
+			
+			  `,
 		},
 	}
 
@@ -360,7 +452,7 @@ func (kop *Operations) CreateTelegrafConfigMap(ns string) (created bool, err str
 }
 
 //CreateJmeterSlaveDeployment creates deployment for jmeter slaves
-func (kop *Operations) CreateJmeterSlaveDeployment(ns string, nbrnodes int32, awsAcntNbr int64, awsRegion string) (created bool, err string) {
+func (kop *Operations) CreateJmeterSlaveDeployment(ugcuploadRequest types.UgcLoadRequest, nbrnodes int32, awsAcntNbr int64, awsRegion string) (created bool, err string) {
 
 	values := []string{"slaves"}
 	nodeSelectorRequirement := corev1.NodeSelectorRequirement{Key: "jmeter_mode", Operator: corev1.NodeSelectorOpIn, Values: values}
@@ -381,8 +473,15 @@ func (kop *Operations) CreateJmeterSlaveDeployment(ns string, nbrnodes int32, aw
 		},
 	}
 
+	emptyDirVolumeSource := &corev1.EmptyDirVolumeSource{
+		Medium: corev1.StorageMediumDefault,
+	}
 	volumeSource := corev1.VolumeSource{
 		ConfigMap: configmapVolumeSource,
+	}
+
+	testOuputVolumeSource := corev1.VolumeSource{
+		EmptyDir: emptyDirVolumeSource,
 	}
 
 	cpuformat := fmt.Sprintf("%v", resource.NewMilliQuantity(500, resource.DecimalSI))
@@ -394,9 +493,21 @@ func (kop *Operations) CreateJmeterSlaveDeployment(ns string, nbrnodes int32, aw
 		},
 	}
 
+	ram, _ := strconv.Atoi(ugcuploadRequest.RAM)
+	cpu, _ := strconv.Atoi(ugcuploadRequest.CPU)
+
+	cpuformatSlave := fmt.Sprintf("%v", resource.NewMilliQuantity(int64(cpu), resource.DecimalSI))
+	memformatSlave := fmt.Sprintf("%v", resource.NewQuantity(int64(ram)*1024*1024*1024, resource.BinarySI))
+	resourcerequirementSlave := corev1.ResourceRequirements{
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse(cpuformatSlave),
+			corev1.ResourceMemory: resource.MustParse(memformatSlave),
+		},
+	}
+
 	toleration := corev1.Toleration{Key: "jmeter_slave", Operator: corev1.TolerationOpExists, Value: "", Effect: corev1.TaintEffectNoSchedule}
 	tolerations := []corev1.Toleration{toleration}
-	deploymentsClient := kop.ClientSet.AppsV1().Deployments(ns)
+	deploymentsClient := kop.ClientSet.AppsV1().Deployments(ugcuploadRequest.Context)
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "jmeter-slave",
@@ -426,6 +537,10 @@ func (kop *Operations) CreateJmeterSlaveDeployment(ns string, nbrnodes int32, aw
 							Name:         "telegraf-config-map",
 							VolumeSource: volumeSource,
 						},
+						{
+							Name:         "test-output-dir",
+							VolumeSource: testOuputVolumeSource,
+						},
 					},
 					Containers: []corev1.Container{
 						{
@@ -441,6 +556,13 @@ func (kop *Operations) CreateJmeterSlaveDeployment(ns string, nbrnodes int32, aw
 								corev1.ContainerPort{ContainerPort: int32(5005)},
 								corev1.ContainerPort{ContainerPort: int32(8778)},
 							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "test-output-dir",
+									MountPath: "/test-output",
+								},
+							},
+							Resources: resourcerequirementSlave,
 						},
 						{
 							Name:  "telegraf",
@@ -455,6 +577,10 @@ func (kop *Operations) CreateJmeterSlaveDeployment(ns string, nbrnodes int32, aw
 									Name:      "telegraf-config-map",
 									MountPath: "/etc/telegraf/telegraf.conf",
 									SubPath:   "telegraf.conf",
+								},
+								{
+									Name:      "test-output-dir",
+									MountPath: "/test-output",
 								},
 							},
 							Resources: resourcerequirements,
@@ -500,6 +626,7 @@ func (kop *Operations) CreateJmeterSlaveService(ns string) (created bool, err st
 				corev1.ServicePort{Name: "first", Port: int32(1099), TargetPort: intstr.IntOrString{StrVal: "1099"}},
 				corev1.ServicePort{Name: "second", Port: int32(5000), TargetPort: intstr.IntOrString{StrVal: "5000"}},
 				corev1.ServicePort{Name: "fileupload", Port: int32(1007), TargetPort: intstr.IntOrString{StrVal: "1007"}},
+				corev1.ServicePort{Name: "jolokia", Port: int32(8778), TargetPort: intstr.IntOrString{StrVal: "8778"}},
 			},
 			Selector: map[string]string{
 				"jmeter_mode": "slave",

@@ -20,6 +20,11 @@ type UgcLoadRequest struct {
 	BandWidthSelection   string `json:"bandWidthSelection" form:"bandWidthSelection" validate:"required"`
 	Jmeter               string `json:"jmeter" form:"jmeter"`
 	Data                 string `json:"data" form:"data"`
+	Xms                  string `json:"xms" form:"xms"`
+	Xmx                  string `json:"xmx" form:"xmx"`
+	CPU                  string `json:"cpu" form:"cpu"`
+	RAM                  string `json:"ram" form:"ram"`
+	MaxMetaspaceSize     string `json:"maxMetaspaceSize" form:"maxMetaspaceSize"`
 	MissingTenant        bool
 	MissingNumberOfNodes bool
 	MissingJmeter        bool

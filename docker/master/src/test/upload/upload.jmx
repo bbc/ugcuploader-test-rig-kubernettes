@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.1.1 r1855137">
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.2.1">
   <hashTree>
     <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Upload" enabled="true">
       <stringProp name="TestPlan.comments"></stringProp>
@@ -105,6 +105,7 @@
         <boolProp name="ThreadGroup.scheduler">true</boolProp>
         <stringProp name="ThreadGroup.duration">86400</stringProp>
         <stringProp name="ThreadGroup.delay"></stringProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
       </ThreadGroup>
       <hashTree>
         <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Upload-${__property(TENNANT,&quot;Not Found&quot;)}" enabled="true">
@@ -244,6 +245,7 @@ cookieprop.setObjectValue(manager);
         <CookieManager guiclass="CookiePanel" testclass="CookieManager" testname="HTTP Cookie Manager" enabled="true">
           <collectionProp name="CookieManager.cookies"/>
           <boolProp name="CookieManager.clearEachIteration">true</boolProp>
+          <boolProp name="CookieManager.controlledByThreadGroup">false</boolProp>
         </CookieManager>
         <hashTree/>
         <LoopController guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller" enabled="false">
@@ -555,6 +557,7 @@ for(i =0; i &lt; cc; i++) {
         <stringProp name="ThreadGroup.duration"></stringProp>
         <stringProp name="ThreadGroup.delay"></stringProp>
         <boolProp name="ThreadGroup.delayedStart">true</boolProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
       </ThreadGroup>
       <hashTree>
         <LoopController guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller" enabled="true">
@@ -959,11 +962,13 @@ cookieprop.setObjectValue(manager);
         <boolProp name="ThreadGroup.scheduler">false</boolProp>
         <stringProp name="ThreadGroup.duration"></stringProp>
         <stringProp name="ThreadGroup.delay"></stringProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
       </ThreadGroup>
       <hashTree>
         <CookieManager guiclass="CookiePanel" testclass="CookieManager" testname="HTTP Cookie Manager" enabled="true">
           <collectionProp name="CookieManager.cookies"/>
           <boolProp name="CookieManager.clearEachIteration">true</boolProp>
+          <boolProp name="CookieManager.controlledByThreadGroup">false</boolProp>
         </CookieManager>
         <hashTree/>
         <LoopController guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller" enabled="true">
@@ -1578,13 +1583,13 @@ cookieprop.setObjectValue(manager);
         </BackendListener>
         <hashTree/>
       </hashTree>
-      <kg.apc.jmeter.threads.UltimateThreadGroup guiclass="kg.apc.jmeter.threads.UltimateThreadGroupGui" testclass="kg.apc.jmeter.threads.UltimateThreadGroup" testname="jp@gc - Ultimate Thread Group" enabled="true">
+      <kg.apc.jmeter.threads.UltimateThreadGroup guiclass="kg.apc.jmeter.threads.UltimateThreadGroupGui" testclass="kg.apc.jmeter.threads.UltimateThreadGroup" testname="jp@gc - Ultimate Thread Group" enabled="false">
         <collectionProp name="ultimatethreadgroupdata">
-          <collectionProp name="1700574064">
-            <stringProp name="49">1</stringProp>
-            <stringProp name="48577203">30000</stringProp>
-            <stringProp name="49">1</stringProp>
-            <stringProp name="51">3</stringProp>
+          <collectionProp name="-926166649">
+            <stringProp name="53">5</stringProp>
+            <stringProp name="48">0</stringProp>
+            <stringProp name="53">5</stringProp>
+            <stringProp name="1567005">3000</stringProp>
             <stringProp name="10">10</stringProp>
           </collectionProp>
         </collectionProp>
@@ -1600,6 +1605,228 @@ cookieprop.setObjectValue(manager);
             <collectionProp name="HTTPFileArgs.files">
               <elementProp name="${__P(test.data,&quot;hmm&quot;)}/colors_of_market.jpg" elementType="HTTPFileArg">
                 <stringProp name="File.path">${__P(test.data,&quot;hmm&quot;)}/colors_of_market.jpg</stringProp>
+                <stringProp name="File.paramname">data</stringProp>
+                <stringProp name="File.mimetype">image/jpeg</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="Variables pré-définies" enabled="true">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="txt10930738" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.value">me@national-moements.com</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+                <boolProp name="HTTPArgument.use_equals">true</boolProp>
+                <stringProp name="Argument.name">txt10930738</stringProp>
+              </elementProp>
+              <elementProp name="cl34876388" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.value">facebook</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+                <boolProp name="HTTPArgument.use_equals">true</boolProp>
+                <stringProp name="Argument.name">cl34876388</stringProp>
+              </elementProp>
+              <elementProp name="txt34876309" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.value">www.google.com</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+                <boolProp name="HTTPArgument.use_equals">true</boolProp>
+                <stringProp name="Argument.name">txt34876309</stringProp>
+              </elementProp>
+              <elementProp name="txt34876204" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.value">All other hosts will be public and will use globally unique addressspace assigned by an Internet Registry.  Routers in networks notusing private address space, especially those of Internet serviceproviders, are expected to be configured to reject (filter out)routing information about private networks.  However, they cannothave IP connectivity to any host outside of the enterprise.  If such a router receivessuch information the rejection shall not be treated as a routingprotocol error.  However, they cannothave IP connectivity to any host outside of the enterprise. Because private addresses have no global meaning, routing informationabout private networks shall not be propagated on inter-enterpriselinks, and packets with private source or destination addressesshould not be forwarded across such links.  Anenterprise that requests IP addresses for its external connectivitywill never be assigned addresses from the blocks defined above.  While nothaving external (outside of the enterprise) IP connectivity privatehosts can still have access to external services via mediatinggateways.  If such a router receivessuch information the rejection shall not be treated as a routingprotocol error.  Such hosts will use the private address spacedefined above. We will refer to the first block as &quot;24-bit block&quot;, the second as&quot;20-bit block&quot;, and to the third as &quot;16-bit&quot; block. Indirect references to such addresses should be contained within theenterprise.  However, they cannothave IP connectivity to any host outside of the enterprise.  If such a router receivessuch information the rejection shall not be treated as a routingprotocol error. .  Note that (inpre-CIDR notation) the first block is nothing but a single class Anetwork number, while the second block is a set of 16 contiguousclass B network numbers, and third block is a set of 256 contiguousclass C network numbers. We will refer to the first block as &quot;24-bit block&quot;, the second as&quot;20-bit block&quot;, and to the third as &quot;16-bit&quot; block.  Routers in networks notusing private address space, especially those of Internet serviceproviders, are expected to be configured to reject (filter out)routing information about private networks. . In order to use private address space, an enterprise needs todetermine which hosts do not need to have network layer connectivityoutside the enterprise in the foreseeable future and thus could beclassified as private. Because private addresses have no global meaning, routing informationabout private networks shall not be propagated on inter-enterpriselinks, and packets with private source or destination addressesshould not be forwarded across such links.  However, they cannothave IP connectivity to any host outside of the enterprise.  Such hosts will use the private address spacedefined above.  In particular, Internet service providers should takemeasures to prevent such leakage. Private hosts can communicate with all other hostsinside the enterprise, both public and private.  While nothaving external (outside of the enterprise) IP connectivity privatehosts can still have access to external services via mediatinggateways.  However, they cannothave IP connectivity to any host outside of the enterprise.  Anenterprise that requests IP addresses for its external connectivitywill never be assigned addresses from the blocks defined above.  Note that (inpre-CIDR notation) the first block is</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+                <boolProp name="HTTPArgument.use_equals">true</boolProp>
+                <stringProp name="Argument.name">txt34876204</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+          <stringProp name="HTTPSampler.domain">www.test.bbc.co.uk</stringProp>
+          <stringProp name="HTTPSampler.port"></stringProp>
+          <stringProp name="HTTPSampler.protocol">https</stringProp>
+          <stringProp name="HTTPSampler.contentEncoding"></stringProp>
+          <stringProp name="HTTPSampler.path">ugc/send/${campaignId}</stringProp>
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.DO_MULTIPART_POST">true</boolProp>
+          <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
+          <stringProp name="HTTPSampler.implementation">HttpClient4</stringProp>
+          <stringProp name="HTTPSampler.connect_timeout"></stringProp>
+          <stringProp name="HTTPSampler.response_timeout"></stringProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <JSONPostProcessor guiclass="JSONPostProcessorGui" testclass="JSONPostProcessor" testname="Extract SubmissionId" enabled="true">
+            <stringProp name="JSONPostProcessor.referenceNames">subId</stringProp>
+            <stringProp name="JSONPostProcessor.jsonPathExprs">$.submissionId</stringProp>
+            <stringProp name="JSONPostProcessor.match_numbers">1</stringProp>
+            <stringProp name="Sample.scope">variable</stringProp>
+            <stringProp name="Scope.variable"></stringProp>
+            <boolProp name="JSONPostProcessor.compute_concat">true</boolProp>
+          </JSONPostProcessor>
+          <hashTree/>
+          <ResultSaver guiclass="ResultSaverGui" testclass="ResultSaver" testname="Save Responses to a file" enabled="true">
+            <stringProp name="FileSaver.filename">${__P(test.results,&quot;hmm&quot;)}/upload.json</stringProp>
+            <boolProp name="FileSaver.errorsonly">false</boolProp>
+            <boolProp name="FileSaver.successonly">false</boolProp>
+            <boolProp name="FileSaver.skipsuffix">false</boolProp>
+            <boolProp name="FileSaver.skipautonumber">false</boolProp>
+          </ResultSaver>
+          <hashTree/>
+          <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname=" PreProcessor-AddAuthenticationCookies" enabled="false">
+            <stringProp name="scriptLanguage">groovy</stringProp>
+            <stringProp name="parameters"></stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="cacheKey">true</stringProp>
+            <stringProp name="script">//sampler.setProtocol(vars.get(&quot;LOGION_PROTOCOL&quot;))
+//sampler.setDomain(vars.get(&quot;LOGIN_DOMAIN&quot;))
+//sampler.setPath(vars.get(&quot;LOGIN_PATH&quot;))
+//log.info(&quot;----- BEFORE LOGIN ${__property(UGC_CKNS_MVT)}&quot;)
+import org.apache.jmeter.protocol.http.control.CookieManager;
+
+import org.apache.jmeter.protocol.http.control.Cookie;
+import org.apache.jmeter.testelement.property.JMeterProperty;
+CookieManager manager = ctx.getCurrentSampler().getProperty(&quot;HTTPSampler.cookie_manager&quot;).getObjectValue();
+count = Integer.parseInt(props.getProperty(&quot;cookiecount&quot;));
+
+       Cookie cknsIdtkCookie = new
+		Cookie(
+			props.getProperty(&quot;cookie_name_ckns_idtkn&quot;),
+			props.getProperty(&quot;cookie_value_ckns_idtkn&quot;), 
+			props.getProperty(&quot;cookie_domain_ckns_idtkn&quot;),
+			props.getProperty(&quot;cookie_path_ckns_idtkn&quot;), 
+			Boolean.parseBoolean(props.getProperty(&quot;cookie_secure_ckns_idtkn&quot;)), 
+			Long.parseLong(props.getProperty(&quot;cookie_expires_ckns_idtkn&quot;))
+			);
+
+	
+	manager.add(cknsIdtkCookie);
+
+	      Cookie cknsAtknCookie = new
+		Cookie(
+			props.getProperty(&quot;cookie_name_ckns_atkn&quot;),
+			props.getProperty(&quot;cookie_value_ckns_atkn&quot;), 
+			props.getProperty(&quot;cookie_domain_ckns_atkn&quot;),
+			props.getProperty(&quot;cookie_path_ckns_atkn&quot;), 
+			Boolean.parseBoolean(props.getProperty(&quot;cookie_secure_ckns_atkn&quot;)), 
+			Long.parseLong(props.getProperty(&quot;cookie_expires_ckns_atkn&quot;))
+			);
+
+	
+	manager.add(cknsAtknCookie);
+	
+JMeterProperty cookieprop = 
+ctx.getCurrentSampler().getProperty(&quot;HTTPSampler.cookie_manager&quot;);
+cookieprop.setObjectValue(manager);
+
+//ctx.getCurrentSampler().setProperty(myprop);</stringProp>
+          </JSR223PreProcessor>
+          <hashTree/>
+        </hashTree>
+        <BackendListener guiclass="BackendListenerGui" testclass="BackendListener" testname="Backend Listener" enabled="true">
+          <elementProp name="arguments" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" enabled="true">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="testName" elementType="Argument">
+                <stringProp name="Argument.name">testName</stringProp>
+                <stringProp name="Argument.value">UgcUploadTest</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+              <elementProp name="nodeName" elementType="Argument">
+                <stringProp name="Argument.name">nodeName</stringProp>
+                <stringProp name="Argument.value">Test-Node</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+              <elementProp name="influxDBHost" elementType="Argument">
+                <stringProp name="Argument.name">influxDBHost</stringProp>
+                <stringProp name="Argument.value">influxdb-jmeter.ugcload-reporter.svc.cluster.local</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+              <elementProp name="influxDBPort" elementType="Argument">
+                <stringProp name="Argument.name">influxDBPort</stringProp>
+                <stringProp name="Argument.value">8086</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+              <elementProp name="influxDBUser" elementType="Argument">
+                <stringProp name="Argument.name">influxDBUser</stringProp>
+                <stringProp name="Argument.value">jmeter</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+              <elementProp name="influxDBPassword" elementType="Argument">
+                <stringProp name="Argument.name">influxDBPassword</stringProp>
+                <stringProp name="Argument.value"></stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+              <elementProp name="influxDBDatabase" elementType="Argument">
+                <stringProp name="Argument.name">influxDBDatabase</stringProp>
+                <stringProp name="Argument.value">ugctestgrid</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+              <elementProp name="retentionPolicy" elementType="Argument">
+                <stringProp name="Argument.name">retentionPolicy</stringProp>
+                <stringProp name="Argument.value">autogen</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+              <elementProp name="samplersList" elementType="Argument">
+                <stringProp name="Argument.name">samplersList</stringProp>
+                <stringProp name="Argument.value">.*</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+              <elementProp name="useRegexForSamplerList" elementType="Argument">
+                <stringProp name="Argument.name">useRegexForSamplerList</stringProp>
+                <stringProp name="Argument.value">true</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+          <stringProp name="classname">rocks.nt.apm.jmeter.JMeterInfluxDBBackendListenerClient</stringProp>
+        </BackendListener>
+        <hashTree/>
+        <ConstantThroughputTimer guiclass="TestBeanGUI" testclass="ConstantThroughputTimer" testname="Constant Throughput Timer" enabled="true">
+          <intProp name="calcMode">0</intProp>
+          <doubleProp>
+            <name>throughput</name>
+            <value>60.0</value>
+            <savedValue>0.0</savedValue>
+          </doubleProp>
+        </ConstantThroughputTimer>
+        <hashTree/>
+      </hashTree>
+      <com.blazemeter.jmeter.threads.arrivals.FreeFormArrivalsThreadGroup guiclass="com.blazemeter.jmeter.threads.arrivals.FreeFormArrivalsThreadGroupGui" testclass="com.blazemeter.jmeter.threads.arrivals.FreeFormArrivalsThreadGroup" testname="bzm - Free-Form Arrivals Thread Group" enabled="false">
+        <elementProp name="ThreadGroup.main_controller" elementType="com.blazemeter.jmeter.control.VirtualUserController"/>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <collectionProp name="Schedule">
+          <collectionProp name="536161723">
+            <stringProp name="49">1</stringProp>
+            <stringProp name="1567">10</stringProp>
+            <stringProp name="53373554">86000</stringProp>
+          </collectionProp>
+        </collectionProp>
+        <stringProp name="LogFilename"></stringProp>
+        <stringProp name="Iterations"></stringProp>
+        <stringProp name="ConcurrencyLimit"></stringProp>
+        <stringProp name="Unit">M</stringProp>
+      </com.blazemeter.jmeter.threads.arrivals.FreeFormArrivalsThreadGroup>
+      <hashTree/>
+      <com.blazemeter.jmeter.threads.arrivals.ArrivalsThreadGroup guiclass="com.blazemeter.jmeter.threads.arrivals.ArrivalsThreadGroupGui" testclass="com.blazemeter.jmeter.threads.arrivals.ArrivalsThreadGroup" testname="bzm - Arrivals Thread Group" enabled="true">
+        <elementProp name="ThreadGroup.main_controller" elementType="com.blazemeter.jmeter.control.VirtualUserController"/>
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <stringProp name="TargetLevel">1</stringProp>
+        <stringProp name="RampUp">0</stringProp>
+        <stringProp name="Steps">60</stringProp>
+        <stringProp name="Hold">100</stringProp>
+        <stringProp name="LogFilename"></stringProp>
+        <stringProp name="Iterations"></stringProp>
+        <stringProp name="ConcurrencyLimit">1000</stringProp>
+        <stringProp name="Unit">M</stringProp>
+      </com.blazemeter.jmeter.threads.arrivals.ArrivalsThreadGroup>
+      <hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Upload-${__property(TENNANT,&quot;Not Found&quot;)}" enabled="true">
+          <elementProp name="HTTPsampler.Files" elementType="HTTPFileArgs">
+            <collectionProp name="HTTPFileArgs.files">
+              <elementProp name="${__P(test.data,&quot;hmm&quot;)}/200MB.txt" elementType="HTTPFileArg">
+                <stringProp name="File.path">${__P(test.data,&quot;hmm&quot;)}/200MB.txt</stringProp>
                 <stringProp name="File.paramname">data</stringProp>
                 <stringProp name="File.mimetype">image/jpeg</stringProp>
               </elementProp>
