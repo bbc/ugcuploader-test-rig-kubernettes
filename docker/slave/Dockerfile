@@ -14,6 +14,8 @@ COPY entrypoint.sh /
 COPY client.jks /
 COPY start.sh /
 
+COPY ApacheJMeter.jar /opt/apache-jmeter/bin
+
 RUN mkdir /fileupload
 COPY fileupload fileupload
 
