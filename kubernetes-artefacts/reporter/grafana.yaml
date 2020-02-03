@@ -1,17 +1,4 @@
 apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: grafana-jmeter
-spec:
-  accessModes:
-    - ReadWriteOnce
-  volumeMode: Filesystem
-  resources:
-    requests:
-      storage: 20Gi
-  storageClassName: ebs-sc
----
-apiVersion: v1
 kind: Service
 metadata:
   name: jmeter-grafana
@@ -42,8 +29,19 @@ spec:
       labels:
         app: jmeter-grafana
     spec:
-      nodeSelector:
-         report : grafana
+      tolerations:
+      - key: "grafana"
+        operator: "Exists"
+        effect: "NoSchedule"
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: report
+                operator: In
+                values:
+                - grafana
       serviceAccountName: ugcupload-jmeter
       containers:
         - image: grafana/grafana:6.5.0

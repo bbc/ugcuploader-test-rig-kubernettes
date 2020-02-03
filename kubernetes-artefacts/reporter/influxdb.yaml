@@ -16,8 +16,19 @@ spec:
         app: influxdb-jmeter
     spec:
       serviceAccountName: ugcupload-jmeter
-      nodeSelector:
-         report : influxdb
+      tolerations:
+      - key: "influxdb"
+        operator: "Exists"
+        effect: "NoSchedule"
+      affinity:
+        nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: report
+            operator: In
+            values:
+            - influxdb
       containers:
         - image: influxdb
           imagePullPolicy: IfNotPresent

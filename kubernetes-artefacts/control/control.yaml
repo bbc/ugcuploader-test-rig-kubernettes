@@ -30,8 +30,19 @@ metadata:
     control: admin
 
 spec:
-  nodeSelector:
-         control : admin
+  tolerations:
+  - key: "admin"
+    operator: "Exists"
+    effect: "NoSchedule"
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: control
+            operator: In
+            values:
+            - admin
   serviceAccountName: ugcupload-control
   securityContext:
       fsGroup: 1000

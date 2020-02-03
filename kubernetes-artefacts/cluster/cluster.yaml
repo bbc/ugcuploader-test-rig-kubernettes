@@ -18,7 +18,7 @@ iam:
  #   - "arn:aws:iam::546933502184:policy/ugcupload-eks-jmeter-policy"
 
 nodeGroups:
-  - name: jmeter-slaves-v1
+  - name: jmeter-slaves-v2
     labels: { jmeter_mode : slaves }
     taints:
       jmeter_slave: "true:NoSchedule"
@@ -37,7 +37,7 @@ nodeGroups:
         ebs: true
     instanceType: t2.micro
 
-  - name: jmeter-slaves-t2-medium-v1
+  - name: jmeter-slaves-t2-medium-v2
     labels: { jmeter_mode : slaves }
     taints:
       jmeter_slave: "true:NoSchedule"
@@ -56,7 +56,7 @@ nodeGroups:
         ebs: true
     instanceType: t2.medium
   
-  - name: jmeter-slaves-t2-xlarge-v1
+  - name: jmeter-slaves-t2-xlarge-v2
     labels: { jmeter_mode : slaves }
     taints:
       jmeter_slave: "true:NoSchedule"
@@ -75,7 +75,7 @@ nodeGroups:
         ebs: true
     instanceType: t2.xlarge
 
-  - name: jmeter-master-v1
+  - name: jmeter-master-v2
     labels: { jmeter_mode : master }
     taints:
       jmeter_master: "true:NoSchedule"
@@ -94,7 +94,7 @@ nodeGroups:
         externalDNS: true
         ebs: true
 
-  - name: grafana-v1
+  - name: grafana-v5
     labels: { report : grafana }
     taints:
       grafana: "true:NoSchedule"
@@ -112,14 +112,9 @@ nodeGroups:
         externalDNS: true
         ebs: true
     instanceType: t2.micro
-    kubeletExtraConfig:
-         featureGates:
-            CSINodeInfo: true
-            CSIDriverRegistry: true
-            CSIBlockVolume: true
-            RotateKubeletServerCertificate: true # according to this must always be included: https://eksctl.io/usage/customizing-the-kubelet/
+    availabilityZones: ["eu-west-2a"]
 
-  - name: influxdb-v1
+  - name: influxdb-v2
     labels: { report : influxdb }
     taints:
       influxdb: "true:NoSchedule"
@@ -139,15 +134,15 @@ nodeGroups:
     instanceType: t2.micro
     availabilityZones: ["eu-west-2a"]
 
-  - name: admin-controller-v2
+  - name: admin-controller-v4
     labels: { control : admin }
     taints:
       admin: "true:NoSchedule"
     tags:
       k8s.io/cluster-autoscaler/node-template/label/control: admin
       k8s.io/cluster-autoscaler/node-template/taint/admin: "true:NoSchedule"
-    minSize: 3
-    maxSize: 3
+    minSize: 4
+    maxSize: 4
     volumeSize: 50
     volumeType: gp2
     ssh:
@@ -161,6 +156,22 @@ nodeGroups:
         ebs: true
     instanceType: t2.medium
 
+  - name: management
+    labels: { management : admin }
+    minSize: 4
+    maxSize: 4
+    volumeSize: 50
+    volumeType: gp2
+    ssh:
+      allow: true
+      publicKeyName: 'loadtest-controller'
+    iam:
+      withAddonPolicies:
+        imageBuilder: true
+        autoScaler: true
+        externalDNS: true
+        ebs: true
+    instanceType: t2.medium
 cloudWatch:
   clusterLogging:
     # enable specific types of cluster control plane logs

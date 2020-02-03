@@ -182,7 +182,6 @@ func (kop *Operations) GetAlFailingNodes() (nodes []types.NodePhase, found bool)
 		log.WithFields(log.Fields{
 			"err": e.Error(),
 		}).Error("Problems getting all nodes")
-<<<<<<< Updated upstream
 		found = false
 		return
 	}
@@ -238,78 +237,8 @@ func (kop *Operations) GetallJmeterSlaves(tenant string) (slvs []types.SlaveStat
 			"Tenant": tenant,
 		}).Error("Problems getting all slaves")
 		err = e.Error()
-=======
->>>>>>> Stashed changes
 		found = false
 		return
-	} else {
-		for _, item := range res.Items {
-<<<<<<< Updated upstream
-			slaves = append(slaves, types.SlaveStatus{Name: item.Name, Phase: string(item.Status.Phase)})
-		}
-
-		if len(slaves) < 1 {
-			log.WithFields(log.Fields{
-				"err":    "maybe the selector is wrong",
-				"Tenant": tenant,
-			}).Error("Problems getting all slaves")
-			err = "something abnormal happened"
-			found = false
-		}
-=======
-
-			if len(item.Spec.Taints) > 0 {
-
-				first := true
-				out := ""
-				for _, taint := range item.Spec.Taints {
-
-					if !first {
-						out = "," + out
-					} else {
-						first = false
-					}
-					out = out + taint.Key + ":" + taint.Value + "|"
-				}
-				nodePhase := types.NodePhase{}
-				var nodeConditions []types.NodeCondition
-				nodePhase.Phase = out
-				nodePhase.InstanceID = item.Labels["alpha.eksctl.io/instance-id"]
-				nodePhase.Name = item.Name
-				for _, condition := range item.Status.Conditions {
-					con := types.NodeCondition{}
-					con.Type = string(condition.Type)
-					con.Status = string(condition.Status)
-					con.LastHeartbeatTime = condition.LastHeartbeatTime.String()
-					con.Reason = condition.Reason
-					con.Message = condition.Message
-					nodeConditions = append(nodeConditions, con)
-				}
-				nodePhase.NodeConditions = nodeConditions
-				nodePhases = append(nodePhases, nodePhase)
-				found = true
-			}
-		}
-		nodes = nodePhases
-		return
-	}
-	found = false
-	return
-}
-
-//GetallJmeterSlaves gets all the jmeter slaves
-func (kop *Operations) GetallJmeterSlaves(tenant string) (slvs []types.SlaveStatus, err string, found bool) {
-	slaves := []types.SlaveStatus{}
-	labelSelector := metav1.LabelSelector{MatchLabels: map[string]string{"jmeter_mode": "slave"}}
-	actual := metav1.ListOptions{LabelSelector: labels.Set(labelSelector.MatchLabels).String()}
-	res, e := kop.ClientSet.CoreV1().Pods(tenant).List(actual)
-	if e != nil {
-		log.WithFields(log.Fields{
-			"err":    e.Error(),
-			"Tenant": tenant,
-		}).Error("Problems getting all slaves")
-		err = e.Error()
-		found = false
 	} else {
 		for _, item := range res.Items {
 			slaves = append(slaves, types.SlaveStatus{Name: item.Name, Phase: string(item.Status.Phase)})
@@ -323,7 +252,6 @@ func (kop *Operations) GetallJmeterSlaves(tenant string) (slvs []types.SlaveStat
 			err = "something abnormal happened"
 			found = false
 		}
->>>>>>> Stashed changes
 		slvs = slaves
 		found = true
 	}
@@ -371,16 +299,11 @@ func (kop *Operations) CreateTelegrafConfigMap(ns string) (created bool, err str
 					database = "jmeter-slaves"
 					write_consistency = "any"
 					timeout = "5s"
-<<<<<<< Updated upstream
 	
 				[[inputs.jolokia2_agent]]
 					urls = ["http://localhost:8778/jolokia"]
 				
 				[[inputs.jolokia2_agent.metric]]
-=======
-				
-					[[inputs.jolokia2_agent.metric]]
->>>>>>> Stashed changes
 					name  = "java_runtime"
 					mbean = "java.lang:type=Runtime"
 					paths = ["Uptime"]
@@ -402,35 +325,22 @@ func (kop *Operations) CreateTelegrafConfigMap(ns string) (created bool, err str
 					paths = ["LastGcInfo"]
 					tag_keys = ["name"]
 				
-<<<<<<< Updated upstream
 				[[inputs.jolokia2_agent.metric]]
-=======
-				[[inputs.jolokia2_agent.metrics]]
->>>>>>> Stashed changes
 					name  = "java_threading"
 					mbean = "java.lang:type=Threading"
 					paths = ["TotalStartedThreadCount", "ThreadCount", "DaemonThreadCount", "PeakThreadCount"]
 				
-<<<<<<< Updated upstream
 				[[inputs.jolokia2_agent.metric]]
-=======
-				[[inputs.jolokia2_agent.metrics]]
->>>>>>> Stashed changes
 					name  = "java_class_loading"
 					mbean = "java.lang:type=ClassLoading"
 					paths = ["LoadedClassCount", "UnloadedClassCount", "TotalLoadedClassCount"]
 				
-<<<<<<< Updated upstream
 				[[inputs.jolokia2_agent.metric]]
-=======
-				[[inputs.jolokia2_agent.metrics]]
->>>>>>> Stashed changes
 					name     = "java_memory_pool"
 					mbean    = "java.lang:name=*,type=MemoryPool"
 					paths    = ["Usage", "PeakUsage", "CollectionUsage"]
 					tag_keys = ["name"]
 				
-<<<<<<< Updated upstream
 				[[inputs.cgroup]]
 				paths = [
 				"/cgroup/memory",           # root cgroup
@@ -521,102 +431,6 @@ func (kop *Operations) CreateTelegrafConfigMap(ns string) (created bool, err str
 				
 				[[inputs.linux_sysctl_fs]]
 				# no configuration
-=======
-			[[inputs.cgroup]]
-			 paths = [
-			   "/cgroup/memory",           # root cgroup
-				"/cgroup/memory/child1",    # container cgroup
-				"/cgroup/memory/child2/*",  # all children cgroups under child2, but not child2 itself
-				]
-			files = ["memory.*usage*", "memory.limit_in_bytes"]
-			  
-			[[inputs.cgroup]]
-			 paths = [
-			   "/cgroup/cpu",              # root cgroup
-			   "/cgroup/cpu/*",            # all container cgroups
-			   "/cgroup/cpu/*/*",          # all children cgroups under each container cgroup
-			 ]
-			 files = ["cpuacct.usage", "cpu.cfs_period_us", "cpu.cfs_quota_us"]		
-			
-			 # Returns ethtool statistics for given interfaces
-			[[inputs.ethtool]]
-  			## List of interfaces to pull metrics for
-			  interface_include = ["eth0"]
-			  
-			[[inputs.filecount]]
-				directotr = "/test-output/**"
-			
-			[[inputs.mem]]
-
-			# Read metrics about cpu usage
-			[[inputs.cpu]]
-			  ## Whether to report per-cpu stats or not
-			  percpu = true
-			  ## Whether to report total system cpu stats or not
-			  totalcpu = true
-			  ## Comment this line if you want the raw CPU time metrics
-			  fielddrop = ["time_*"]
-			
-			
-			# Read metrics about disk usage by mount point
-			[[inputs.disk]]
-			  ## By default, telegraf gather stats for all mountpoints.
-			  ## Setting mountpoints will restrict the stats to the specified mountpoints.
-			  # mount_points = ["/"]
-			
-			  ## Ignore some mountpoints by filesystem type. For example (dev)tmpfs (usually
-			  ## present on /run, /var/run, /dev/shm or /dev).
-			  ignore_fs = ["tmpfs", "devtmpfs"]
-			
-			
-			# Read metrics about disk IO by device
-			[[inputs.diskio]]
-			  ## By default, telegraf will gather stats for all devices including
-			  ## disk partitions.
-			  ## Setting devices will restrict the stats to the specified devices.
-			  # devices = ["sda", "sdb"]
-			  ## Uncomment the following line if you need disk serial numbers.
-			  # skip_serial_number = false
-				
-			# Get kernel statistics from /proc/stat
-			[[inputs.kernel]]
-			  # no configuration
-			
-			
-			# Read metrics about memory usage
-			[[inputs.mem]]
-			  # no configuration
-			
-			
-			# Get the number of processes and group them by status
-			[[inputs.processes]]
-			  # no configuration
-			
-			
-			# Read metrics about swap memory usage
-			[[inputs.swap]]
-			  # no configuration
-			
-			
-			# Read metrics about system load & uptime
-			[[inputs.system]]
-			  # no configuration
-			
-			# Read metrics about network interface usage
-			[[inputs.net]]
-			  # collect data only about specific interfaces
-			  # interfaces = ["eth0"]
-			
-			
-			[[inputs.netstat]]
-			  # no configuration
-			
-			[[inputs.interrupts]]
-			  # no configuration
-			
-			[[inputs.linux_sysctl_fs]]
-			  # no configuration
->>>>>>> Stashed changes
 			
 			  `,
 		},
@@ -671,32 +485,6 @@ func (kop *Operations) CreateJmeterSlaveDeployment(ugcuploadRequest types.UgcLoa
 		EmptyDir: emptyDirVolumeSource,
 	}
 
-<<<<<<< Updated upstream
-=======
-	values := []string{"slaves"}
-	nodeSelectorRequirement := corev1.NodeSelectorRequirement{Key: "jmeter_mode", Operator: corev1.NodeSelectorOpIn, Values: values}
-	nodeSelectorRequirements := []corev1.NodeSelectorRequirement{nodeSelectorRequirement}
-	nodeSelectorTerm := corev1.NodeSelectorTerm{MatchExpressions: nodeSelectorRequirements}
-	nodeSelectorTerms := []corev1.NodeSelectorTerm{nodeSelectorTerm}
-	nodeSelector := &corev1.NodeSelector{NodeSelectorTerms: nodeSelectorTerms}
-	nodeAffinity := &corev1.NodeAffinity{RequiredDuringSchedulingIgnoredDuringExecution: nodeSelector}
-	affinity := &corev1.Affinity{NodeAffinity: nodeAffinity}
-
-	configmapVolumeSource := &corev1.ConfigMapVolumeSource{
-		LocalObjectReference: corev1.LocalObjectReference{Name: "telegraf-config-map"},
-		Items: []corev1.KeyToPath{
-			{
-				Key:  "telegraf.conf",
-				Path: "telegraf.conf",
-			},
-		},
-	}
-
-	volumeSource := corev1.VolumeSource{
-		ConfigMap: configmapVolumeSource,
-	}
-
->>>>>>> Stashed changes
 	cpuformat := fmt.Sprintf("%v", resource.NewMilliQuantity(500, resource.DecimalSI))
 	memformat := fmt.Sprintf("%v", resource.NewQuantity(30*1024*1024, resource.BinarySI))
 	resourcerequirements := corev1.ResourceRequirements{
@@ -706,7 +494,6 @@ func (kop *Operations) CreateJmeterSlaveDeployment(ugcuploadRequest types.UgcLoa
 		},
 	}
 
-<<<<<<< Updated upstream
 	ram, _ := strconv.Atoi(ugcuploadRequest.RAM)
 	cpu, _ := strconv.Atoi(ugcuploadRequest.CPU)
 
@@ -722,11 +509,6 @@ func (kop *Operations) CreateJmeterSlaveDeployment(ugcuploadRequest types.UgcLoa
 	toleration := corev1.Toleration{Key: "jmeter_slave", Operator: corev1.TolerationOpExists, Value: "", Effect: corev1.TaintEffectNoSchedule}
 	tolerations := []corev1.Toleration{toleration}
 	deploymentsClient := kop.ClientSet.AppsV1().Deployments(ugcuploadRequest.Context)
-=======
-	toleration := corev1.Toleration{Key: "jmeter_slave", Operator: corev1.TolerationOpExists, Value: "", Effect: corev1.TaintEffectNoSchedule}
-	tolerations := []corev1.Toleration{toleration}
-	deploymentsClient := kop.ClientSet.AppsV1().Deployments(ns)
->>>>>>> Stashed changes
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "jmeter-slave",
@@ -756,13 +538,10 @@ func (kop *Operations) CreateJmeterSlaveDeployment(ugcuploadRequest types.UgcLoa
 							Name:         "telegraf-config-map",
 							VolumeSource: volumeSource,
 						},
-<<<<<<< Updated upstream
 						{
 							Name:         "test-output-dir",
 							VolumeSource: testOuputVolumeSource,
 						},
-=======
->>>>>>> Stashed changes
 					},
 					Containers: []corev1.Container{
 						{
@@ -776,7 +555,6 @@ func (kop *Operations) CreateJmeterSlaveDeployment(ugcuploadRequest types.UgcLoa
 								corev1.ContainerPort{ContainerPort: int32(50000)},
 								corev1.ContainerPort{ContainerPort: int32(1007)},
 								corev1.ContainerPort{ContainerPort: int32(5005)},
-<<<<<<< Updated upstream
 								corev1.ContainerPort{ContainerPort: int32(8778)},
 							},
 							VolumeMounts: []corev1.VolumeMount{
@@ -806,25 +584,6 @@ func (kop *Operations) CreateJmeterSlaveDeployment(ugcuploadRequest types.UgcLoa
 									MountPath: "/test-output",
 								},
 							},
-=======
-							},
-						},
-						{
-							Name:  "telegraf",
-							Image: "docker.io/telegraf:1.11.5-alpine",
-							Ports: []corev1.ContainerPort{
-								corev1.ContainerPort{ContainerPort: int32(8125)},
-								corev1.ContainerPort{ContainerPort: int32(8092)},
-								corev1.ContainerPort{ContainerPort: int32(8094)},
-							},
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      "telegraf-config-map",
-									MountPath: "/etc/telegraf/telegraf.conf",
-									SubPath:   "telegraf.conf",
-								},
-							},
->>>>>>> Stashed changes
 							Resources: resourcerequirements,
 						},
 					},
