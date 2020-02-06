@@ -24,4 +24,7 @@ kubectl create -n ugcload-reporter -f ./influxdb-pv.yaml
 kubectl create -n ugcload-reporter -f ./influxdb-pvc.yaml
 kubectl create -n ugcload-reporter -f ./influxdb-config.yaml
 kubectl create -n ugcload-reporter -f ./influxdb.yaml
+kubectl create -n ugcload-reporter -f ./grafana-sc.yaml
+kubectl create -n ugcload-reporter -f ./grafana-pv.yaml
+kubectl create -n ugcload-reporter -f ./grafana-pvc.yaml
 kubectl create -n ugcload-reporter -f ./grafana.yaml

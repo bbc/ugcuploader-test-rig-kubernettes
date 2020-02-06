@@ -22,17 +22,22 @@ spec:
         effect: "NoSchedule"
       affinity:
         nodeAffinity:
-        requiredDuringSchedulingIgnoredDuringExecution:
-        nodeSelectorTerms:
-        - matchExpressions:
-          - key: report
-            operator: In
-            values:
-            - influxdb
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                - key: report
+                  operator: In
+                  values:
+                  - influxdb
       containers:
         - image: influxdb
           imagePullPolicy: IfNotPresent
           name: influxdb
+          resources:
+            requests:
+              cpu: "850m"
+            limits:
+              cpu: "1000m"
           volumeMounts:
             - mountPath: /var/lib/influxdb
               name: influxdb-jmeter

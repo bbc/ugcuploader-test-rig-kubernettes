@@ -1,0 +1,14 @@
+version: '3.0'  
+  
+services:  
+  influxdb:  
+    image: influxdb:1.7.4  
+    container_name: influxdb  
+    expose:  
+      - "8086"  
+    env_file:  
+      - 'env.influxdb'  
+    volumes:  
+      - influxdb-data:/var/lib/influxdb  
+      - ./influxdb.conf:/etc/influxdb/influxdb.conf:ro  
+    restart: unless-stopped

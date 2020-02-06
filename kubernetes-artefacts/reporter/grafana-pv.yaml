@@ -1,0 +1,14 @@
+apiVersion: "v1"
+kind: "PersistentVolume"
+metadata:
+  name: "grafana-pv" 
+spec:
+  storageClassName: grafana-db-sc
+  capacity:
+    storage: "40Gi" 
+  accessModes:
+    - "ReadWriteOnce"
+  persistentVolumeReclaimPolicy: Retain   
+  awsElasticBlockStore: 
+    fsType: "ext4" 
+    volumeID: "vol-0ee4bf35ade2dc727" 
