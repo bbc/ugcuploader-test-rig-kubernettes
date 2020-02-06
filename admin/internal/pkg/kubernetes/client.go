@@ -15,6 +15,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	v1beta1 "k8s.io/api/policy/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -84,6 +85,48 @@ func int32Ptr(i int32) *int32 { return &i }
 
 func int64Ptr(i int64) *int64 { return &i }
 
+//DeleteDeployment use to delete the deployment
+func (kop *Operations) DeleteDeployment(ns string, deployment string) (deleted bool) {
+
+	dpf := metav1.DeletePropagationForeground
+	options := &metav1.DeleteOptions{
+		GracePeriodSeconds: int64Ptr(int64(0)),
+		PropagationPolicy:  &dpf,
+	}
+
+	err := kop.ClientSet.AppsV1().Deployments(ns).Delete(deployment, options)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"err":       err.Error(),
+			"namespace": ns,
+		}).Errorf("Problems deleting")
+		deleted = false
+		return
+	}
+	deleted = true
+	return
+}
+
+//DoesDeploymentExist checks to see if the deployment exists
+func (kop *Operations) DoesDeploymentExist(ns string, deployment string) (exist bool) {
+
+	replicaSet, err := kop.ClientSet.AppsV1().Deployments(ns).Get(deployment, metav1.GetOptions{})
+	if err != nil {
+		log.WithFields(log.Fields{
+			"err":       err.Error(),
+			"namespace": ns,
+		}).Errorf("Problem getting the scale")
+		exist = false
+		return
+	}
+	if replicaSet == nil {
+		exist = false
+		return
+	}
+	exist = true
+	return
+}
+
 //ScaleDeployment used to scale the jmeter slave
 func (kop *Operations) ScaleDeployment(ns string, replica int32) (error string, scaled bool) {
 
@@ -115,24 +158,6 @@ func (kop *Operations) ScaleDeployment(ns string, replica int32) (error string, 
 		}
 	}
 	scaled = true
-	return
-}
-
-//DeleteDeployment used to delete a deployment
-func (kop *Operations) DeleteDeployment(namespace string) (deleted bool) {
-	// Delete Deployment
-	deletePolicy := metav1.DeletePropagationForeground
-	deploymentsClient := kop.ClientSet.AppsV1().Deployments(namespace)
-	if err := deploymentsClient.Delete(namespace, &metav1.DeleteOptions{
-		PropagationPolicy: &deletePolicy,
-	}); err != nil {
-		log.WithFields(log.Fields{
-			"err": err.Error(),
-		}).Errorf("Problem deleting deployment: %s", namespace)
-		deleted = false
-	} else {
-		deleted = true
-	}
 	return
 }
 
@@ -283,156 +308,157 @@ func (kop *Operations) CreateTelegrafConfigMap(ns string) (created bool, err str
 
 	connfigmapsclient := kop.ClientSet.CoreV1().ConfigMaps(ns)
 
+	hn := fmt.Sprintf("%s", ns)
+	conf := `
+	[global_tags]
+		tenant = "%s"
+  [agent]
+	hostname = "%s-$HOSTNAME"
+	  [[outputs.influxdb]]
+		urls = ["http://influxdb-jmeter.ugcload-reporter.svc.cluster.local:8086"]
+		skip_database_creation = false
+		database = "jmeter-slaves"
+		write_consistency = "any"
+		timeout = "5s"
+
+	[[inputs.jolokia2_agent]]
+		urls = ["http://localhost:8778/jolokia"]
+	
+	[[inputs.jolokia2_agent.metric]]
+		name  = "java_runtime"
+		mbean = "java.lang:type=Runtime"
+		paths = ["Uptime"]
+	
+	[[inputs.jolokia2_agent.metric]]
+		name  = "java_memory"
+		mbean = "java.lang:type=Memory"
+		paths = ["HeapMemoryUsage", "NonHeapMemoryUsage", "ObjectPendingFinalizationCount"]
+	
+	[[inputs.jolokia2_agent.metric]]
+		name     = "java_garbage_collector"
+		mbean    = "java.lang:name=*,type=GarbageCollector"
+		paths    = ["CollectionTime", "CollectionCount"]
+		tag_keys = ["name"]
+	
+	[[inputs.jolokia2_agent.metric]]
+		name  = "java_last_garbage_collection"
+		mbean = "java.lang:name=*,type=GarbageCollector"
+		paths = ["LastGcInfo"]
+		tag_keys = ["name"]
+	
+	[[inputs.jolokia2_agent.metric]]
+		name  = "java_threading"
+		mbean = "java.lang:type=Threading"
+		paths = ["TotalStartedThreadCount", "ThreadCount", "DaemonThreadCount", "PeakThreadCount"]
+	
+	[[inputs.jolokia2_agent.metric]]
+		name  = "java_class_loading"
+		mbean = "java.lang:type=ClassLoading"
+		paths = ["LoadedClassCount", "UnloadedClassCount", "TotalLoadedClassCount"]
+	
+	[[inputs.jolokia2_agent.metric]]
+		name     = "java_memory_pool"
+		mbean    = "java.lang:name=*,type=MemoryPool"
+		paths    = ["Usage", "PeakUsage", "CollectionUsage"]
+		tag_keys = ["name"]
+	
+	[[inputs.cgroup]]
+	paths = [
+	"/cgroup/memory",           # root cgroup
+		"/cgroup/memory/child1",    # container cgroup
+		"/cgroup/memory/child2/*",  # all children cgroups under child2, but not child2 itself
+		]
+	files = ["memory.*usage*", "memory.limit_in_bytes"]
+	
+	[[inputs.cgroup]]
+	paths = [
+	"/cgroup/cpu",              # root cgroup
+	"/cgroup/cpu/*",            # all container cgroups
+	"/cgroup/cpu/*/*",          # all children cgroups under each container cgroup
+	]
+	files = ["cpuacct.usage", "cpu.cfs_period_us", "cpu.cfs_quota_us"]
+	
+	[[inputs.filecount]]
+		directory = "/test-output/**"
+	
+	[[inputs.mem]]
+
+	# Read metrics about cpu usage
+	[[inputs.cpu]]
+	## Whether to report per-cpu stats or not
+	percpu = true
+	## Whether to report total system cpu stats or not
+	totalcpu = true
+	## Comment this line if you want the raw CPU time metrics
+	fielddrop = ["time_*"]
+	
+	
+	# Read metrics about disk usage by mount point
+	[[inputs.disk]]
+	## By default, telegraf gather stats for all mountpoints.
+	## Setting mountpoints will restrict the stats to the specified mountpoints.
+	# mount_points = ["/"]
+	
+	## Ignore some mountpoints by filesystem type. For example (dev)tmpfs (usually
+	## present on /run, /var/run, /dev/shm or /dev).
+	ignore_fs = ["tmpfs", "devtmpfs"]
+	
+	
+	# Read metrics about disk IO by device
+	[[inputs.diskio]]
+	## By default, telegraf will gather stats for all devices including
+	## disk partitions.
+	## Setting devices will restrict the stats to the specified devices.
+	# devices = ["sda", "sdb"]
+	## Uncomment the following line if you need disk serial numbers.
+	# skip_serial_number = false
+		
+	# Get kernel statistics from /proc/stat
+	[[inputs.kernel]]
+	# no configuration
+	
+	
+	# Read metrics about memory usage
+	[[inputs.mem]]
+	# no configuration
+	
+	
+	# Get the number of processes and group them by status
+	[[inputs.processes]]
+	# no configuration
+	
+	
+	# Read metrics about swap memory usage
+	[[inputs.swap]]
+	# no configuration
+	
+	
+	# Read metrics about system load & uptime
+	[[inputs.system]]
+	# no configuration
+	
+	# Read metrics about network interface usage
+	[[inputs.net]]
+	# collect data only about specific interfaces
+	# interfaces = ["eth0"]
+	
+	
+	[[inputs.netstat]]
+	# no configuration
+	
+	[[inputs.interrupts]]
+	# no configuration
+	
+	[[inputs.linux_sysctl_fs]]
+	# no configuration
+
+  `
 	configmap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "telegraf-config-map",
 			Namespace: ns},
 		Data: map[string]string{
-			"telegraf.conf": `
-				[global_tags]
-					env = "$ENV"
-		  	[agent]
-				hostname = "$HOSTNAME"
-		  		[[outputs.influxdb]]
-					urls = ["http://influxdb-jmeter.ugcload-reporter.svc.cluster.local:8086"]
-					skip_database_creation = false
-					database = "jmeter-slaves"
-					write_consistency = "any"
-					timeout = "5s"
-	
-				[[inputs.jolokia2_agent]]
-					urls = ["http://localhost:8778/jolokia"]
-				
-				[[inputs.jolokia2_agent.metric]]
-					name  = "java_runtime"
-					mbean = "java.lang:type=Runtime"
-					paths = ["Uptime"]
-				
-				[[inputs.jolokia2_agent.metric]]
-					name  = "java_memory"
-					mbean = "java.lang:type=Memory"
-					paths = ["HeapMemoryUsage", "NonHeapMemoryUsage", "ObjectPendingFinalizationCount"]
-				
-				[[inputs.jolokia2_agent.metric]]
-					name     = "java_garbage_collector"
-					mbean    = "java.lang:name=*,type=GarbageCollector"
-					paths    = ["CollectionTime", "CollectionCount"]
-					tag_keys = ["name"]
-				
-				[[inputs.jolokia2_agent.metric]]
-					name  = "java_last_garbage_collection"
-					mbean = "java.lang:name=*,type=GarbageCollector"
-					paths = ["LastGcInfo"]
-					tag_keys = ["name"]
-				
-				[[inputs.jolokia2_agent.metric]]
-					name  = "java_threading"
-					mbean = "java.lang:type=Threading"
-					paths = ["TotalStartedThreadCount", "ThreadCount", "DaemonThreadCount", "PeakThreadCount"]
-				
-				[[inputs.jolokia2_agent.metric]]
-					name  = "java_class_loading"
-					mbean = "java.lang:type=ClassLoading"
-					paths = ["LoadedClassCount", "UnloadedClassCount", "TotalLoadedClassCount"]
-				
-				[[inputs.jolokia2_agent.metric]]
-					name     = "java_memory_pool"
-					mbean    = "java.lang:name=*,type=MemoryPool"
-					paths    = ["Usage", "PeakUsage", "CollectionUsage"]
-					tag_keys = ["name"]
-				
-				[[inputs.cgroup]]
-				paths = [
-				"/cgroup/memory",           # root cgroup
-					"/cgroup/memory/child1",    # container cgroup
-					"/cgroup/memory/child2/*",  # all children cgroups under child2, but not child2 itself
-					]
-				files = ["memory.*usage*", "memory.limit_in_bytes"]
-				
-				[[inputs.cgroup]]
-				paths = [
-				"/cgroup/cpu",              # root cgroup
-				"/cgroup/cpu/*",            # all container cgroups
-				"/cgroup/cpu/*/*",          # all children cgroups under each container cgroup
-				]
-				files = ["cpuacct.usage", "cpu.cfs_period_us", "cpu.cfs_quota_us"]		
-				
-				
-				[[inputs.filecount]]
-					directory = "/test-output/**"
-				
-				[[inputs.mem]]
-
-				# Read metrics about cpu usage
-				[[inputs.cpu]]
-				## Whether to report per-cpu stats or not
-				percpu = true
-				## Whether to report total system cpu stats or not
-				totalcpu = true
-				## Comment this line if you want the raw CPU time metrics
-				fielddrop = ["time_*"]
-				
-				
-				# Read metrics about disk usage by mount point
-				[[inputs.disk]]
-				## By default, telegraf gather stats for all mountpoints.
-				## Setting mountpoints will restrict the stats to the specified mountpoints.
-				# mount_points = ["/"]
-				
-				## Ignore some mountpoints by filesystem type. For example (dev)tmpfs (usually
-				## present on /run, /var/run, /dev/shm or /dev).
-				ignore_fs = ["tmpfs", "devtmpfs"]
-				
-				
-				# Read metrics about disk IO by device
-				[[inputs.diskio]]
-				## By default, telegraf will gather stats for all devices including
-				## disk partitions.
-				## Setting devices will restrict the stats to the specified devices.
-				# devices = ["sda", "sdb"]
-				## Uncomment the following line if you need disk serial numbers.
-				# skip_serial_number = false
-					
-				# Get kernel statistics from /proc/stat
-				[[inputs.kernel]]
-				# no configuration
-				
-				
-				# Read metrics about memory usage
-				[[inputs.mem]]
-				# no configuration
-				
-				
-				# Get the number of processes and group them by status
-				[[inputs.processes]]
-				# no configuration
-				
-				
-				# Read metrics about swap memory usage
-				[[inputs.swap]]
-				# no configuration
-				
-				
-				# Read metrics about system load & uptime
-				[[inputs.system]]
-				# no configuration
-				
-				# Read metrics about network interface usage
-				[[inputs.net]]
-				# collect data only about specific interfaces
-				# interfaces = ["eth0"]
-				
-				
-				[[inputs.netstat]]
-				# no configuration
-				
-				[[inputs.interrupts]]
-				# no configuration
-				
-				[[inputs.linux_sysctl_fs]]
-				# no configuration
-			
-			  `,
+			"telegraf.conf": fmt.Sprintf(conf, ns, hn),
 		},
 	}
 
@@ -449,6 +475,38 @@ func (kop *Operations) CreateTelegrafConfigMap(ns string) (created bool, err str
 		}).Info("Deployment succesful created config map")
 		created = true
 	}
+	return
+}
+
+//CreatePodDisruptionBudget create a budget to prevent the pods from deleted
+func (kop *Operations) CreatePodDisruptionBudget(ugcuploadRequest types.UgcLoadRequest) (mess string, created bool) {
+
+	pdb := &v1beta1.PodDisruptionBudget{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: fmt.Sprintf("%s-disruption-budget", ugcuploadRequest.Context),
+		},
+		Spec: v1beta1.PodDisruptionBudgetSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"namespace": ugcuploadRequest.Context,
+				},
+			},
+			MaxUnavailable: &intstr.IntOrString{IntVal: 0},
+		},
+	}
+
+	_, e := kop.ClientSet.PolicyV1beta1().PodDisruptionBudgets(ugcuploadRequest.Context).Create(pdb)
+
+	if e != nil {
+		log.WithFields(log.Fields{
+			"tenant": ugcuploadRequest.Context,
+			"Error":  e.Error(),
+		}).Error("Problems creating pod disruption budget(s)")
+		mess = e.Error()
+		created = false
+		return
+	}
+	created = true
 	return
 }
 
@@ -492,15 +550,24 @@ func (kop *Operations) CreateJmeterSlaveDeployment(ugcuploadRequest types.UgcLoa
 			corev1.ResourceCPU:    resource.MustParse(cpuformat),
 			corev1.ResourceMemory: resource.MustParse(memformat),
 		},
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse(cpuformat),
+			corev1.ResourceMemory: resource.MustParse(memformat),
+		},
 	}
 
 	ram, _ := strconv.Atoi(ugcuploadRequest.RAM)
 	cpu, _ := strconv.Atoi(ugcuploadRequest.CPU)
 
-	cpuformatSlave := fmt.Sprintf("%v", resource.NewMilliQuantity(int64(cpu), resource.DecimalSI))
+	cpuformatSlave := fmt.Sprintf("%v", resource.NewMilliQuantity(int64(cpu)*1000, resource.DecimalSI))
 	memformatSlave := fmt.Sprintf("%v", resource.NewQuantity(int64(ram)*1024*1024*1024, resource.BinarySI))
+	fmt.Println(fmt.Sprintf("----------------- REQUESTED MEMORY:%s", memformatSlave))
 	resourcerequirementSlave := corev1.ResourceRequirements{
 		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse(cpuformatSlave),
+			corev1.ResourceMemory: resource.MustParse(memformatSlave),
+		},
+		Requests: corev1.ResourceList{
 			corev1.ResourceCPU:    resource.MustParse(cpuformatSlave),
 			corev1.ResourceMemory: resource.MustParse(memformatSlave),
 		},
@@ -514,6 +581,7 @@ func (kop *Operations) CreateJmeterSlaveDeployment(ugcuploadRequest types.UgcLoa
 			Name: "jmeter-slave",
 			Labels: map[string]string{
 				"jmeter_mode": "slave",
+				"namespace":   ugcuploadRequest.Context,
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -521,12 +589,14 @@ func (kop *Operations) CreateJmeterSlaveDeployment(ugcuploadRequest types.UgcLoa
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"jmeter_mode": "slave",
+					"namespace":   ugcuploadRequest.Context,
 				},
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						"jmeter_mode": "slave",
+						"namespace":   ugcuploadRequest.Context,
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -549,7 +619,7 @@ func (kop *Operations) CreateJmeterSlaveDeployment(ugcuploadRequest types.UgcLoa
 							Stdin: true,
 							Name:  "jmslave",
 							Image: fmt.Sprintf("%s.dkr.ecr.%s.amazonaws.com/ugctestgrid/jmeter-slave:latest", strconv.FormatInt(awsAcntNbr, 10), awsRegion),
-							Args:  []string{"/bin/bash", "-c", "--", "/fileupload/upload > /fileuplouad.log 2>&1"},
+							Args:  []string{"/bin/bash", "-c", "--", "/fileupload/upload > /fileupload.log 2>&1"},
 							Ports: []corev1.ContainerPort{
 								corev1.ContainerPort{ContainerPort: int32(1099)},
 								corev1.ContainerPort{ContainerPort: int32(50000)},

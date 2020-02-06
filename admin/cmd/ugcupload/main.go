@@ -3,26 +3,20 @@ package main
 import (
 	"encoding/gob"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"time"
-
-	log "github.com/sirupsen/logrus"
 
 	aws "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/aws"
 	"github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/controller"
 	"github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/kubernetes"
-	"golang.org/x/sync/errgroup"
-
-	"github.com/gin-gonic/gin"
-
+	types "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/types"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/redis"
-
-	"net/http/httputil"
-
+	"github.com/gin-gonic/gin"
 	"github.com/magiconair/properties"
-
-	types "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/types"
+	log "github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 )
 
 var control = controller.Controller{KubeOps: kubernetes.Operations{}, S3: aws.S3Operations{}}
@@ -92,13 +86,13 @@ func router01() http.Handler {
 
 	r.LoadHTMLGlob(props.MustGet("web") + "/templates/*")
 	r.GET("/", func(c *gin.Context) {
-
+		ugcLoadRequest := types.UgcLoadRequest{}
 		session := sessions.Default(c)
-		var ugcLoadRequest types.UgcLoadRequest
-		if ulr := session.Get("ugcLoadRequest"); ulr != nil {
-			ugcLoadRequest = ulr.(types.UgcLoadRequest)
-		} else {
-			ugcLoadRequest = types.UgcLoadRequest{}
+		if session != nil {
+			ulr := session.Get("ugcLoadRequest")
+			if ulr != nil {
+				ugcLoadRequest = ulr.(types.UgcLoadRequest)
+			}
 		}
 		control.AddMonitorAndDashboard(&ugcLoadRequest)
 		control.AddTenants(&ugcLoadRequest)
@@ -138,7 +132,7 @@ func router01() http.Handler {
 	r.POST("/delete-tenant", control.DeleteTenant)
 	r.GET("/tenantReport", control.S3Tenants)
 	r.GET("/test-status", control.TestStatus)
-	r.GET("/failing-nodes", control.FallingNodes)
+	r.GET("/failing-nodes", control.FailingNodes)
 	r.POST("/genReport", control.GenerateReport)
 
 	r.GET("/tenants", ReverseProxy())

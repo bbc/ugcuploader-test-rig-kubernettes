@@ -3,8 +3,9 @@ package validate
 import (
 	"strings"
 
-	types "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/types"
 	"github.com/gin-gonic/gin"
+
+	types "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/types"
 )
 
 var nonValidNamespaces = []string{"control", "default", "kube-node-lease", "kube-public", "kube-system", "ugcload-reporter", "weave"}
@@ -71,6 +72,8 @@ func (v Validator) ValidateUpload(ugcLoadRequest *types.UgcLoadRequest) (result 
 		return
 
 	}
+
+	//REGEX used to validate the name: [a-z0-9]([-a-z0-9]*[a-z0-9])?
 
 	if v.StringInSlice(ugcLoadRequest.Context, nonValidNamespaces) {
 		ugcLoadRequest.InvalidTenantName = strings.Join(nonValidNamespaces, ",")

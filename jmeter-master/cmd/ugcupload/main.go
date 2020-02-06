@@ -1,26 +1,23 @@
 package main
 
 import (
+	"context"
 	"encoding/gob"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 
+	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
+	pss "github.com/mitchellh/go-ps"
 	uuid "github.com/satori/go.uuid"
 	log "github.com/sirupsen/logrus"
-
 	"golang.org/x/sync/errgroup"
-
-	"github.com/gin-gonic/gin"
-
-	pss "github.com/mitchellh/go-ps"
-
-	"github.com/gin-gonic/gin/binding"
-
-	"os/exec"
 )
 
 func init() {
@@ -46,6 +43,61 @@ func runTest(args []string) {
 	executeCommand("/home/jmeter/bin/load_test.sh", args)
 }
 
+func waitForPorts(hosts []string) (notReady bool) {
+
+	count := 0
+	temp := hosts
+	var ready []string
+	var waiting []string
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+	fmt.Println("1:star")
+	for {
+		select {
+		case <-ctx.Done():
+			fmt.Println("2:star")
+			for _, host := range temp {
+				timeout := time.Second
+				conn, err := net.DialTimeout("tcp", net.JoinHostPort(host, "50000"), timeout)
+				if err != nil {
+					log.WithFields(log.Fields{
+						"err":   err.Error(),
+						"slave": host,
+					}).Error("Problems connecting to slave")
+				}
+				if conn != nil {
+					defer conn.Close()
+					fmt.Println(fmt.Sprintf("NO READY:%s", host))
+					ready = append(ready, host)
+				} else {
+					fmt.Println(fmt.Sprintf("READY:%s", host))
+					waiting = append(waiting, host)
+				}
+			}
+			temp = waiting
+			waiting = []string{}
+			fmt.Println("2:star")
+
+			if len(ready) == len(hosts) {
+				fmt.Println("All ports are ready")
+				notReady = false
+				return
+			}
+
+			count = count + 1
+			if count == 10 {
+				log.WithFields(log.Fields{
+					"Slaves": strings.Join(waiting, ","),
+				}).Error("slaves ports are not ready")
+				notReady = true
+				return
+			}
+			cancel()
+			ctx, cancel = context.WithTimeout(context.Background(), 1*time.Minute)
+		}
+	}
+
+}
+
 //StartTest used to start the jmeter tests
 func StartTest(c *gin.Context) {
 
@@ -63,6 +115,20 @@ func StartTest(c *gin.Context) {
 	log.WithFields(log.Fields{
 		"startTestCmd": string(jsonData),
 	}).Info("Command Received")
+
+	notReady := waitForPorts(strings.Split(startTestCMD.Hosts, ","))
+	if notReady == true {
+		res := Response{}
+		res.Message = "slave ports were not opened"
+		res.Code = 400
+		c.PureJSON(http.StatusBadRequest, res)
+		return
+	}
+
+	res := Response{}
+	res.Message = "test should have started"
+	res.Code = 200
+	c.PureJSON(http.StatusOK, res)
 
 	processes, err := pss.Processes()
 	if err != nil {
@@ -130,7 +196,7 @@ func StartTest(c *gin.Context) {
 
 	go runTest(args)
 
-	res := Response{}
+	res = Response{}
 	res.Message = "test should have started"
 	res.Code = 200
 	c.PureJSON(http.StatusOK, res)

@@ -3,39 +3,13 @@ package exec
 import (
 	"bytes"
 	"io"
+	"os"
 	"os/exec"
-	"runtime"
 	"strings"
 	"sync"
 
 	log "github.com/sirupsen/logrus"
 )
-
-// Code below taken from here: https://github.com/kjk/go-cookbook/blob/master/advanced-exec/03-live-progress-and-capture-v2.go
-// CapturingPassThroughWriter is a writer that remembers
-// data written to it and passes it to w
-type CapturingPassThroughWriter struct {
-	buf bytes.Buffer
-	w   io.Writer
-}
-
-// NewCapturingPassThroughWriter creates new CapturingPassThroughWriter
-func NewCapturingPassThroughWriter(w io.Writer) *CapturingPassThroughWriter {
-	return &CapturingPassThroughWriter{
-		w: w,
-	}
-}
-
-// Write writes data to the writer, returns number of bytes written and an error
-func (w *CapturingPassThroughWriter) Write(d []byte) (int, error) {
-	w.buf.Write(d)
-	return w.w.Write(d)
-}
-
-// Bytes returns bytes written to the writer
-func (w *CapturingPassThroughWriter) Bytes() []byte {
-	return w.buf.Bytes()
-}
 
 //Exec use for executing bash scripts
 type Exec struct{}
@@ -53,15 +27,15 @@ func (ex Exec) ExecuteCommand(command string, args []string) (outStr string, err
 	}
 
 	cmd := exec.Command(command, args...)
-	if runtime.GOOS == "windows" {
-		cmd = exec.Command("tasklist")
-	}
 
-	var errStdout, errStderr error
+	var stdoutBuf, stderrBuf bytes.Buffer
 	stdoutIn, _ := cmd.StdoutPipe()
 	stderrIn, _ := cmd.StderrPipe()
-	stdout := NewCapturingPassThroughWriter(w)
-	stderr := NewCapturingPassThroughWriter(w)
+
+	var errStdout, errStderr error
+	stdout := io.MultiWriter(os.Stdout, &stdoutBuf, w)
+	stderr := io.MultiWriter(os.Stderr, &stderrBuf, w)
+
 	err := cmd.Start()
 	if err != nil {
 		log.WithFields(log.Fields{
@@ -70,7 +44,6 @@ func (ex Exec) ExecuteCommand(command string, args []string) (outStr string, err
 		errStr = err.Error()
 
 	} else {
-
 		var wg sync.WaitGroup
 		wg.Add(1)
 
@@ -87,26 +60,20 @@ func (ex Exec) ExecuteCommand(command string, args []string) (outStr string, err
 			log.WithFields(log.Fields{
 				"err": err.Error(),
 			}).Error("Problems waiting for command to complete")
+			errStr = err.Error()
+			return
 		}
 		if errStdout != nil || errStderr != nil {
 			log.WithFields(log.Fields{
 				"err": err.Error(),
-			}).Error("Error occured when logging the execution process")
+			}).Error("failed to capture stdout or stderr")
+			errStr = err.Error()
+			return
 		}
-		os, te := string(stdout.Bytes()), string(stderr.Bytes())
 
-		if te != "" && strings.Contains(te, "TTY - input is not a terminal") {
-			log.WithFields(log.Fields{
-				"err": te,
-			}).Warn("TTY - input is not a terminal: %v", strings.Join(args, ","))
-		} else {
-			errStr = te
-		}
-		outStr = os
-
+		outStr, errStr = string(stdoutBuf.Bytes()), string(stderrBuf.Bytes())
 	}
 	return
-
 }
 
 type logrusWriter struct {

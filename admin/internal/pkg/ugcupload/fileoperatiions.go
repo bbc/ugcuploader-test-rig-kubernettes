@@ -8,13 +8,11 @@ import (
 	"net/http"
 	"os"
 	"time"
+	"bytes"
 
 	"github.com/gin-gonic/gin"
 	"github.com/magiconair/properties"
 	log "github.com/sirupsen/logrus"
-
-	"bytes"
-
 	uuid "github.com/satori/go.uuid"
 )
 
@@ -24,6 +22,7 @@ var props = properties.MustLoadFile("/etc/ugcupload/loadtest.conf", properties.U
 type FileUploadOperations struct {
 	Context *gin.Context
 }
+
 
 // Creates a new file upload http request with optional extra params
 func newfileUploadRequest(file io.Reader, uri string, params map[string]string, filename string) (r *http.Request, e error) {

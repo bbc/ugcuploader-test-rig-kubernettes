@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
-	"net/url"
 	"os"
 	"sync"
 	"time"
@@ -61,6 +60,7 @@ func (jmeter Jmeter) IsSlaveRunning(podIP string) (res bool) {
 		res = false
 		return
 	}
+	res = true
 	return
 }
 
@@ -87,30 +87,47 @@ func (jmeter Jmeter) sendPropertiesToSlave(ugcLoadRequest types.UgcLoadRequest, 
 func (jmeter Jmeter) startSlave(ugcLoadRequest types.UgcLoadRequest, hn string, wg sync.WaitGroup, message sync.Map) {
 	wg.Add(1)
 	defer wg.Done()
-
-	fv := url.Values{
-		"xmx": {ugcLoadRequest.Xmx},
-		"xms": {ugcLoadRequest.Xms},
-		"cpu": {ugcLoadRequest.CPU},
-		"ram": {ugcLoadRequest.RAM},
+	params := map[string]string{
+		"xmx":              ugcLoadRequest.Xmx,
+		"xms":              ugcLoadRequest.Xms,
+		"cpu":              ugcLoadRequest.CPU,
+		"ram":              ugcLoadRequest.RAM,
+		"maxMetaspaceSize": ugcLoadRequest.MaxMetaspaceSize,
 	}
 
-	resp, err := http.PostForm(fmt.Sprintf("http://%s:1007/start-server", hn), fv)
+	body := new(bytes.Buffer)
+	writer := multipart.NewWriter(body)
+	for key, val := range params {
+		_ = writer.WriteField(key, val)
+	}
+	err := writer.Close()
 	if err != nil {
-		log.WithFields(log.Fields{
-			"err":  err.Error(),
-			"host": hn,
-			"args": fv,
-		}).Error("Problems creating the request")
-		message.Store(fmt.Sprintf("ProblemsStartSlave@", hn), err.Error())
-	} else {
-		var bodyContent []byte
-		resp.Body.Read(bodyContent)
-		resp.Body.Close()
-		log.WithFields(log.Fields{
-			"response": string(bodyContent),
-		}).Info("Response from starting the jmeter slave")
+		return
 	}
+
+	r, _ := http.NewRequest("POST", fmt.Sprintf("http://%s:1007/start-server", hn), body)
+	r.Header.Set("Content-Type", writer.FormDataContentType())
+
+	client := &http.Client{}
+	resp, errReq := client.Do(r)
+	if errReq != nil {
+		log.WithFields(log.Fields{
+			"err": errReq.Error(),
+			"url": fmt.Sprintf("http://%s:1007/start-server", hn),
+		}).Error("Failed to start slave")
+		return
+	}
+
+	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	bodyString := string(bodyBytes)
+
+	log.WithFields(log.Fields{
+		"resp": bodyString,
+		"hn":   hn,
+	}).Info("Started Slave")
 
 }
 
@@ -249,8 +266,7 @@ func (jmeter Jmeter) StartMasterTest(master string, ugcLoadRequest types.UgcLoad
 	t := time.Now()
 	u2 := fmt.Sprintf("%s-%s", uuid.NewV4(), t.Format("20060102150405"))
 	path := fmt.Sprintf("%s/%s", props.MustGet("jmeter"), u2)
-	error, started = jmeter.startTestOnMaster(*jmeter.JmeterScript, uri, ugcLoadRequest.Context, listOfHost, path)
-	return
+	return jmeter.startTestOnMaster(*jmeter.JmeterScript, uri, ugcLoadRequest.Context, listOfHost, path)
 }
 
 //StartTestOnMaster Used to start the test on master
@@ -284,7 +300,6 @@ func (jmeter Jmeter) startTestOnMaster(testFile io.Reader, uri, tenant string, h
 	}
 
 	var jmeterResponse = jmeter.unMarshallResponse(resp.Body)
-
 	if jmeterResponse.Code != 200 {
 		log.WithFields(log.Fields{
 			"err":        jmeterResponse.Message,

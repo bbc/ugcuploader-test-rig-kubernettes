@@ -18,7 +18,7 @@ type Redis struct {
 //Setup used to setup the redis pool
 func (r *Redis) Setup() {
 	r.RedisPool = &redis.Pool{
-		MaxIdle:     3,                 // adjust to your needs
+		MaxIdle:     100,               // adjust to your needs
 		IdleTimeout: 240 * time.Second, // adjust to your needs
 		Dial: func() (redis.Conn, error) {
 			c, err := redis.Dial("tcp", ":6379")

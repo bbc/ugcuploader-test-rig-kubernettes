@@ -194,6 +194,7 @@ func (cnt *Controller) StopTest(c *gin.Context) {
 		return
 	}
 
+	_, _ = redisUtils.RemoveFromWaitingTests(ugcLoadRequest.StopContext)
 	error, del := redisUtils.RemoveTenant(ugcLoadRequest.StopContext)
 	if del == false {
 		ugcLoadRequest.TennantNotStopped = fmt.Sprintf("Unable to remove tenant from redis: %s", error)
@@ -203,6 +204,12 @@ func (cnt *Controller) StopTest(c *gin.Context) {
 		c.Abort()
 		return
 
+	}
+
+	var stopChannel chan string
+	if x, found := systemCache.Get(ugcLoadRequest.Context); found {
+		stopChannel = x.(chan string)
+		stopChannel <- "stop"
 	}
 
 	ugcLoadRequest.TenantStopped = ugcLoadRequest.StopContext
@@ -362,10 +369,13 @@ func (cnt *Controller) waitForSlavesToStartRunning(ugcLoadRequest types.UgcLoadR
 func (cnt *Controller) monitorMe(ugcloaddRequest types.UgcLoadRequest, slaves []string, jm jmeter.Jmeter) {
 
 	var stopChannel chan string
+	var foundDeadSlave bool
+	var deadSlave []string
 	if x, found := systemCache.Get(ugcloaddRequest.Context); found {
-		stopChannel = x.(chan string)
 
-		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		stopChannel = x.(chan string)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
 		for {
 			select {
 			case message := <-stopChannel:
@@ -375,45 +385,109 @@ func (cnt *Controller) monitorMe(ugcloaddRequest types.UgcLoadRequest, slaves []
 				}).Info("Received stop message: ending monitoring")
 				return
 			case <-ctx.Done():
-				//Grab hold of the semaphore
-				for _, slave := range slaves {
-					yes := jm.IsSlaveRunning(slave)
-					if yes == false {
-						log.WithFields(log.Fields{
-							"node":   slave,
-							"tenant": ugcloaddRequest.Context,
-						}).Error("Node has failed restarting test")
-						//Stopping any tests that are running
-						hsnames := cnt.KubeOps.GetHostNamesOfJmeterMaster(ugcloaddRequest.Context)
-						_, _ = jm.StopTestOnMaster(hsnames[0])
-
-						//Waiting a few seonds for all slaves to be notified
-						time.Sleep(5 * time.Second)
-
-						//Restart Test:
-						cpu, _ := strconv.Atoi(ugcloaddRequest.CPU)
-						ram, _ := strconv.Atoi(ugcloaddRequest.RAM)
-						mmss, _ := strconv.Atoi(ugcloaddRequest.MaxMetaspaceSize)
-						xms, _ := strconv.Atoi(ugcloaddRequest.Xms)
-						xmx, _ := strconv.Atoi(ugcloaddRequest.Xmx)
-						ugcloaddRequest.CPU = strconv.Itoa(cpu + 1)
-						ugcloaddRequest.RAM = strconv.Itoa(ram + 1)
-						ugcloaddRequest.MaxMetaspaceSize = strconv.Itoa(mmss + 256)
-
-						ugcloaddRequest.Xms = strconv.Itoa(xms + 1)
-						ugcloaddRequest.Xmx = strconv.Itoa(xmx + 1)
-						cancel()
-						go cnt.startTest(ugcloaddRequest, jm)
-						//Release semaphore
-						return
+				if !foundDeadSlave {
+					for _, slave := range slaves {
+						yes := jm.IsSlaveRunning(slave)
+						if yes == false {
+							foundDeadSlave = true
+							deadSlave = append(deadSlave, slave)
+						}
 					}
+					cancel()
+					duration := 10 * time.Second
+					if foundDeadSlave {
+						duration = 30 * time.Second
+					}
+					ctx, cancel = context.WithTimeout(context.Background(), duration)
+				} else {
+					break
 				}
-				cancel()
-				ctx, cancel = context.WithTimeout(context.Background(), 1*time.Second)
 			}
 		}
 	}
 
+	if foundDeadSlave {
+		log.WithFields(log.Fields{
+			"node(s)": strings.Join(deadSlave, ","),
+			"Tenant":  ugcloaddRequest.Context,
+		}).Error("Node(s) has failed restarting test")
+
+		//Stopping any tests that are running
+		hsnames := cnt.KubeOps.GetHostNamesOfJmeterMaster(ugcloaddRequest.Context)
+		_, _ = jm.StopTestOnMaster(hsnames[0])
+
+		//Waiting a few seonds for all slaves to be notified
+		time.Sleep(5 * time.Second)
+
+		before := fmt.Sprintf("Node Current Budget: xmx=%s, xms=%s, maxmetaspacesize=%s, cpu=%s, ram=%s",
+			ugcloaddRequest.Xms, ugcloaddRequest.Xmx, ugcloaddRequest.MaxMetaspaceSize, ugcloaddRequest.CPU,
+			ugcloaddRequest.RAM)
+		//Restart Test:
+		cpu, _ := strconv.Atoi(ugcloaddRequest.CPU)
+		ram, _ := strconv.Atoi(ugcloaddRequest.RAM)
+		mmss, _ := strconv.Atoi(ugcloaddRequest.MaxMetaspaceSize)
+		xms, _ := strconv.Atoi(ugcloaddRequest.Xms)
+		xmx, _ := strconv.Atoi(ugcloaddRequest.Xmx)
+		ugcloaddRequest.CPU = strconv.Itoa(cpu + 1)
+		ugcloaddRequest.RAM = strconv.Itoa(ram + 1)
+		ugcloaddRequest.MaxMetaspaceSize = strconv.Itoa(mmss + 256)
+
+		ugcloaddRequest.Xms = strconv.Itoa(xms + 1)
+		ugcloaddRequest.Xmx = strconv.Itoa(xmx + 1)
+
+		err := fmt.Sprintf("%s: Node New confiuration: xmx=%s, xms=%s, maxmetaspacesize=%s, cpu=%s, ram=%s",
+			before, ugcloaddRequest.Xms, ugcloaddRequest.Xmx, ugcloaddRequest.MaxMetaspaceSize, ugcloaddRequest.CPU,
+			ugcloaddRequest.RAM)
+		redisTenant := types.RedisTenant{Tenant: ugcloaddRequest.Context}
+		redisTenant.Started = fmt.Sprintf("Restart - because Node(s)=%s could not be reached", strings.Join(deadSlave, ","))
+		redisTenant.Errors = err
+		redisUtils.AddTenant(redisTenant)
+		go cnt.startTest(ugcloaddRequest, jm)
+		//Release semaphore
+		return
+
+	}
+
+}
+
+func (cnt *Controller) waitForJmeterToStartRunningOnSlaves(slaves []string, jm jmeter.Jmeter) (allRunning bool, failed []string) {
+
+	var running []string
+	var temp = slaves
+	count := 0
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+	for {
+		select {
+		case <-ctx.Done():
+
+			var notRunning []string
+			for _, slave := range temp {
+				if jm.IsSlaveRunning(slave) {
+					running = append(running, slave)
+					fmt.Println(fmt.Sprintf("Running:%s", slave))
+				} else {
+					fmt.Println(fmt.Sprintf("Not Running:%s", slave))
+					notRunning = append(notRunning, slave)
+				}
+			}
+
+			if len(running) == len(slaves) {
+				fmt.Println("ALL SLAVES ARE RUNNING")
+				allRunning = true
+				return
+			}
+			count = count + 1
+			if count == 6 {
+				allRunning = false
+				failed = notRunning
+				return
+			}
+			temp = notRunning
+			notRunning = []string{}
+			cancel()
+			ctx, cancel = context.WithTimeout(context.Background(), 1*time.Minute)
+		}
+	}
 }
 
 func (cnt *Controller) startTest(ugcLoadRequest types.UgcLoadRequest, jm jmeter.Jmeter) {
@@ -437,14 +511,27 @@ func (cnt *Controller) startTest(ugcLoadRequest types.UgcLoadRequest, jm jmeter.
 		}
 
 	} else {
-		redisTenant.Started = fmt.Sprintf("Scaling nodes to %d", ugcLoadRequest.NumberOfNodes)
-		redisUtils.AddTenant(redisTenant)
-		scaledError, scaled := cnt.KubeOps.ScaleDeployment(ugcLoadRequest.Context, int32(ugcLoadRequest.NumberOfNodes))
-		if scaled == false {
-			redisTenant.Started = "problems scaling nodes"
-			redisTenant.Errors = scaledError
+		exist := cnt.KubeOps.DoesDeploymentExist(ugcLoadRequest.Context, "jmeter-slave")
+		if exist {
+			redisTenant.Started = fmt.Sprintf("Scaling nodes to %d", ugcLoadRequest.NumberOfNodes)
 			redisUtils.AddTenant(redisTenant)
-			return
+			scaledError, scaled := cnt.KubeOps.ScaleDeployment(ugcLoadRequest.Context, int32(ugcLoadRequest.NumberOfNodes))
+			if scaled == false {
+				redisTenant.Started = "problems scaling nodes"
+				redisTenant.Errors = scaledError
+				redisUtils.AddTenant(redisTenant)
+				return
+			}
+		} else {
+			//Something went wrong before recreating
+			kubeAdmin := admin.Admin{KubeOps: &cnt.KubeOps, RedisUtil: redisUtils}
+			error, created := kubeAdmin.CreateTenantInfrastructure(ugcLoadRequest)
+			if created == false {
+				redisTenant.Started = "failed"
+				redisTenant.Errors = error
+				redisUtils.AddTenant(redisTenant)
+				return
+			}
 		}
 	}
 
@@ -462,34 +549,50 @@ func (cnt *Controller) startTest(ugcLoadRequest types.UgcLoadRequest, jm jmeter.
 			return
 		}
 		masters := cnt.KubeOps.GetHostNamesOfJmeterMaster(ugcLoadRequest.Context)
-		redisTenant.Started = fmt.Sprintf("start master %s", strings.Join(masters, ","))
+		redisTenant.Started = fmt.Sprintf("Waiting for slaves to start on master %s ", strings.Join(masters, ","))
+		redisTenant.Errors = fmt.Sprintf("%s", listOfHost)
 		redisUtils.AddTenant(redisTenant)
-		time.Sleep(2 * time.Minute)
-		for _, master := range masters {
-			e, started := jm.StartMasterTest(master, ugcLoadRequest, listOfHost)
-			tenant := types.RedisTenant{Tenant: ugcLoadRequest.Context}
-			if started == false {
-				tenant.Started = "Unable To Start"
-				tenant.Errors = e
-			} else {
-				tenant.Started = "Running"
+		running, failedSlaves := cnt.waitForJmeterToStartRunningOnSlaves(ips, jm)
+		if running == true {
+			redisTenant.Started = fmt.Sprintf("start master %s", strings.Join(masters, ","))
+			redisUtils.AddTenant(redisTenant)
+			for _, master := range masters {
+				e, started := jm.StartMasterTest(master, ugcLoadRequest, listOfHost)
+
+				//NOTE: Something odd is happening
+				if started == false {
+					redisTenant.Started = "Running: But something odd happened"
+					redisTenant.Errors = e
+				} else {
+					redisTenant.Started = "Running"
+					mess, created := cnt.KubeOps.CreatePodDisruptionBudget(ugcLoadRequest)
+					if created == false {
+						redisTenant.Started = "Running: Problems Creating PodDisruptionBudget"
+						redisTenant.Errors = mess
+					}
+				}
 			}
-			redisUtils.AddTenant(tenant)
+			redisUtils.AddTenant(redisTenant)
+			return
+		} else {
+			redisTenant.Errors = fmt.Sprintf("Hosts:%s", strings.Join(failedSlaves, ","))
+			redisTenant.Started = "Jmeter slaves have not been started"
+			return
 		}
 
-		ch := make(chan string, 1)
-		systemCache.Set(ugcLoadRequest.Context, ch, cache.NoExpiration)
-		go cnt.monitorMe(ugcLoadRequest, ips, jm)
+		//ch := make(chan string, 1)
+		//systemCache.Set(ugcLoadRequest.Context, ch, cache.NoExpiration)
+		//go cnt.monitorMe(ugcLoadRequest, ips, jm)
 
 	} else {
-		redisUtils.AddTenant(types.RedisTenant{Tenant: ugcLoadRequest.Context, Started: "failed", Errors: fmt.Sprintf("No slaves found: Test for started for [%s]", ugcLoadRequest.Context)})
+		redisUtils.AddTenant(types.RedisTenant{Tenant: ugcLoadRequest.Context, Started: "failed", Errors: fmt.Sprintf("No slaves found: For [%s]", ugcLoadRequest.Context)})
 		return
 	}
 
 }
 
-//FallingNodes get all failling nodes
-func (cnt *Controller) FallingNodes(c *gin.Context) {
+//FailingNodes get all failling nodes
+func (cnt *Controller) FailingNodes(c *gin.Context) {
 	cnt.KubeOps.RegisterClient()
 	nodes, _ := cnt.KubeOps.GetAlFailingNodes()
 	c.PureJSON(http.StatusOK, nodes)

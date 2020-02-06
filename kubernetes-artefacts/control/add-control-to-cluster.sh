@@ -22,3 +22,4 @@ kubectl create namespace control
 eksctl create iamserviceaccount --name ugcupload-control --namespace control  --cluster ugctestgrid --attach-policy-arn $POLICY_ARN --approve --override-existing-serviceaccounts
 kubectl create -f clusterolebinding.yaml
 kubectl create -n control -f control.yaml
+kubectl create -n control -f pdb.yaml

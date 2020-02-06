@@ -13,13 +13,11 @@ COPY config/ /config
 COPY entrypoint.sh /
 COPY client.jks /
 COPY start.sh /
-
 COPY ApacheJMeter.jar /opt/apache-jmeter/bin
 
 RUN mkdir /fileupload
-COPY fileupload fileupload
-
 COPY jolokia-jvm-1.6.2-agent.jar /fileupload
+COPY fileupload fileupload
 WORKDIR /fileupload
 ENV GO111MODULE=on
 RUN go mod download

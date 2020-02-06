@@ -5,13 +5,12 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
+	myExec "github.com/bbc/ugcuploader-test-rig-kubernettes/fileupload/internal/pkg/exec"
 	ugl "github.com/bbc/ugcuploader-test-rig-kubernettes/fileupload/internal/pkg/ugcupload"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
-	pss "github.com/mitchellh/go-ps"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 )
@@ -22,6 +21,8 @@ func init() {
 		FullTimestamp: true,
 	})
 
+	log.SetLevel(log.DebugLevel)
+	log.SetOutput(os.Stdout)
 }
 
 var (
@@ -55,30 +56,39 @@ func JmeterProps(c *gin.Context) {
 	fop.SaveFile(fmt.Sprintf("%s/bin/jmeter.properties", jh))
 }
 
-//IsRunning Used to determing if slave is running
-func IsRunning(c *gin.Context) {
+func checkFileUploadLogs() (found bool) {
+	file, err := os.Open("/fileupload.log")
 
-	processes, err := pss.Processes()
-	if err != nil {
-		log.WithFields(log.Fields{
-			"err": err.Error(),
-		}).Error("Prolems listing all processes")
-		c.String(http.StatusBadRequest, "no")
-		return
-	}
-	for _, process := range processes {
-		if strings.Contains(process.Executable(), "ApacheJMeter") || strings.Contains(process.Executable(), "java") {
-			log.WithFields(log.Fields{
-				"executable": process.Executable(),
-				"pid":        process.Pid(),
-				"parent pid": process.Pid(),
-			}).Info("Processes")
-			c.String(http.StatusOK, "yes")
-			return
+	if err == nil {
+		log.Fatalf("failed opening file: %s", err)
+
+		scanner := bufio.NewScanner(file)
+		scanner.Split(bufio.ScanLines)
+		var txtlines []string
+
+		for scanner.Scan() {
+			if strings.Contains(scanner.Text().ToLower(), "Caused by: java.net.ConnectException: Connection refused (Connection refused)")
+		}
+
+		file.Close()
+
+		for _, eachline := range txtlines {
+			fmt.Println(eachline)
 		}
 	}
 
-	c.String(http.StatusBadRequest, "no")
+	found = false
+	return
+}
+
+//IsRunning Used to determing if slave is running
+func IsRunning(c *gin.Context) {
+	cmd := myExec.Exec{}
+	running := "no"
+	if cmd.IsProcessRunning("ApacheJMeter.jar") {
+		running = "yes"
+	}
+	c.String(http.StatusOK, running)
 	return
 }
 
@@ -105,36 +115,23 @@ func start(cmd string, args ...string) (p *os.Process, err error) {
 }
 
 //StartJmeterServer NOTE: Had to do this because the bash script was hanging...
-func startJmeterServer(startUpload StartUpload) {
+func startJmeterServer(startUpload StartUpload) (started bool) {
 
-	cmd := fmt.Sprintf("/start.sh")
-	args := []string{startUpload.Xmx, startUpload.Xms, startUpload.MaxMetaspaceSize}
-	process, err := start(cmd, args...)
-	if err != nil {
-		log.WithFields(log.Fields{
-			"err": err,
-		}).Error("unable to start the test")
+	jvmArgs := []string{fmt.Sprintf("JVM_ARGS=%s", fmt.Sprintf("-Xms%sg -Xmx%sg -XX:MaxMetaspaceSize=%sm",
+		startUpload.Xms, startUpload.Xmx, startUpload.MaxMetaspaceSize))}
+
+	cmd := myExec.Exec{Env: jvmArgs}
+	start, pid := cmd.ExecuteCommandSlaveCommand("/start.sh", []string{})
+	if start {
+		go func() {
+			cmd = myExec.Exec{}
+			args := []string{"-jar", "/fileupload/jolokia-jvm-1.6.2-agent.jar", "start", pid}
+			cmd = myExec.Exec{}
+			_, _ = cmd.ExecuteCommand("java", args)
+		}()
+		started = true
 	}
-
-	log.WithFields(log.Fields{
-		"Pid":    process.Pid,
-		"Params": strings.Join(args, ","),
-	}).Info("PID of jmter server")
-
-	time.Sleep(2 * time.Second)
-	cmd = fmt.Sprintf("java")
-	args = []string{"-jar", "/fileupload/jolokia-jvm-1.6.2-agent.jar", "start", "/opt/apache-jmeter/bin/ApacheJMeter.jar"}
-	_, err = start(cmd, args...)
-	if err != nil {
-		log.WithFields(log.Fields{
-			"err": err,
-		}).Error("unable to start the test")
-	}
-
-	log.WithFields(log.Fields{
-		"Pid": process.Pid,
-	}).Info("PID of Jolokia")
-
+	return
 }
 
 //StartServer used to start jmeter server
@@ -149,11 +146,15 @@ func StartServer(c *gin.Context) {
 		return
 	}
 
-	go startJmeterServer(*startUpload)
+	started := startJmeterServer(*startUpload)
 	//Just giving jmeter server time to start
 	time.Sleep(2 * time.Second)
-	c.String(http.StatusOK, "start test")
-	return
+	if started {
+		c.String(http.StatusOK, "ok")
+		return
+	} else {
+		c.String(http.StatusBadRequest, "no")
+	}
 }
 
 func main() {
