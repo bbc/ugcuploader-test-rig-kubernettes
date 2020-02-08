@@ -1,10 +1,16 @@
 package types
 
-//RedisTenant used to store infor about tenant in redi
+//RedisTenant used to store infor about tenant in redis
 type RedisTenant struct {
 	Started string `redis:"started"`
 	Errors  string `redis:"errors"`
 	Tenant  string `redis:"tenant"`
+}
+
+//TestInfo used to hold information about the running tests
+type TestInfo struct {
+	LocationDatFile      string `redis:"locationDataFile"`
+	LocationJmeterScript string `redis:"locationJmeterScript"`
 }
 
 //TestStatus Used to return the status of all running test
@@ -32,6 +38,7 @@ type UgcLoadRequest struct {
 	ProblemsBinding      bool
 	MonitorURL           string
 	DashboardURL         string
+	ChronografURL        string
 	Success              string
 	InvalidTenantName    string
 	TenantDeleted        string

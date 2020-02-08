@@ -250,8 +250,8 @@ func (kop *Operations) GetAlFailingNodes() (nodes []types.NodePhase, found bool)
 	return
 }
 
-//GetallJmeterSlaves gets all the jmeter slaves
-func (kop *Operations) GetallJmeterSlaves(tenant string) (slvs []types.SlaveStatus, err string, found bool) {
+//GetallJmeterSlavesStatus gets all the jmeter slaves
+func (kop *Operations) GetallJmeterSlavesStatus(tenant string) (slvs []types.SlaveStatus, err string, found bool) {
 	slaves := []types.SlaveStatus{}
 	labelSelector := metav1.LabelSelector{MatchLabels: map[string]string{"jmeter_mode": "slave"}}
 	actual := metav1.ListOptions{LabelSelector: labels.Set(labelSelector.MatchLabels).String()}
@@ -801,7 +801,7 @@ func (kop *Operations) CreateJmeterMasterDeployment(namespace string, awsAcntNbr
 	return
 }
 
-//GetPodIpsForSlaves used to get the endpoints assoicated with a service
+//GetPodIpsForSlaves used to get the endpoints associated with a service
 func (kop *Operations) GetPodIpsForSlaves(ns string) (endpoints []string) {
 	var eps []string
 	ep, e := kop.ClientSet.CoreV1().Endpoints(ns).Get("jmeter-slaves-svc", metav1.GetOptions{})
@@ -853,35 +853,6 @@ func (kop *Operations) GetHostNamesOfJmeterMaster(ns string) (hostnames []string
 	return
 }
 
-//GetHostNamesOfJmeterSlaves Gets the ip addresses of the slaves
-func (kop *Operations) GetHostNamesOfJmeterSlaves(ns string) (hostnames []string) {
-
-	var hn []string
-	labelSelector := metav1.LabelSelector{MatchLabels: map[string]string{"jmeter_mode": "master"}}
-	actual := metav1.ListOptions{LabelSelector: labels.Set(labelSelector.MatchLabels).String()}
-	pods, err := kop.ClientSet.CoreV1().Pods(ns).List(actual)
-	if err != nil {
-		log.WithFields(log.Fields{
-			"err":       err.Error(),
-			"namespace": ns,
-		}).Error("Unable to find any pods in the namespace")
-	} else {
-
-		//<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>
-		for _, pod := range pods.Items {
-			log.WithFields(log.Fields{
-				"hostIP": pod.Status.HostIP,
-				"name":   pod.Name,
-			}).Info("Jmeter slaves")
-			if strings.EqualFold(string(pod.Status.Phase), "Running") {
-				hn = append(hn, pod.Status.HostIP)
-			}
-		}
-		hostnames = hn
-	}
-	return
-}
-
 //CheckNamespaces check for the existence of a namespace
 func (kop *Operations) CheckNamespaces(namespace string) (exist bool) {
 	var list corev1.NamespaceList
@@ -908,27 +879,50 @@ func (kop *Operations) CheckNamespaces(namespace string) (exist bool) {
 
 		}
 	}
-
 	return
 }
 
-//LoadBalancerIP gets the load balancer ip of the service
-func (kop *Operations) LoadBalancerIP(namespace string) (host string) {
-
-	var list corev1.ServiceList
-	err := kop.ClientSet.RESTClient().Get().AbsPath(fmt.Sprintf("/api/v1/namespaces/%s/services", namespace)).Param("pretty", "true").Do().Into(&list)
+//LoadBalancerIP gets the loadbalancer ip of the service
+func (kop *Operations) LoadBalancerIP(ns string, svc string) string {
+	services, err := kop.ClientSet.CoreV1().Services(ns).List(metav1.ListOptions{})
 	if err != nil {
 		log.WithFields(log.Fields{
-			"err": err.Error(),
-		}).Errorf("Unable to get service: %s", namespace)
+			"err":     err.Error(),
+			"service": svc,
+		}).Errorf("Unable to get service: %s", ns)
 	} else {
-		for _, svc := range list.Items {
-			for _, ingress := range svc.Status.LoadBalancer.Ingress {
-				host = ingress.Hostname
+
+		log.WithFields(log.Fields{
+			"number of services": len(services.Items),
+			"namespace":          ns,
+			"svc":                svc,
+		}).Info("Number of service")
+		for _, service := range services.Items {
+
+			var ips []string
+			for _, ing := range service.Status.LoadBalancer.Ingress {
+				ips = append(ips, ing.IP)
+			}
+			var hostname []string
+			for _, ing := range service.Status.LoadBalancer.Ingress {
+				ips = append(ips, ing.Hostname)
+			}
+
+			if strings.ToLower(service.Name) == strings.ToLower(svc) {
+				log.WithFields(log.Fields{
+					"service.Name":                service.Name,
+					"svc":                         svc,
+					"service.Spec.LoadBalancerIp": service.Spec.LoadBalancerIP,
+					"service.Spec.ExeternalIPs":   strings.Join(service.Spec.ExternalIPs, ","),
+					"service.Status.LoadBalancer.Ingress.Hostname": hostname,
+					"service.Status.LoadBalancer.Ingress.IP":       strings.Join(ips, ""),
+				}).Info("Service Details")
+				fmt.Println(fmt.Sprintf("------ ipe[0]", strings.Join(ips, "")))
+				return strings.Join(ips, "")
 			}
 		}
 	}
-	return
+	return ""
 }
 
 func homeDir() string {

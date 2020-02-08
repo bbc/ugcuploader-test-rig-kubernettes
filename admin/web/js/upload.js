@@ -1,6 +1,11 @@
 
 $(document).ready(function () {
 
+    $('#termination-navigation a').on('click', function (e) {
+        e.preventDefault();
+        $(this).tab('show')
+    });
+
     /*
         function refreshData() {
              x = 5;  // 5 Seconds
@@ -9,8 +14,8 @@ $(document).ready(function () {
         }
         refreshData();
       */
-    var selected = []
-    var tenant
+    var selected = [];
+    var tenant;
     $('a.dropdown-item').on('click', function (e) {
         e.preventDefault();
         tenant = $(this).text();
@@ -89,13 +94,13 @@ $(document).ready(function () {
      * Used to add spinners when processing a request
      */
     $("#deleteTenantFrm").on('submit', function () {
-        $("#deleteTenant").remove()
-        $("#deleteTenantBtn").prop("disabled", true)
+        $("#deleteTenant").remove();
+        $("#deleteTenantBtn").prop("disabled", true);
         $("#deleteTenantBtn").html(
             `<span id="deleteTenant" iclass="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Deleting...`
         );
-        $("#startTestBtn").prop("disabled", true)
-        $("#stopTestBtn").prop("disabled", true)
+        $("#startTestBtn").prop("disabled", true);
+        $("#stopTestBtn").prop("disabled", true);
         var form = $("#deleteTenantFrm")[0]; // You need to use standard javascript object here
         var formData = new FormData(form);
 
@@ -110,20 +115,20 @@ $(document).ready(function () {
         }).done(function (data) { // if getting done then call.
             $("#deleteTenantBtn").html(
                 `<button type="submit" id="deleteTenantBtn" class="btn btn-primary">Delete Tenant</button>`
-            )
-            $("#startTestBtn").prop("disabled", false)
-            $("#stopTestBtn").prop("disabled", false)
+            );
+            $("#startTestBtn").prop("disabled", false);
+            $("#stopTestBtn").prop("disabled", false);
             populate(data)
 
         })
             .fail(function () { // if fail then getting message
                 $("#deleteTenantBtn").html(
                     `<button type="submit" id="deleteTenantBtn" class="btn btn-primary">Delete Tenant</button>`
-                )
-                $("#startTestBtn").prop("disabled", false)
-                $("#stopTestBtn").prop("disabled", false)
-                $("#GenericCreateTestMsg").empty()
-                $("#GenericCreateTestMsg").append('<div class="alert alert-warning" role="alert">SERVER HAS CRASHED</div>')
+                );
+                $("#startTestBtn").prop("disabled", false);
+                $("#stopTestBtn").prop("disabled", false);
+                $("#GenericCreateTestMsg").empty();
+                $("#GenericCreateTestMsg").append('<div class="alert alert-warning" role="alert">SERVER HAS CRASHED: When deleting tenant</div>')
             });
 
         // to prevent refreshing the whole page page
@@ -131,13 +136,13 @@ $(document).ready(function () {
     });
 
     $("#startTestFrm").on('submit', function () {
-        $("#startTestBtn").prop("disabled", true)
+        $("#startTestBtn").prop("disabled", true);
         $("#startTestBtn").html(
             `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Starting Test...`
         );
-        $("#deleteTenantBtn").prop("disabled", true)
-        $("#stopTestBtn").prop("disabled", true)
-        $("#Success").empty()
+        $("#deleteTenantBtn").prop("disabled", true);
+        $("#stopTestBtn").prop("disabled", true);
+        $("#Success").empty();
         var form = $("#startTestFrm")[0]; // You need to use standard javascript object here
         var formData = new FormData(form);
         formData.append('jmeter', $("#script-file-upload")[0].files[0]);
@@ -159,19 +164,19 @@ $(document).ready(function () {
         }).done(function (data) { // if getting done then call.
             $("#startTestBtn").html(
                 `<button type="submit" id="startTestBtn" class="btn btn-primary">Run Test</button>`
-            )
-            $("#deleteTenantBtn").prop("disabled", false)
-            $("#stopTestBtn").prop("disabled", false)
+            );
+            $("#deleteTenantBtn").prop("disabled", false);
+            $("#stopTestBtn").prop("disabled", false);
             populate(data)
 
         })
             .fail(function () { // if fail then getting message
                 $("#startTestBtn").html(
                     `<button type="submit" id="startTestBtn" class="btn btn-primary">Run Test</button>`
-                )
-                $("#deleteTenantBtn").prop("disabled", false)
-                $("#stopTestBtn").prop("disabled", false)
-                $("#GenericCreateTestMsg").empty()
+                );
+                $("#deleteTenantBtn").prop("disabled", false);
+                $("#stopTestBtn").prop("disabled", false);
+                $("#GenericCreateTestMsg").empty();
                 $("#GenericCreateTestMsg").append('<div class="alert alert-warning" role="alert">Something severe has occured: check logs</div>')
             });
 
@@ -179,13 +184,55 @@ $(document).ready(function () {
         return false;
     });
 
+    $("#forceStopTestFrm").on('submit', function () {
+        $("#forceStopTestBtn").prop("disabled", true);
+        $("#forceStopTestBtn").html(
+            `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Stopping Test...`
+        );
+        $("#startTestBtn").prop("disabled", true);
+        $("#deleteTenantBtn").prop("disabled", true);
+        var form = $("#forceStopTestFrm")[0]; // You need to use standard javascript object here
+        var formData = new FormData(form);
+
+        // Call ajax for pass data to other place
+        $.ajax({
+            type: 'POST',
+            enctype: 'multipart/form-data',
+            url: '/force-stop-test',
+            data: formData, // getting filed value in serialize form
+            processData: false,
+            contentType: false
+        }).done(function (data) { // if getting done then call.
+            $("#forceStopTestBtn").html(
+                `button type="submit" id="forceStopTestBtn" class="btn btn-primary">Force Stop Test</button>`
+            );
+            $("#startTestBtn").prop("disabled", false);
+            $("#deleteTenantBtn").prop("disabled", false);
+            populate(data);
+            updateStatus()
+
+        })
+            .fail(function () { // if fail then getting message
+                $("#forcestopTestBtn").html(
+                    `button type="submit" id="forcestopTestBtn" class="btn btn-primary">Force Stop Test</button>`
+                );
+                $("#startTestBtn").prop("disabled", false);
+                $("#deleteTenantBtn").prop("disabled", false);
+                $("#GenericCreateTestMsg").empty();
+                $("#GenericCreateTestMsg").append('<div class="alert alert-warning" role="alert">SERVER HAS CRASHED: When force stopping tests</div>')
+            });
+
+        // to prevent refreshing the whole page page
+        return false;
+    });
+
     $("#stopTestFrm").on('submit', function () {
-        $("#stopTestBtn").prop("disabled", true)
+        $("#stopTestBtn").prop("disabled", true);
         $("#stopTestBtn").html(
             `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Stopping Test...`
         );
-        $("#startTestBtn").prop("disabled", true)
-        $("#deleteTenantBtn").prop("disabled", true)
+        $("#startTestBtn").prop("disabled", true);
+        $("#deleteTenantBtn").prop("disabled", true);
         var form = $("#stopTestFrm")[0]; // You need to use standard javascript object here
         var formData = new FormData(form);
 
@@ -200,21 +247,21 @@ $(document).ready(function () {
         }).done(function (data) { // if getting done then call.
             $("#stopTestBtn").html(
                 `button type="submit" id="stopTestBtn" class="btn btn-primary">Stop Test</button>`
-            )
-            $("#startTestBtn").prop("disabled", false)
-            $("#deleteTenantBtn").prop("disabled", false)
-            populate(data)
+            );
+            $("#startTestBtn").prop("disabled", false);
+            $("#deleteTenantBtn").prop("disabled", false);
+            populate(data);
             updateStatus()
 
         })
             .fail(function () { // if fail then getting message
                 $("#stopTestBtn").html(
                     `button type="submit" id="stopTestBtn" class="btn btn-primary">Stop Test</button>`
-                )
-                $("#startTestBtn").prop("disabled", false)
-                $("#deleteTenantBtn").prop("disabled", false)
-                $("#GenericCreateTestMsg").empty()
-                $("#GenericCreateTestMsg").append('<div class="alert alert-warning" role="alert">SERVER HAS CRASHED</div>')
+                );
+                $("#startTestBtn").prop("disabled", false);
+                $("#deleteTenantBtn").prop("disabled", false);
+                $("#GenericCreateTestMsg").empty();
+                $("#GenericCreateTestMsg").append('<div class="alert alert-warning" role="alert">SERVER HAS CRASHED: When stopping tests</div>')
             });
 
         // to prevent refreshing the whole page page
@@ -222,12 +269,12 @@ $(document).ready(function () {
     });
 
     $("#PendingTests").on('click', function () {
-        updateStatus()
+        updateStatus();
         return false;
     });
 
     $("#FailingNodes").on('click', function () {
-        fetchFailingNodes()
+        fetchFailingNodes();
         return false;
     });
 
@@ -247,8 +294,8 @@ function fetchFailingNodes() {
 }
 
 function updateFailingNodes(data) {
-    var started = false
-    var deleted = false
+    var started = false;
+    var deleted = false;
     if (!_.isEmpty(data)) {
         pending = '<br><div class="alert alert-warning" role="alert">Items marked unreeachable should be restarted in AWS</div><br><table class="table-responsive table-bordered">' +
             '<thead class="black white-text">' +
@@ -264,13 +311,13 @@ function updateFailingNodes(data) {
             pending = pending.concat('<tr class="table-info"><th scope="row">' + value.Name + '</td><td>' + value.Phase + '</td><td>' + value.InstanceID + '</td></tr>');
         });
 
-        end = '</tbody></table>'
-        pending = pending.concat(end)
-        $("#FailingNodesList").empty()
+        end = '</tbody></table>';
+        pending = pending.concat(end);
+        $("#FailingNodesList").empty();
         $("#FailingNodesList").append(pending)
      
     } else {
-        $("#FailingNodesList").empty()
+        $("#FailingNodesList").empty();
         $("#FailingNodesList").append('<br><div class="alert alert-warning" role="alert">No nodes with problems </div>')
     }
 
@@ -303,40 +350,40 @@ function fetchTenantDetails() {
 
 
 function addStatus(data) {
-    var started = false
-    var deleted = false
+    var started = false;
+    var deleted = false;
     if (!_.isEmpty(data)) {
         pending = '<br><table class="table-responsive table-bordered">' +
             '<thead class="black white-text">' +
             '<tr>' +
             '<th scope="col">Tenant</th>' +
             '<th scope="col">State</th>' +
-            '<th scope="col">Errors</th>' +
+            '<th scope="col">Message</th>' +
             '</tr>' +
             '</thead>' +
             '<tbody>';
 
         if (!_.isEmpty(data.Started)) {
-            started = true
+            started = true;
             $.each(data.Started, function (index, value) {
                 pending = pending.concat('<tr class="table-info"><th scope="row">' + value.Tenant + '</td><td>' + value.Started + '</td><td>' + value.Errors + '</td></tr>');
             });
         }
 
         if (!_.isEmpty(data.BeingDeleted)) {
-            deleteed = true
+            deleteed = true;
             $.each(data.BeingDeleted, function (index, value) {
                 pending = pending.concat('<tr class="table-primar"><th scope="row">' + value.Tenant + '</td><td>' + value.Started + '</td><td>' + value.Errors + '</td></tr>');
             });
         }
 
         if (_.isEmpty(data.Started) && _.isEmpty(data.BeingDeleted)) {
-            $("#PendingList").empty()
+            $("#PendingList").empty();
             $("#PendingList").append('<br><div class="alert alert-warning" role="alert">No test wating to start</div>')
         } else {
-            end = '</tbody></table>'
-            pending = pending.concat(end)
-            $("#PendingList").empty()
+            end = '</tbody></table>';
+            pending = pending.concat(end);
+            $("#PendingList").empty();
             $("#PendingList").append(pending)
         }
 
@@ -345,7 +392,7 @@ function addStatus(data) {
         }
 
     } else {
-        $("#PendingList").empty()
+        $("#PendingList").empty();
         $("#PendingList").append('<br><div class="alert alert-warning" role="alert">No test wating to start</div>')
     }
 
@@ -354,7 +401,6 @@ function addStatus(data) {
 function populate(data) {
     if (!_.isEmpty(data.RunningTests) && (data.RunningTests.length > 0)) {
         var form = '<div class="form-group">' +
-            '<label for="context">Tennant</label>' +
             '<div id="RunningTests">' +
             '<div>' +
             '<select aria-label="Running Tests" class="form-control" name="stopcontext" id="stopcontext">'
@@ -370,12 +416,37 @@ function populate(data) {
             '<button type="submit" id="stopTestBtn" class="btn btn-primary">Stop Test</button>' +
             '<div id="TennantNotStopped"></div>' +
             '<div id="TenantStopped"></div>';
-        form = form.concat(end)
-        $("#stopTestFrm").empty()
+        form = form.concat(end);
+        $("#stopTestFrm").empty();
         $("#stopTestFrm").append(form)
+
+        //ForceStop
+        var forceForm = '<div class="form-group">' +
+            '<div id="RunningTests">' +
+            '<div>' +
+            '<select aria-label="Running Tests" class="form-control" name="forcestopcontext" id="forcestopcontext">'
+        $.each(data.RunningTests, function (index, value) {
+            forceForm = forceForm.concat('<option value="' + value.Namespace + '">' + value.Namespace + '</option>');
+        });
+
+        var forceEnd = '</select>' +
+            '<small id="tenantHelp" class="form-text text-muted">This is the tenant in which you want to force stop the test for </small>' +
+            '</div>' +
+            '</div>' +
+            '</div>' +
+            '<button type="submit" id="ForceStopTestBtn" class="btn btn-primary">Force Stop Test</button>' +
+            '<div id="TennantNotStopped"></div>' +
+            '<div id="TenantStopped"></div>';
+        forceForm = forceForm.concat(forceEnd);
+        $("#forceStopTestFrm").empty();
+        $("#forceStopTestFrm").append(forceForm)
+
     } else {
-        $("#stopTestFrm").empty()
-        $("#stopTestFrm").append('<div class="alert alert-warning" role="alert">No Tests are running</div>')
+        $("#stopTestFrm").empty();
+        $("#stopTestFrm").append('<div class="alert alert-warning" role="alert">No Tests are running</div>');
+
+        $("#forceStopTestFrm").empty();
+        $("#forceStopTestFrm").append('<div class="alert alert-warning" role="alert">No Tests are running</div>');
     }
 
     if (!_.isEmpty(data.AllTenants) && (data.AllTenants.length > 0)) {
@@ -397,18 +468,18 @@ function populate(data) {
             '<div id="TennantNotDeleted"></div>' +
             '<div id="TenantDeleted"></div>';
 
-        form = form.concat(end)
-        $("#deleteTenantFrm").empty()
+        form = form.concat(end);
+        $("#deleteTenantFrm").empty();
         $("#deleteTenantFrm").append(form)
     } else {
-        $("#deleteTenantFrm").empty()
+        $("#deleteTenantFrm").empty();
         $("#deleteTenantFrm").append('<div class="alert alert-warning" role="alert">No tenants have been created</div>')
     }
     /**
      * Check for validation errors
     */
     if (data.MissingTenant) {
-        $("#MissingTenant").empty()
+        $("#MissingTenant").empty();
         $("#MissingTenant").append('<div class="alert alert-primary" role="alert"> You need to enter the tenant details</div>')
         //Add missing tenant
     } else {
@@ -419,7 +490,7 @@ function populate(data) {
     //Check 
     if (data.MissingNumberOfNodes) {
         //Add missing number of nodes
-        $("#MissingNumberOfNodes").empty()
+        $("#MissingNumberOfNodes").empty();
         $("#MissingNumberOfNodes").append('<div class="alert alert-primary" role="alert"> You need to provide the number of node </div>')
     } else {
         $("#MissingNumberOfNodes").empty()
@@ -428,7 +499,7 @@ function populate(data) {
     if (_.isEmpty(data.InvalidTenantName)) {
         $("#InvalidTenantName").empty()
     } else {
-        $("#InvalidTenantName").empty()
+        $("#InvalidTenantName").empty();
         $("#InvalidTenantName").append('<div class="alert alert-warning" role="alert">Following can not be used as tenant names: '
             + data.InvalidTenantName +
             '</div>')
@@ -437,14 +508,14 @@ function populate(data) {
     if (_.isEmpty(data.GenericCreateTestMsg)) {
         $("#GenericCreateTestMsg").empty()
     } else {
-        $("#GenericCreateTestMsg").empty()
+        $("#GenericCreateTestMsg").empty();
         $("#GenericCreateTestMsg").append('<div class="alert alert-primary" role="alert"> Some thing did not go right: '
             + data.GenericCreateTestMsg +
             '</div>')
     }
 
     if (data.MissingJmeter) {
-        $("#MissingJmeter").empty()
+        $("#MissingJmeter").empty();
         $("#MissingJmeter").append('<div class="alert alert-primary" role="alert"> You need to provide the jmeter script to test</div>')
     } else {
         $("#MissingJmeter").empty()
@@ -452,7 +523,7 @@ function populate(data) {
 
 
     if (data.MissingData) {
-        $("#MissingData").empty()
+        $("#MissingData").empty();
         $("#MissingData").append('<div class="alert alert-primary" role="alert"> You need to provide the data file</div>')
     } else {
         $("#MissingData").empty()
@@ -461,14 +532,14 @@ function populate(data) {
     if (_.isEmpty(data.TennantNotStopped)) {
         $("#TennantNotStopped").empty()
     } else {
-        $("#TennantNotStopped").empty()
+        $("#TennantNotStopped").empty();
         $("#TennantNotStopped").append('<div class="alert alert-primary" role="alert"> <strong>Was not able to stop the test:' + data.TennantNotStopped + '</strong> </div>')
     }
 
     if (_.isEmpty(data.TenantStopped)) {
         $("#TenantStopped").empty()
     } else {
-        $("#TenantStopped").empty()
+        $("#TenantStopped").empty();
         $("#TenantStopped").append('<div class="alert alert-success" role="alert"> <strong>Test were stopped for: ' + data.TenantStopped + '</strong> </div>')
     }
 
@@ -476,21 +547,21 @@ function populate(data) {
     if (_.isEmpty(data.TennantNotDeleted)) {
         $("#TennantNotDeleted").empty()
     } else {
-        $("#TennantNotDeleted").empty()
+        $("#TennantNotDeleted").empty();
         $("#TennantNotDeleted").append('<div class="alert alert-primary" role="alert"> <strong> Tenant not deleted:' + data.TennantNotDeleted + '</strong> </div>')
     }
 
     if (_.isEmpty(data.TenantDeleted)) {
         $("#TenantDeleted").empty()
     } else {
-        $("#TenantDeleted").empty()
+        $("#TenantDeleted").empty();
         $("#TenantDeleted").append('<div class="alert alert-success" role="alert"> <strong>Tenant "' + data.TenantDeleted + '" has been deleted </strong> </div>')
     }
 
     if (_.isEmpty(data.Success)) {
         $("#Success").empty()
     } else {
-        $("#Success").empty()
+        $("#Success").empty();
         $("#Success").append('<div class="alert alert-success" role="alert"><strong>' + data.Success + '</strong></div>')
     }
 

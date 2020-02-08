@@ -68,9 +68,9 @@ func (jmeter Jmeter) sendToDataSlave(hn string, wg sync.WaitGroup, message sync.
 	wg.Add(1)
 	defer wg.Done()
 	dataURI := fmt.Sprintf("http://%s:1007/data", hn)
-	error, uploaded := jmeter.Fop.ProcessData(dataURI, jmeter.DataFilename, jmeter.Data)
+	e, uploaded := jmeter.Fop.ProcessData(dataURI, jmeter.DataFilename, jmeter.Data)
 	if uploaded == false {
-		message.Store(fmt.Sprintf("ProblesmUploadingData", hn), error)
+		message.Store(fmt.Sprintf("ProblesmUploadingData", hn), e)
 	}
 }
 
@@ -78,13 +78,13 @@ func (jmeter Jmeter) sendPropertiesToSlave(ugcLoadRequest types.UgcLoadRequest, 
 	wg.Add(1)
 	defer wg.Done()
 	jmeterURI := fmt.Sprintf("http://%s:1007/jmeter-props", hn)
-	error, uploaded := jmeter.Fop.UploadJmeterProps(jmeterURI, ugcLoadRequest.BandWidthSelection)
+	e, uploaded := jmeter.Fop.UploadJmeterProps(jmeterURI, ugcLoadRequest.BandWidthSelection)
 	if uploaded == false {
-		message.Store(fmt.Sprintf("ProblesmUploadingJmeterProps@", hn), error)
+		message.Store(fmt.Sprintf("ProblesmUploadingJmeterProps@", hn), e)
 	}
 }
 
-func (jmeter Jmeter) startSlave(ugcLoadRequest types.UgcLoadRequest, hn string, wg sync.WaitGroup, message sync.Map) {
+func (jmeter Jmeter) startSlave(ugcLoadRequest types.UgcLoadRequest, hn string, wg sync.WaitGroup, message *sync.Map) {
 	wg.Add(1)
 	defer wg.Done()
 	params := map[string]string{
@@ -102,6 +102,7 @@ func (jmeter Jmeter) startSlave(ugcLoadRequest types.UgcLoadRequest, hn string, 
 	}
 	err := writer.Close()
 	if err != nil {
+		message.Store(fmt.Sprintf("%s-CreatingMultipartForm", hn), err.Error())
 		return
 	}
 
@@ -115,11 +116,13 @@ func (jmeter Jmeter) startSlave(ugcLoadRequest types.UgcLoadRequest, hn string, 
 			"err": errReq.Error(),
 			"url": fmt.Sprintf("http://%s:1007/start-server", hn),
 		}).Error("Failed to start slave")
+		message.Store(fmt.Sprintf("%s-StartingServer", hn), errReq.Error())
 		return
 	}
 
 	bodyBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
+		message.Store(fmt.Sprintf("%s-ReadingResponse", hn), err.Error())
 		log.Fatal(err)
 	}
 	bodyString := string(bodyBytes)
@@ -159,7 +162,7 @@ func (jmeter Jmeter) SetupSlaves(ugcLoadRequest types.UgcLoadRequest, hostnames 
 	}
 
 	var startSlaveWaitGroup sync.WaitGroup
-	slaveStartMessage := sync.Map{}
+	slaveStartMessage := new(sync.Map)
 	for _, hn := range hostnames {
 		go jmeter.startSlave(ugcLoadRequest, hn, startSlaveWaitGroup, slaveStartMessage)
 	}
@@ -259,6 +262,19 @@ func (jmeter Jmeter) StopTestOnMaster(podIP string) (error string, res bool) {
 	return jmeter.makeGetRequest(uri)
 }
 
+//KillMaster Used to stop the test on master
+func (jmeter Jmeter) KillMaster(podIP string) (error string, res bool) {
+	uri := fmt.Sprintf("http://%s:1025/kill", podIP)
+	return jmeter.makeGetRequest(uri)
+}
+
+//KillSlave used to kill the slaves
+func (jmeter Jmeter) KillSlave(podIP string) (error string, res bool) {
+	uri := fmt.Sprintf("http://%s:1007/kill", podIP)
+	return jmeter.makeGetRequest(uri)
+
+}
+
 //StartMasterTest used to start the master and tests
 func (jmeter Jmeter) StartMasterTest(master string, ugcLoadRequest types.UgcLoadRequest, listOfHost string) (error string, started bool) {
 
@@ -283,7 +299,7 @@ func (jmeter Jmeter) startTestOnMaster(testFile io.Reader, uri, tenant string, h
 	if err != nil {
 		log.WithFields(log.Fields{
 			"err": err.Error(),
-		}).Error("Problems creting request")
+		}).Error("Problems creting request 3")
 		error = err.Error()
 		res = false
 		return

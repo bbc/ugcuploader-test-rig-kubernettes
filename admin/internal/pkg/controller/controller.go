@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"mime/multipart"
 	"net/http"
@@ -21,13 +22,11 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
-	"github.com/magiconair/properties"
 	cache "github.com/patrickmn/go-cache"
 	log "github.com/sirupsen/logrus"
 )
 
 var systemCache = cache.New(cache.NoExpiration, 100*time.Minute)
-var props = properties.MustLoadFile("/etc/ugcupload/loadtest.conf", properties.UTF8)
 var redisUtils redis.Redis
 
 func init() {
@@ -44,10 +43,17 @@ type Controller struct {
 //AddMonitorAndDashboard adds the url of the dashboard and monitor the request
 func (cnt *Controller) AddMonitorAndDashboard(ur *types.UgcLoadRequest) {
 	cnt.KubeOps.RegisterClient()
-	ip := cnt.KubeOps.LoadBalancerIP("control")
+	ip := cnt.KubeOps.LoadBalancerIP("control", "admin-controller")
+	log.WithFields(log.Fields{
+		"ur.MonitorURL":    fmt.Sprintf("http://%s:4040", ip),
+		"ur.ReportURL":     fmt.Sprintf("http://%s:80", ip),
+		"ur.DashboardURL":  fmt.Sprintf("http://%s:3000", cnt.KubeOps.LoadBalancerIP("ugcload-reporter", "jmeter-grafana")),
+		"ur.ChronografURL": fmt.Sprintf("http://%s:8888", cnt.KubeOps.LoadBalancerIP("ugcload-reporter", "jmeter-chronograf")),
+	}).Info("MonitoringDetails")
 	ur.MonitorURL = fmt.Sprintf("http://%s:4040", ip)
 	ur.ReportURL = fmt.Sprintf("http://%s:80", ip)
-	ur.DashboardURL = fmt.Sprintf("http://%s:3000", cnt.KubeOps.LoadBalancerIP("ugcload-reporter"))
+	ur.DashboardURL = fmt.Sprintf("http://%s:3000", cnt.KubeOps.LoadBalancerIP("ugcload-reporter", "jmeter-grafana"))
+	ur.ChronografURL = fmt.Sprintf("http://%s:8888", cnt.KubeOps.LoadBalancerIP("ugcload-reporter", "jmeter-chronograf"))
 }
 
 //AddTenants adds a list of tenants to the request
@@ -147,6 +153,95 @@ func (cnt *Controller) S3Tenants(c *gin.Context) {
 	return
 }
 
+//ForceStopTest used to stop the test
+func (cnt *Controller) ForceStopTest(c *gin.Context) {
+
+	session := sessions.Default(c)
+	cnt.KubeOps.RegisterClient()
+
+	ugcLoadRequest := new(types.UgcLoadRequest)
+
+	if err := c.ShouldBindWith(&ugcLoadRequest, binding.Form); err != nil {
+		ugcLoadRequest.ProblemsBinding = true
+		session.Set("ugcLoadRequest", ugcLoadRequest)
+		session.Save()
+		c.Redirect(http.StatusMovedPermanently, "/update")
+		c.Abort()
+		return
+	}
+
+	log.WithFields(log.Fields{
+		"StopContext": ugcLoadRequest.StopContext,
+	}).Info("StopContext")
+
+	validator := validate.Validator{Context: c}
+
+	if validator.ValidateStopTest(ugcLoadRequest) == false {
+		session.Set("ugcLoadRequest", ugcLoadRequest)
+		session.Save()
+		c.Redirect(http.StatusMovedPermanently, "/update")
+		c.Abort()
+		return
+	}
+
+	jm := jmeter.Jmeter{}
+
+	var failedToStop = make(map[string]interface{})
+	hsnames := cnt.KubeOps.GetHostNamesOfJmeterMaster(ugcLoadRequest.StopContext)
+	errStr, resp := jm.KillMaster(hsnames[0])
+	if resp == false {
+		failedToStop["master"] = errStr
+	}
+	slaveIps := cnt.KubeOps.GetPodIpsForSlaves(ugcLoadRequest.StopContext)
+	for _, ip := range slaveIps {
+		err, resp := jm.KillSlave(ip)
+		if resp == false {
+			failedToStop[fmt.Sprintf("SLAVE-%s", ip)] = err
+		}
+	}
+
+	if len(failedToStop) > 1 {
+		log.WithFields(log.Fields{
+			"Context": ugcLoadRequest.StopContext,
+			"err":     errStr,
+		}).Info("Unable to stop the test")
+		failed, _ := json.Marshal(failedToStop)
+		ugcLoadRequest.TennantNotStopped =
+			fmt.Sprintf("Following did not stop: %s: maybe try again or delete the tenant", failed)
+		session.Set("ugcLoadRequest", ugcLoadRequest)
+		session.Save()
+		c.Redirect(http.StatusMovedPermanently, "/update")
+		c.Abort()
+		return
+	}
+
+	e, d := redisUtils.RemoveFromWaitingTests(ugcLoadRequest.StopContext)
+	err, del := redisUtils.RemoveTenant(ugcLoadRequest.StopContext)
+	if del == false || d == false {
+		ugcLoadRequest.TennantNotStopped = fmt.Sprintf("Unable to remove tenant from redis tenants list: %s or  maybe from waitinglist for force stop", err, e)
+		session.Set("ugcLoadRequest", ugcLoadRequest)
+		session.Save()
+		c.Redirect(http.StatusMovedPermanently, "/update")
+		c.Abort()
+		return
+
+	}
+
+	var stopChannel chan string
+	if x, found := systemCache.Get(ugcLoadRequest.Context); found {
+		stopChannel = x.(chan string)
+		stopChannel <- "stop"
+	}
+
+	ugcLoadRequest.TenantStopped = ugcLoadRequest.StopContext
+	ugcLoadRequest.StopContext = ""
+	session.Set("ugcLoadRequest", ugcLoadRequest)
+	session.Save()
+	c.Redirect(http.StatusMovedPermanently, "/update")
+	c.Abort()
+	return
+}
+
 //StopTest used to stop the test
 func (cnt *Controller) StopTest(c *gin.Context) {
 
@@ -194,10 +289,10 @@ func (cnt *Controller) StopTest(c *gin.Context) {
 		return
 	}
 
-	_, _ = redisUtils.RemoveFromWaitingTests(ugcLoadRequest.StopContext)
-	error, del := redisUtils.RemoveTenant(ugcLoadRequest.StopContext)
-	if del == false {
-		ugcLoadRequest.TennantNotStopped = fmt.Sprintf("Unable to remove tenant from redis: %s", error)
+	e, d := redisUtils.RemoveFromWaitingTests(ugcLoadRequest.StopContext)
+	err, del := redisUtils.RemoveTenant(ugcLoadRequest.StopContext)
+	if del == false || d == false {
+		ugcLoadRequest.TennantNotStopped = fmt.Sprintf("Unable to remove tenant from redis tenants list: %s or maybe from waitinglist", err, e)
 		session.Set("ugcLoadRequest", ugcLoadRequest)
 		session.Save()
 		c.Redirect(http.StatusMovedPermanently, "/update")
@@ -334,7 +429,7 @@ func (cnt *Controller) waitForSlavesToStartRunning(ugcLoadRequest types.UgcLoadR
 	for range ticker.C {
 
 		fmt.Println("tock")
-		slaves, err, fnd := cnt.KubeOps.GetallJmeterSlaves(ugcLoadRequest.Context)
+		slaves, err, fnd := cnt.KubeOps.GetallJmeterSlavesStatus(ugcLoadRequest.Context)
 		if fnd == false {
 			redisTenant.Errors = err
 			redisTenant.Started = fmt.Sprintf("Only %d out of %d nodes were started", found, numNodes)
@@ -375,7 +470,6 @@ func (cnt *Controller) monitorMe(ugcloaddRequest types.UgcLoadRequest, slaves []
 
 		stopChannel = x.(chan string)
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
 		for {
 			select {
 			case message := <-stopChannel:
@@ -502,10 +596,10 @@ func (cnt *Controller) startTest(ugcLoadRequest types.UgcLoadRequest, jm jmeter.
 		redisUtils.AddTenant(redisTenant)
 		//Creating tenant infrastructure
 		kubeAdmin := admin.Admin{KubeOps: &cnt.KubeOps, RedisUtil: redisUtils}
-		error, created := kubeAdmin.CreateTenantInfrastructure(ugcLoadRequest)
+		err, created := kubeAdmin.CreateTenantInfrastructure(ugcLoadRequest)
 		if created == false {
 			redisTenant.Started = "failed"
-			redisTenant.Errors = error
+			redisTenant.Errors = err
 			redisUtils.AddTenant(redisTenant)
 			return
 		}
@@ -525,10 +619,10 @@ func (cnt *Controller) startTest(ugcLoadRequest types.UgcLoadRequest, jm jmeter.
 		} else {
 			//Something went wrong before recreating
 			kubeAdmin := admin.Admin{KubeOps: &cnt.KubeOps, RedisUtil: redisUtils}
-			error, created := kubeAdmin.CreateTenantInfrastructure(ugcLoadRequest)
+			err, created := kubeAdmin.CreateTenantInfrastructure(ugcLoadRequest)
 			if created == false {
 				redisTenant.Started = "failed"
-				redisTenant.Errors = error
+				redisTenant.Errors = err
 				redisUtils.AddTenant(redisTenant)
 				return
 			}
@@ -541,10 +635,10 @@ func (cnt *Controller) startTest(ugcLoadRequest types.UgcLoadRequest, jm jmeter.
 		listOfHost := strings.Join(ips, ",")
 		redisTenant.Started = fmt.Sprintf("Starting slaves: %s", listOfHost)
 		redisUtils.AddTenant(redisTenant)
-		error, uploaded := jm.SetupSlaves(ugcLoadRequest, ips)
+		e, uploaded := jm.SetupSlaves(ugcLoadRequest, ips)
 		if uploaded == false {
 			redisTenant.Started = "failed"
-			redisTenant.Errors = error
+			redisTenant.Errors = e
 			redisUtils.AddTenant(redisTenant)
 			return
 		}
@@ -565,20 +659,22 @@ func (cnt *Controller) startTest(ugcLoadRequest types.UgcLoadRequest, jm jmeter.
 					redisTenant.Errors = e
 				} else {
 					redisTenant.Started = "Running"
-					mess, created := cnt.KubeOps.CreatePodDisruptionBudget(ugcLoadRequest)
-					if created == false {
-						redisTenant.Started = "Running: Problems Creating PodDisruptionBudget"
-						redisTenant.Errors = mess
-					}
+
+				}
+
+				mess, created := cnt.KubeOps.CreatePodDisruptionBudget(ugcLoadRequest)
+				if created == false {
+					redisTenant.Started = "Running: Problems Creating PodDisruptionBudget"
+					redisTenant.Errors = mess
 				}
 			}
 			redisUtils.AddTenant(redisTenant)
 			return
-		} else {
-			redisTenant.Errors = fmt.Sprintf("Hosts:%s", strings.Join(failedSlaves, ","))
-			redisTenant.Started = "Jmeter slaves have not been started"
-			return
 		}
+
+		redisTenant.Errors = fmt.Sprintf("Hosts:%s", strings.Join(failedSlaves, ","))
+		redisTenant.Started = "Jmeter slaves have not been started"
+		return
 
 		//ch := make(chan string, 1)
 		//systemCache.Set(ugcLoadRequest.Context, ch, cache.NoExpiration)
@@ -632,7 +728,6 @@ func (cnt *Controller) TestStatus(c *gin.Context) {
 func (cnt *Controller) StartTest(c *gin.Context) {
 
 	session := sessions.Default(c)
-
 	validator := validate.Validator{Context: c}
 
 	cnt.KubeOps.RegisterClient()
@@ -668,9 +763,9 @@ func (cnt *Controller) StartTest(c *gin.Context) {
 		"ugcLoadRequest.MaxMetaspaceSize":   ugcLoadRequest.MaxMetaspaceSize,
 	}).Info("Request Properties")
 
-	redisTenant, error, found := redisUtils.GetTenant(ugcLoadRequest.Context)
+	redisTenant, e, found := redisUtils.GetTenant(ugcLoadRequest.Context)
 	if found == false {
-		ugcLoadRequest.GenericCreateTestMsg = error
+		ugcLoadRequest.GenericCreateTestMsg = e
 		session.Set("ugcLoadRequest", ugcLoadRequest)
 		session.Save()
 		c.Redirect(http.StatusMovedPermanently, "/update")
@@ -699,9 +794,9 @@ func (cnt *Controller) StartTest(c *gin.Context) {
 	}
 
 	redisTenant = types.RedisTenant{Tenant: ugcLoadRequest.Context, Started: "not-yet"}
-	error, added := redisUtils.AddTenant(redisTenant)
+	e, added := redisUtils.AddTenant(redisTenant)
 	if added == false {
-		ugcLoadRequest.GenericCreateTestMsg = fmt.Sprintf("Unable to add test to list of pending test [%s]: %s", ugcLoadRequest.Context, error)
+		ugcLoadRequest.GenericCreateTestMsg = fmt.Sprintf("Unable to add test to list of pending test [%s]: %s", ugcLoadRequest.Context, e)
 		session.Set("ugcLoadRequest", ugcLoadRequest)
 		session.Save()
 		c.Redirect(http.StatusMovedPermanently, "/update")
@@ -709,9 +804,9 @@ func (cnt *Controller) StartTest(c *gin.Context) {
 		return
 	}
 
-	error, added = redisUtils.AddToListOfStarted(ugcLoadRequest.Context)
+	e, added = redisUtils.AddToListOfStarted(ugcLoadRequest.Context)
 	if added == false {
-		ugcLoadRequest.GenericCreateTestMsg = fmt.Sprintf("Unable to add test details to list of started tests [%s]: %s", ugcLoadRequest.Context, error)
+		ugcLoadRequest.GenericCreateTestMsg = fmt.Sprintf("Unable to add test details to list of started tests [%s]: %s", ugcLoadRequest.Context, e)
 		session.Set("ugcLoadRequest", ugcLoadRequest)
 		session.Save()
 		c.Redirect(http.StatusMovedPermanently, "/update")

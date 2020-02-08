@@ -23,13 +23,14 @@
          </div>
       </div>
       <div class="row">
-         <div class="col-md-6 text-center">
-            <div class="panel panel-default">
+         <div class="col-md-4 text-center">
                <a href=" {{ .MonitorURL }}" target="_blank">View Cluster</a>
-            </div>
          </div>
-         <div class="col-md-6 text-center">
+         <div class="col-md-4 text-center">
             <a href=" {{ .DashboardURL }}" target="_blank">Grafana Dashboaard</a>
+         </div>
+         <div class="col-md-4 text-center">
+            <a href=" {{ .ChronografURL }}" target="_blank">Chronograf Dashboaard</a>
          </div>
       </div>
       <div class="row">
@@ -168,61 +169,127 @@
             <div class="card-title">
                <h3 class="text-center"><strong>Stop Test</strong></h3>
             </div>
+            <div class="card-header">
+             <ul class="nav nav-tabs card-header-tabs" id="termination-navigation" role="tablist">
+                <li class="nav-item">
+                   <a class="nav-link active" href="#safe" role="tab" aria-controls="safe" aria-selected="true">Safely</a>
+                </li>
+                <li class="nav-item">
+                   <a class="nav-link"  href="#force" role="tab" aria-controls="force" aria-selected="false">Force</a>
+                </li>
+             </ul>
+            </div>
             <div class="card-body">
-               <fieldset>
-                  <form method="post" id="stopTestFrm" action="/stop-test" enctype="multipart/form-data">
-                     <div class="form-group">
-                        <label for="context">Tennant</label>
-                        <div id="RunningTests">
-                           {{ $length := len .RunningTests }} 
-                           {{ if gt $length 0 }}
-                           <div>
-                              <select aria-label="Running Tests" class="form-control" name="stopcontext" id="stopcontext">
-                                 {{range $tenant := .RunningTests}}
-                                 {{if $tenant.Running}} 
-                                 <option value="{{$tenant.Namespace}}">{{$tenant.Namespace}}</option>
-                                 {{end}}
-                                 {{end}}
-                              </select>
-                              <small id="tenantHelp" class="form-text text-muted">This is the tenant in which
-                              you
-                              want to stop
-                              the test for </small>
-                           </div>
-                           {{ end }}
-                        </div>
-                     </div>
-                     {{ $length := len .RunningTests }} 
-                     {{ if gt $length 0 }}
-                     <button type="submit" id="stopTestBtn" class="btn btn-primary">Stop Test</button>
-                     {{ else }}
-                     <div class="alert alert-warning" role="alert">No Tests are running</div>
-                     {{ end }}
-                     {{if .StopTenantMissing}}
-                     <div class="alert alert-primary" role="alert">
-                        <strong>You must supply the tenant name</strong>
-                     </div>
-                     {{end}}
-                     {{if .InvalidTenantStop}}
-                     <div class="alert alert-primary" role="alert">
-                        <strong>These names are not valid: {{ .InvalidTenantStop}}</strong>
-                     </div>
-                     {{end}}
-                     {{if .TennantNotStopped}}
-                     <div class="alert alert-primary" role="alert">
-                        <strong>Was not able to stop the test {{ .TennantNotStopped}}</strong>
-                     </div>
-                     {{end}}
-                     {{if .TenantStopped}}
-                     <div class="alert alert-success" role="alert">
-                        <strong>Test were stopped for: {{ .TenantStopped}}</strong>
-                     </div>
-                     {{end}}
-                  </form>
-               </fieldset>
+               <div class="tab-content mt-3">
+                 <div class="tab-pane active" id="safe" role="tabpanel">
+                    <fieldset>
+                       <form method="post" id="stopTestFrm" action="/stop-test" enctype="multipart/form-data">
+                          <div class="form-group">
+                             <div id="StopRunningTests">
+                                {{ $length := len .RunningTests }}
+                                {{ if gt $length 0 }}
+                                <div>
+                                   <select aria-label="Running Tests" class="form-control" name="stopcontext" id="stopcontext">
+                                      {{range $tenant := .RunningTests}}
+                                      {{if $tenant.Running}}
+                                      <option value="{{$tenant.Namespace}}">{{$tenant.Namespace}}</option>
+                                      {{end}}
+                                      {{end}}
+                                   </select>
+                                   <small id="tenantHelp" class="form-text text-muted">This is the tenant in which
+                                      you
+                                      want to stop
+                                      the test for </small>
+                                </div>
+                                {{ end }}
+                             </div>
+                          </div>
+                          {{ $length := len .RunningTests }}
+                          {{ if gt $length 0 }}
+                          <button type="submit" id="stopTestBtn" class="btn btn-primary">Stop Test</button>
+                          {{ else }}
+                          <div class="alert alert-warning" role="alert">No Tests are running</div>
+                          {{ end }}
+                          {{if .StopTenantMissing}}
+                          <div class="alert alert-primary" role="alert">
+                             <strong>You must supply the tenant name</strong>
+                          </div>
+                          {{end}}
+                          {{if .InvalidTenantStop}}
+                          <div class="alert alert-primary" role="alert">
+                             <strong>These names are not valid: {{ .InvalidTenantStop}}</strong>
+                          </div>
+                          {{end}}
+                          {{if .TennantNotStopped}}
+                          <div class="alert alert-primary" role="alert">
+                             <strong>Was not able to stop the test {{ .TennantNotStopped}}</strong>
+                          </div>
+                          {{end}}
+                          {{if .TenantStopped}}
+                          <div class="alert alert-success" role="alert">
+                             <strong>Test were stopped for: {{ .TenantStopped}}</strong>
+                          </div>
+                          {{end}}
+                       </form>
+                    </fieldset>
+
+                 </div>
+                <!-- Begin of force delete -->
+                 <div class="tab-pane" id="force" role="tabpanel">
+                    <fieldset>
+                       <form method="post" id="forceStopTestFrm" action="/force-stop-test" enctype="multipart/form-data">
+                          <div class="form-group">
+                             <div id="RunningTests">
+                                {{ $length := len .RunningTests }}
+                                {{ if gt $length 0 }}
+                                <div>
+                                   <select aria-label="Running Tests" class="form-control" name="forcestopcontext" id="forcestopcontext">
+                                      {{range $tenant := .RunningTests}}
+                                      {{if $tenant.Running}}
+                                      <option value="{{$tenant.Namespace}}">{{$tenant.Namespace}}</option>
+                                      {{end}}
+                                      {{end}}
+                                   </select>
+                                   <small id="tenantHelp" class="form-text text-muted">This is the tenant in which
+                                      you
+                                      want to force all test to stop</small>
+                                </div>
+                                {{ end }}
+                             </div>
+                          </div>
+                          {{ $length := len .RunningTests }}
+                          {{ if gt $length 0 }}
+                          <button type="submit" id="forceStopTestBtn" class="btn btn-primary">Force Stop Test</button>
+                          {{ else }}
+                          <div class="alert alert-warning" role="alert">No Tests are running</div>
+                          {{ end }}
+                          {{if .StopTenantMissing}}
+                          <div class="alert alert-primary" role="alert">
+                             <strong>You must supply the tenant name</strong>
+                          </div>
+                          {{end}}
+                          {{if .InvalidTenantStop}}
+                          <div class="alert alert-primary" role="alert">
+                             <strong>These names are not valid: {{ .InvalidTenantStop}}</strong>
+                          </div>
+                          {{end}}
+                          {{if .TennantNotStopped}}
+                          <div class="alert alert-primary" role="alert">
+                             <strong>Was not able to stop the test {{ .TennantNotStopped}}</strong>
+                          </div>
+                          {{end}}
+                          {{if .TenantStopped}}
+                          <div class="alert alert-success" role="alert">
+                             <strong>Test were stopped for: {{ .TenantStopped}}</strong>
+                          </div>
+                          {{end}}
+                       </form>
+                    </fieldset>
+                </div>
+              </div>
             </div>
          </div>
-         <br>
+         <br></br>
          <div class="card">
             <div class="card-title">
                <h3 class="text-center"><strong>Test Status</strong></h3>
@@ -232,18 +299,17 @@
                <div id="PendingList"></div>
             </div>
          </div>
-         <br>
-         <br>
+         <br></br>
          <div class="card">
                <div class="card-title">
-                  <h3 class="text-center"><strong>Failing Nodes</strong></h3>
+                  <h3 class="text-center"><strong>Node Information</strong></h3>
                </div>
                <div class="card-body">
                   <a class="btn btn-primary" id="FailingNodes" href="#" role="button">Click to see if any nodes have failed</a>
                   <div id="FailingNodesList"></div>
                </div>
          </div>
-         <br>
+         <br></br>
          <div class="card">
                   <div class="card-title">
                      <h3 class="text-center"><strong>Tenant Deletion</strong></h3>

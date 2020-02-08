@@ -129,6 +129,7 @@ func router01() http.Handler {
 	r.Static("/script", props.MustGet("web"))
 	r.POST("/start-test", control.StartTest)
 	r.POST("/stop-test", control.StopTest)
+	r.POST("/force-stop-test", control.ForceStopTest)
 	r.POST("/delete-tenant", control.DeleteTenant)
 	r.GET("/tenantReport", control.S3Tenants)
 	r.GET("/test-status", control.TestStatus)
