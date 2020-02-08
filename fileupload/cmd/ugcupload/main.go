@@ -1,10 +1,14 @@
 package main
 
 import (
+	"bufio"
 	"encoding/gob"
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
+	"strings"
+	"syscall"
 	"time"
 
 	myExec "github.com/bbc/ugcuploader-test-rig-kubernettes/fileupload/internal/pkg/exec"
@@ -13,6 +17,15 @@ import (
 	"github.com/gin-gonic/gin/binding"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
+)
+
+type LogFileState int ////not visible outside of the package unary
+
+const (
+	NotExist LogFileState = iota
+	ConnectionRefused
+	TestStop
+	Running
 )
 
 func init() {
@@ -56,39 +69,68 @@ func JmeterProps(c *gin.Context) {
 	fop.SaveFile(fmt.Sprintf("%s/bin/jmeter.properties", jh))
 }
 
-func checkFileUploadLogs() (found bool) {
+func checkFileUploadLogs() (logFileState LogFileState) {
 	file, err := os.Open("/fileupload.log")
 
+	if err != nil {
+		logFileState = NotExist
+		return
+	}
 	if err == nil {
-		log.Fatalf("failed opening file: %s", err)
-
 		scanner := bufio.NewScanner(file)
 		scanner.Split(bufio.ScanLines)
-		var txtlines []string
-
 		for scanner.Scan() {
-			if strings.Contains(scanner.Text().ToLower(), "Caused by: java.net.ConnectException: Connection refused (Connection refused)")
-		}
+			if strings.Contains(strings.ToLower(scanner.Text()), strings.ToLower("Caused by: java.net.ConnectException: Connection refused (Connection refused)")) {
+				logFileState = ConnectionRefused
+				return
+			}
+			if strings.Contains(strings.ToLower(scanner.Text()), strings.ToLower("stop")) {
+				logFileState = TestStop
+				return
+			}
 
+			if strings.Contains(strings.ToLower(scanner.Text()), strings.ToLower("JMeterThread: Thread started")) {
+				logFileState = Running
+				return
+			}
+
+		}
 		file.Close()
-
-		for _, eachline := range txtlines {
-			fmt.Println(eachline)
-		}
 	}
 
-	found = false
+	logFileState = Running
 	return
 }
 
-//IsRunning Used to determing if slave is running
+//Kill Used to determine if slave is running
+func Kill(c *gin.Context) {
+	cmd := myExec.Exec{}
+	found, pidStr := cmd.IsProcessRunning("ApacheJMeter.jar")
+	if found {
+		pid, _ := strconv.Atoi(pidStr)
+		syscall.Kill(pid, 9)
+	}
+}
+
+//IsRunning Used to determine if slave is running
 func IsRunning(c *gin.Context) {
 	cmd := myExec.Exec{}
-	running := "no"
-	if cmd.IsProcessRunning("ApacheJMeter.jar") {
-		running = "yes"
+	state := "notstarted"
+	if found, _ := cmd.IsProcessRunning("ApacheJMeter.jar"); found {
+
+		switch checkFileUploadLogs() {
+		case TestStop:
+			state = "teststop"
+		case NotExist:
+			state = "notexit"
+		case ConnectionRefused:
+			state = "connectionrefused"
+		default:
+			state = "running"
+		}
+		state = "yes"
 	}
-	c.String(http.StatusOK, running)
+	c.String(http.StatusOK, state)
 	return
 }
 
@@ -201,6 +243,7 @@ func router01() http.Handler {
 	r.POST("/user-propes", UserProps)
 	r.POST("/start-server", StartServer)
 	r.GET("/is-running", IsRunning)
+	r.GET("/kill", Kill)
 
 	return r
 }
