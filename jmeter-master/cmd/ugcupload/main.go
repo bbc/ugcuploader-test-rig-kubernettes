@@ -5,27 +5,29 @@ import (
 	"encoding/gob"
 	"encoding/json"
 	"fmt"
+	myExec "github.com/bbc/ugcuploader-test-rig-kubernettes/jmeter-master/internal/pkg/exec"
+	"github.com/gin-contrib/zap"
+	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
+	uuid "github.com/satori/go.uuid"
+	log "go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
+	"syscall"
 	"time"
-
-	"github.com/gin-gonic/gin"
-	"github.com/gin-gonic/gin/binding"
-	pss "github.com/mitchellh/go-ps"
-	uuid "github.com/satori/go.uuid"
-	log "github.com/sirupsen/logrus"
-	"golang.org/x/sync/errgroup"
 )
 
-func init() {
-	log.SetFormatter(&log.TextFormatter{
-		DisableColors: true,
-		FullTimestamp: true,
-	})
+var logger *log.Logger
+var jmeterExec myExec.Exec
 
+func init() {
+	jmeterExec = myExec.Exec{}
+	logger, _ = log.NewProduction()
 }
 
 var (
@@ -45,37 +47,35 @@ func runTest(args []string) {
 
 func waitForPorts(hosts []string) (notReady bool) {
 
+	defer logger.Sync()
+
 	count := 0
 	temp := hosts
 	var ready []string
 	var waiting []string
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
-	fmt.Println("1:star")
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Println("2:star")
 			for _, host := range temp {
 				timeout := time.Second
 				conn, err := net.DialTimeout("tcp", net.JoinHostPort(host, "50000"), timeout)
 				if err != nil {
-					log.WithFields(log.Fields{
-						"err":   err.Error(),
-						"slave": host,
-					}).Error("Problems connecting to slave")
+					logger.Error("Problems connecting to slaveL",
+						// Structured context as strongly typed Field values.
+						log.String("err", err.Error()),
+						log.String("slave", host),
+						log.Duration("backoff", time.Second))
 				}
 				if conn != nil {
 					defer conn.Close()
-					fmt.Println(fmt.Sprintf("NO READY:%s", host))
 					ready = append(ready, host)
 				} else {
-					fmt.Println(fmt.Sprintf("READY:%s", host))
 					waiting = append(waiting, host)
 				}
 			}
 			temp = waiting
 			waiting = []string{}
-			fmt.Println("2:star")
 
 			if len(ready) == len(hosts) {
 				fmt.Println("All ports are ready")
@@ -85,9 +85,10 @@ func waitForPorts(hosts []string) (notReady bool) {
 
 			count = count + 1
 			if count == 10 {
-				log.WithFields(log.Fields{
-					"Slaves": strings.Join(waiting, ","),
-				}).Error("slaves ports are not ready")
+				logger.Error("slaves ports are not read",
+					// Structured context as strongly typed Field values.
+					log.String("Slaves", strings.Join(waiting, ",")),
+					log.Duration("backoff", time.Second))
 				notReady = true
 				return
 			}
@@ -100,60 +101,40 @@ func waitForPorts(hosts []string) (notReady bool) {
 
 //StartTest used to start the jmeter tests
 func StartTest(c *gin.Context) {
+	defer logger.Sync()
 
+	res := Response{}
 	var startTestCMD StartTestCMD
 	if er := c.ShouldBindWith(&startTestCMD, binding.Form); er != nil {
-		log.WithFields(log.Fields{
-			"err": er.Error(),
-		}).Error("Problems binding form")
+		logger.Error("Problems binding form",
+			// Structured context as strongly typed Field values.
+			log.String("err", er.Error()),
+			log.Duration("backoff", time.Second))
+
 		return
 	}
 
 	var jsonData []byte
 	jsonData, _ = json.Marshal(startTestCMD)
 
-	log.WithFields(log.Fields{
-		"startTestCmd": string(jsonData),
-	}).Info("Command Received")
+	logger.Info("Command Received",
+		log.String("startTestCmd", string(jsonData)),
+		log.Duration("backoff", time.Second))
 
 	notReady := waitForPorts(strings.Split(startTestCMD.Hosts, ","))
 	if notReady == true {
-		res := Response{}
 		res.Message = "slave ports were not opened"
 		res.Code = 400
 		c.PureJSON(http.StatusBadRequest, res)
 		return
 	}
 
-	res := Response{}
-	res.Message = "test should have started"
-	res.Code = 200
-	c.PureJSON(http.StatusOK, res)
-
-	processes, err := pss.Processes()
-	if err != nil {
-		log.WithFields(log.Fields{
-			"err": err.Error(),
-		}).Error("Prolems listing all processes")
-		res := Response{}
-		res.Message = "Prolems listing all processes"
-		res.Code = 401
+	found, _ := jmeterExec.IsProcessRunning("ApacheJMeter")
+	if found {
+		res.Message = "Test Are Running You will need to stop first"
+		res.Code = 402
 		c.PureJSON(http.StatusOK, res)
 		return
-	}
-	for _, process := range processes {
-		if strings.EqualFold(process.Executable(), "java") || strings.EqualFold(process.Executable(), "jmeter") {
-			log.WithFields(log.Fields{
-				"executable": process.Executable(),
-				"pid":        process.Pid(),
-				"parent pid": process.PPid(),
-			}).Info("Processes")
-			res := Response{}
-			res.Message = "Test Are Running You will need to stop first"
-			res.Code = 402
-			c.PureJSON(http.StatusOK, res)
-			return
-		}
 	}
 
 	t := time.Now()
@@ -161,10 +142,10 @@ func StartTest(c *gin.Context) {
 	path := fmt.Sprintf("/home/jmeter/test/%s", u2)
 	errMkdir := os.MkdirAll(path, os.ModePerm)
 	if errMkdir != nil {
-		log.WithFields(log.Fields{
-			"err":  errMkdir.Error(),
-			"path": path,
-		}).Error("Problems creating the directory")
+		logger.Error("Problems creating the directory",
+			log.String("err", errMkdir.Error()),
+			log.Duration("backoff", time.Second))
+
 		res := Response{}
 		res.Message = "Unable to create the test path directory"
 		res.Code = 404
@@ -174,10 +155,10 @@ func StartTest(c *gin.Context) {
 
 	jmeterScript, err := c.FormFile("file")
 	if err != nil {
-		log.WithFields(log.Fields{
-			"err": err.Error(),
-		}).Error("Unable to get the jmeter script from the form")
-		res := Response{}
+		logger.Error("Unable to get the jmeter script from the form",
+			log.String("err", err.Error()),
+			log.Duration("backoff", time.Second))
+
 		res.Message = "Unable to get the jmeter script from the form"
 		res.Code = 403
 		c.PureJSON(http.StatusBadRequest, res)
@@ -190,13 +171,12 @@ func StartTest(c *gin.Context) {
 	}
 
 	args := []string{fmt.Sprintf("%s/upload.jmx", path), startTestCMD.Tenant, startTestCMD.Hosts}
-	log.WithFields(log.Fields{
-		"args": strings.Join(args, ","),
-	}).Info("Arguments being sent to jmeter script")
+	logger.Info("Arguments being sent to jmeter script",
+		log.String("args", strings.Join(args, "")),
+		log.Duration("backoff", time.Second))
 
 	go runTest(args)
 
-	res = Response{}
 	res.Message = "test should have started"
 	res.Code = 200
 	c.PureJSON(http.StatusOK, res)
@@ -204,56 +184,64 @@ func StartTest(c *gin.Context) {
 
 }
 
+func KillMaster(c *gin.Context) {
+	found, pidStr := jmeterExec.IsProcessRunning("ApacheJMeter")
+	if found {
+		pid, _ := strconv.Atoi(pidStr)
+		syscall.Kill(pid, 9)
+	}
+}
+
 //IsRunning use to determine if the tenant is running
 func IsRunning(c *gin.Context) {
-	processes, err := pss.Processes()
-	if err != nil {
-		log.WithFields(log.Fields{
-			"err": err.Error(),
-		}).Error("Prolems listing all processes")
+	defer logger.Sync()
+
+	found, pid := jmeterExec.IsProcessRunning("ApacheJMeter")
+
+	if !found {
 		res := Response{}
-		res.Message = "Prolems listing all processes"
+		res.Message = "No Test Running"
 		res.Code = 401
 		c.PureJSON(http.StatusOK, res)
 		return
 	}
-	for _, process := range processes {
-		if strings.EqualFold(process.Executable(), "java") || strings.EqualFold(process.Executable(), "jmeter") {
-			log.WithFields(log.Fields{
-				"executable": process.Executable(),
-				"pid":        process.Pid(),
-				"parent pid": process.PPid(),
-			}).Info("Processes")
-			res := Response{}
-			res.Message = "Test Are Running"
-			res.Code = 200
-			c.PureJSON(http.StatusOK, res)
-			return
-		}
-	}
+
+	logger.Info("Processes",
+		log.String("pid", pid),
+		log.Duration("backoff", time.Second))
 
 	res := Response{}
-	res.Message = "No Test Running"
-	res.Code = 400
+	res.Message = fmt.Sprintf("Test Are Running: Pid:%s", pid)
+	res.Code = 200
+	fmt.Println("1")
+
 	c.PureJSON(http.StatusOK, res)
 	return
 }
 
 func executeCommand(c string, args []string) {
+	defer logger.Sync()
+
 	cmd := exec.Command(c, args...)
 	_, errExec := cmd.CombinedOutput()
 	if errExec != nil {
-		log.WithFields(log.Fields{
-			"err": errExec.Error(),
-		}).Error("Problems executing the script that starts jmeter")
+		logger.Error("Problems executing the script",
+			log.String("err", errExec.Error()),
+			log.String("cmd", c),
+			log.String("args", strings.Join(args, ",")),
+			log.Duration("backoff", time.Second))
 
 	}
+}
 
+func stopTest() {
+	executeCommand(fmt.Sprintf("/opt/apache-jmeter/bin/stoptest.sh"), []string{})
 }
 
 //StopTest used to stop the tests
 func StopTest(c *gin.Context) {
-	executeCommand(fmt.Sprintf("/opt/apache-jmeter/bin/stoptest.sh"), []string{})
+	go stopTest()
+
 	resp := Response{}
 	resp.Message = "Test stopped"
 	resp.Code = 200
@@ -269,6 +257,8 @@ type Response struct {
 
 func main() {
 
+	defer logger.Sync()
+
 	gob.Register(StartTestCMD{})
 	server01 := &http.Server{
 		Addr:         ":1025",
@@ -282,14 +272,28 @@ func main() {
 		return server01.ListenAndServe()
 	})
 	if err := g.Wait(); err != nil {
-		log.Fatal(err)
+		logger.Fatal("Server stopped",
+			log.String("err", err.Error()),
+			log.Duration("backoff", time.Second))
 	}
 
 }
 
 func router01() http.Handler {
+
 	// Gin instance
 	r := gin.Default()
+
+	// Add a ginzap middleware, which:
+	//   - Logs all requests, like a combined access and error log.
+	//   - Logs to stdout.
+	//   - RFC3339 with UTC time format.
+	r.Use(ginzap.Ginzap(logger, time.RFC3339, true))
+
+	// Logs all panic to error log
+	//   - stack means whether output the stack info.
+	r.Use(ginzap.RecoveryWithZap(logger, true))
+
 	r.NoRoute(func(c *gin.Context) {
 		res := Response{}
 		res.Message = "no route defined"
@@ -299,6 +303,7 @@ func router01() http.Handler {
 	r.GET("/stop-test", StopTest)
 	r.POST("/start-test", StartTest)
 	r.GET("/is-running", IsRunning)
+	r.GET("/kill", KillMaster)
 
 	return r
 }
