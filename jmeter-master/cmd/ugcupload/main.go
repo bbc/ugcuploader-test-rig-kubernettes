@@ -185,11 +185,26 @@ func StartTest(c *gin.Context) {
 }
 
 func KillMaster(c *gin.Context) {
+
+	res := Response{}
 	found, pidStr := jmeterExec.IsProcessRunning("ApacheJMeter")
 	if found {
 		pid, _ := strconv.Atoi(pidStr)
 		syscall.Kill(pid, 9)
+		res.Message = "master killed"
+		res.Code = 200
+		if err := os.RemoveAll("/tmp/hsperfdata_jmeter"); err != nil {
+			logger.Error("Removing hsperfdata_jmeter",
+				log.String("err", err.Error()),
+				log.Duration("backoff", time.Second))
+		}
+		c.PureJSON(http.StatusBadRequest, res)
+		return
 	}
+	res.Message = "master killed not killed"
+	res.Code = 400
+	c.PureJSON(http.StatusOK, res)
+	return
 }
 
 //IsRunning use to determine if the tenant is running
