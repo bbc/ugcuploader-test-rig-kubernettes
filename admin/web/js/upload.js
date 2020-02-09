@@ -53,8 +53,6 @@ $(document).ready(function () {
                 {
                     text: 'Get Testoutput ' + tenant,
                     action: function (e, dt, node, config) {
-
-                        var data = dt.row( { selected: true } ).data();
                         var data = dt.row( { selected: true } ).data();
                         window.location = "/test-output?ip="+data.PodIP;
 

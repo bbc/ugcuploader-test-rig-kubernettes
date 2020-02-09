@@ -1735,7 +1735,7 @@ cookieprop.setObjectValue(manager);
               </elementProp>
               <elementProp name="nodeName" elementType="Argument">
                 <stringProp name="Argument.name">nodeName</stringProp>
-                <stringProp name="Argument.value">Test-Node</stringProp>
+                <stringProp name="Argument.value">Upload-${__property(TENNANT,&quot;Not Found&quot;)}</stringProp>
                 <stringProp name="Argument.metadata">=</stringProp>
               </elementProp>
               <elementProp name="influxDBHost" elementType="Argument">
@@ -1813,7 +1813,7 @@ cookieprop.setObjectValue(manager);
         <elementProp name="ThreadGroup.main_controller" elementType="com.blazemeter.jmeter.control.VirtualUserController"/>
         <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
         <stringProp name="TargetLevel">1</stringProp>
-        <stringProp name="RampUp">30</stringProp>
+        <stringProp name="RampUp">0</stringProp>
         <stringProp name="Steps">60</stringProp>
         <stringProp name="Hold">100</stringProp>
         <stringProp name="LogFilename"></stringProp>

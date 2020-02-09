@@ -84,6 +84,7 @@ data:
       max-concurrent-write-limit = 0
       max-enqueued-write-limit = 0
       enqueued-write-timeout = 30000000000
+      flux-enabled = true
 
     [logging]
       format = "auto"

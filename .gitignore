@@ -5,3 +5,7 @@
 !.vscode/launch.json
 !.vscode/extensions.json
 .history/*
+
+
+# Ignore DevSpace cache and log folder
+.devspace/

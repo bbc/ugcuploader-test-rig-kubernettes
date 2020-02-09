@@ -1735,7 +1735,7 @@ cookieprop.setObjectValue(manager);
               </elementProp>
               <elementProp name="nodeName" elementType="Argument">
                 <stringProp name="Argument.name">nodeName</stringProp>
-                <stringProp name="Argument.value">Test-Node</stringProp>
+                <stringProp name="Argument.value">Upload-${__property(TENNANT,&quot;Not Found&quot;)}</stringProp>
                 <stringProp name="Argument.metadata">=</stringProp>
               </elementProp>
               <elementProp name="influxDBHost" elementType="Argument">
@@ -1825,8 +1825,8 @@ cookieprop.setObjectValue(manager);
         <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Upload-${__property(TENNANT,&quot;Not Found&quot;)}" enabled="true">
           <elementProp name="HTTPsampler.Files" elementType="HTTPFileArgs">
             <collectionProp name="HTTPFileArgs.files">
-              <elementProp name="${__P(test.data,&quot;hmm&quot;)}/200MB.txt" elementType="HTTPFileArg">
-                <stringProp name="File.path">${__P(test.data,&quot;hmm&quot;)}/200MB.txt</stringProp>
+              <elementProp name="${__P(test.data,&quot;hmm&quot;)}/colors_of_market.jpg" elementType="HTTPFileArg">
+                <stringProp name="File.path">${__P(test.data,&quot;hmm&quot;)}/colors_of_market.jpg</stringProp>
                 <stringProp name="File.paramname">data</stringProp>
                 <stringProp name="File.mimetype">image/jpeg</stringProp>
               </elementProp>
