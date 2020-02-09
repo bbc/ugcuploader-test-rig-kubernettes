@@ -193,6 +193,6 @@ summariser.influx.socket.timeout=5000
 summariser.influx.request.timeout=5000
 INCLUDE_LOGIN=true
 
-httpclient.socket.http.cps=12800000
-httpclient.socket.https.cps=12800000
-http.socket.timeout=3600000
+httpclient.socket.http.cps={{.HTTPSCPS}}
+httpclient.socket.https.cps={{.HTTPCPS}}
+http.socket.timeout={{.TIMEOUT}}
