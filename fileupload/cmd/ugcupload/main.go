@@ -1,6 +1,7 @@
 package main
 
 import (
+	"archive/zip"
 	"bufio"
 	"encoding/gob"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	myExec "github.com/bbc/ugcuploader-test-rig-kubernettes/fileupload/internal/pkg/exec"
+	testlogs "github.com/bbc/ugcuploader-test-rig-kubernettes/fileupload/internal/pkg/testlogs"
 	ugl "github.com/bbc/ugcuploader-test-rig-kubernettes/fileupload/internal/pkg/ugcupload"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
@@ -102,13 +104,18 @@ func checkFileUploadLogs() (logFileState LogFileState) {
 	return
 }
 
-//Kill Used to determine if slave is running
+//Kill Used to stop slaves immediately
 func Kill(c *gin.Context) {
 	cmd := myExec.Exec{}
 	found, pidStr := cmd.IsProcessRunning("ApacheJMeter.jar")
 	if found {
 		pid, _ := strconv.Atoi(pidStr)
 		syscall.Kill(pid, 9)
+		if err := os.RemoveAll("/tmp/hsperfdata_jmeter"); err != nil {
+			log.WithFields(log.Fields{
+				"err": err.Error(),
+			}).Error("Removing hsperfdata_jmeter")
+		}
 	}
 }
 
@@ -174,6 +181,17 @@ func startJmeterServer(startUpload StartUpload) (started bool) {
 		started = true
 	}
 	return
+}
+
+//TestOutput used to fetch the test log file from the server
+func TestOutput(c *gin.Context) {
+	hn := os.Getenv("HOSTNAME")
+	c.Writer.Header().Set("Content-type", "application/octet-stream")
+	c.Writer.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename='%s.zip'", hn))
+	ar := zip.NewWriter(c.Writer)
+	tl := testlogs.ZipTestoutput{ZipWriter: ar}
+	tl.ZipLogFiles()
+	ar.Close()
 }
 
 //StartServer used to start jmeter server
@@ -244,6 +262,7 @@ func router01() http.Handler {
 	r.POST("/start-server", StartServer)
 	r.GET("/is-running", IsRunning)
 	r.GET("/kill", Kill)
+	r.GET("/test-output", TestOutput)
 
 	return r
 }
