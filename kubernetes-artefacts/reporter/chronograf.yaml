@@ -1,0 +1,67 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: jmeter-chronograf
+  labels:
+    app: jmeter-chronograf
+spec:
+  ports:
+    - port: 8888
+      targetPort: 8888
+  selector:
+    app: jmeter-chronograf
+  type: LoadBalancer
+---
+apiVersion: apps/v1beta2
+kind: StatefulSet
+metadata:
+  name: jmeter-chronograf
+  labels:
+    app: jmeter-chronograf
+spec:
+  replicas: 1
+  serviceName: jmeter-chronograf
+  selector:
+    matchLabels:
+      app: jmeter-chronograf
+  template:
+    metadata:
+      labels:
+        app: jmeter-chronograf
+    spec:
+      tolerations:
+      - key: "grafana"
+        operator: "Exists"
+        effect: "NoSchedule"
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: report
+                operator: In
+                values:
+                - grafana
+      serviceAccountName: ugcupload-jmeter
+      containers:
+        - image: chronograf
+          imagePullPolicy: IfNotPresent
+          name: chronograf
+          volumeMounts:
+          - name: chronograf-jmeter
+            mountPath: /var/lib/chronograf
+          ports:
+          - containerPort: 8888
+            protocol: TCP
+      restartPolicy: Always
+      securityContext:
+        runAsUser: 472
+        fsGroup: 472
+      volumes:
+       - name: chronograf-jmeter
+         persistentVolumeClaim:
+          claimName: chronograf-jmeter
+
+"disk", "diskio", "interrupts", "java_class_loading", "java_garbage_collector", "java_last_garbage_collection","java_memory","java_memory_pool","java_runtime","java_threading","jvm_runtime","kernel","linux_sysctl_fs","mem","net","netstat","processes","soft_interrupts","swap","system"
+
+drop series from "disk", "diskio", "interrupts", "java_class_loading", "java_garbage_collector", "java_last_garbage_collection","java_memory","java_memory_pool","java_runtime","java_threading","jvm_runtime","kernel","linux_sysctl_fs","mem","net","netstat","processes","soft_interrupts","swap","system" where (host='blob-jmeter-slave-7f44bbb5b7-d84k7' OR host='blob-jmeter-slave-7f44bbb5b7-hlgx8' OR host='blob-jmeter-slave-7f44bbb5b7-tx67x' OR host='ding-jmeter-slave-7946f5b488-9jsbn' OR host='dog-jmeter-slave-7d66bcff5d-tkc9r' OR host='keith-jmeter-slave-7f7bc5b9dc-dd7zn' OR host='lots-jmeter-slave-65c86fcdc6-478ns' OR host='lots-jmeter-slave-65c86fcdc6-5pdwx' OR host='lots-jmeter-slave-65c86fcdc6-5v68m' OR host='lots-jmeter-slave-65c86fcdc6-8pghn' OR host='lots-jmeter-slave-65c86fcdc6-9gk6k' OR host='lots-jmeter-slave-65c86fcdc6-bknp2' OR host='lots-jmeter-slave-65c86fcdc6-fgsbp' OR host='lots-jmeter-slave-65c86fcdc6-hmjdp' OR host='lots-jmeter-slave-65c86fcdc6-t969v' OR host='lots-jmeter-slave-65c86fcdc6-tprk4' OR host='sog-jmeter-slave-657bfd776c-lcrlw' )

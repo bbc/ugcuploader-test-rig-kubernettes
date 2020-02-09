@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: chronograf-jmeter
+spec:
+  storageClassName: chronograf-db-sc
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 40Gi
+  volumeName: "chronograf-pv"
