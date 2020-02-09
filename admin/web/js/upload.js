@@ -6,6 +6,11 @@ $(document).ready(function () {
         $(this).tab('show')
     });
 
+    $('#report-navigation a').on('click', function (e) {
+        e.preventDefault();
+        $(this).tab('show')
+    });
+
     /*
         function refreshData() {
              x = 5;  // 5 Seconds
@@ -14,6 +19,59 @@ $(document).ready(function () {
         }
         refreshData();
       */
+
+    $('a.jmeter-slaves-drop-down').on('click', function(e) {
+        e.preventDefault();
+        tenant = $(this).text();
+        table = $('#testOutputReport').DataTable({
+            "dom": 'Blrtip',
+            processing: false,
+            serverSide: false,
+            select: true,
+            destroy: true,
+            columnDefs: [{
+                "targets": 0,
+                "className": 'select-checkbox'
+            }],
+            columns: [
+                {
+                    data: null,
+                    defaultContent: '',
+                    className: 'select-checkbox',
+                    orderable: false
+                },
+                { data: 'Name' },
+                { data: 'Phase' },
+                { data: 'PodIP' },
+            ],
+            select: {
+                style: 'single',
+                selector: 'td:first-child'
+            },
+            order: [[0, 'asc']],
+            buttons: [
+                {
+                    text: 'Get Testoutput ' + tenant,
+                    action: function (e, dt, node, config) {
+
+                        var data = dt.row( { selected: true } ).data();
+                        var data = dt.row( { selected: true } ).data();
+                        window.location = "/test-output?ip="+data.PodIP;
+
+                    }
+                }
+            ],
+            ajax: { url: '/slaves?tenant=' + tenant, dataSrc: "" },
+            "rowCallback": function (row, data) {
+                if ($.inArray(data.DT_RowId, selected) !== -1) {
+                    $(row).addClass('selected');
+                }
+            }
+        });
+        table.buttons().container()
+            .appendTo('#testOutputReport .col-md-6:eq(0)');
+
+    });
     var selected = [];
     var tenant;
     $('a.dropdown-item').on('click', function (e) {
@@ -193,7 +251,8 @@ $(document).ready(function () {
         $("#deleteTenantBtn").prop("disabled", true);
         var form = $("#forceStopTestFrm")[0]; // You need to use standard javascript object here
         var formData = new FormData(form);
-
+        var sel = $("#forcestopcontext option:selected").text();
+        formData.append("stopcontext", sel);
         // Call ajax for pass data to other place
         $.ajax({
             type: 'POST',
@@ -455,8 +514,11 @@ function populate(data) {
             '<div id="RunningTests">' +
             '<div>' +
             '<select aria-label="Running Tests" class="form-control" name="TenantContext" id="TenantContext">';
+        var logFiles = "";
         $.each(data.AllTenants, function (index, value) {
             form = form.concat('<option value="' + value.Namespace + '">' + value.Namespace + '</option>');
+            logFiles = logFiles.concat('<a id="jmeterSlaves" class="dropdown-item jmeter-slaves-drop-down" href="#">'+
+                value.Namespace + '</a>  <div class="dropdown-divider"></div>')
         });
 
         var end = '</select>' +
@@ -470,9 +532,13 @@ function populate(data) {
 
         form = form.concat(end);
         $("#deleteTenantFrm").empty();
-        $("#deleteTenantFrm").append(form)
+        $("#deleteTenantFrm").append(form);
+
+        $('#logFilesDropDownMenu').empty();
+        $('#logFilesDropDownMenu').append(logFiles);
+
     } else {
-        $("#deleteTenantFrm").empty();
+        $('#logFilesDropDownMenu').empty();
         $("#deleteTenantFrm").append('<div class="alert alert-warning" role="alert">No tenants have been created</div>')
     }
     /**

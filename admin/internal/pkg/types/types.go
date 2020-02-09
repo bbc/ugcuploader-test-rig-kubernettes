@@ -76,6 +76,7 @@ type JmeterResponse struct {
 type SlaveStatus struct {
 	Name  string
 	Phase string
+	PodIP string
 }
 
 //NodeCondition The condition of the node

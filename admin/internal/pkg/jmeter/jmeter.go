@@ -241,16 +241,15 @@ func (jmeter Jmeter) makeGetRequest(uri string) (error string, res bool) {
 	}
 
 	var jmeterResponse = jmeter.unMarshallResponse(resp.Body)
+	log.WithFields(log.Fields{
+		"resp": jmeterResponse,
+		"uri":  uri,
+	}).Info("GET Request to Jmeter Suceeded")
 	if jmeterResponse.Code != 200 {
 		res = false
 		error = jmeterResponse.Message
 		return
 	}
-
-	log.WithFields(log.Fields{
-		"resp": jmeterResponse,
-		"uri":  uri,
-	}).Info("GET Request to Jmeter Suceeded")
 
 	res = true
 	return
@@ -356,6 +355,10 @@ func (jmeter Jmeter) GetFileName(fn string) {
 
 		f.Close()
 	}
+}
+
+func (jmeter Jmeter) MakeRequest(target string) (*http.Response, error) {
+	return getRequest(target)
 }
 
 // Creates a new file upload http request with optional extra params

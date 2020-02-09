@@ -3,8 +3,6 @@ package main
 import (
 	"encoding/gob"
 	"net/http"
-	"net/http/httputil"
-	"net/url"
 	"time"
 
 	aws "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/aws"
@@ -135,24 +133,11 @@ func router01() http.Handler {
 	r.GET("/test-status", control.TestStatus)
 	r.GET("/failing-nodes", control.FailingNodes)
 	r.POST("/genReport", control.GenerateReport)
+	r.GET("/slaves", control.JmeterSlaves)
+	r.GET("/test-output", control.Testoutput)
 
-	r.GET("/tenants", ReverseProxy())
+	r.GET("/tenants", control.AllTenants)
 	return r
-}
-
-//ReverseProxy taken from here:https://github.com/gin-gonic/gin/issues/686
-func ReverseProxy() gin.HandlerFunc {
-	return func(c *gin.Context) {
-
-		target, _ := url.Parse("http://127.0.0.1:1232")
-		proxy := httputil.NewSingleHostReverseProxy(target)
-		realDirector := proxy.Director
-		proxy.Director = func(req *http.Request) {
-			log.Println(req.URL)
-			realDirector(req)
-		}
-		proxy.ServeHTTP(c.Writer, c.Request)
-	}
 }
 
 func router02() http.Handler {

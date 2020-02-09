@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"mime/multipart"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	aws "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/aws"
 	jmeter "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/jmeter"
@@ -188,26 +190,40 @@ func (cnt *Controller) ForceStopTest(c *gin.Context) {
 
 	var failedToStop = make(map[string]interface{})
 	hsnames := cnt.KubeOps.GetHostNamesOfJmeterMaster(ugcLoadRequest.StopContext)
-	errStr, resp := jm.KillMaster(hsnames[0])
-	if resp == false {
-		failedToStop["master"] = errStr
-	}
-	slaveIps := cnt.KubeOps.GetPodIpsForSlaves(ugcLoadRequest.StopContext)
-	for _, ip := range slaveIps {
-		err, resp := jm.KillSlave(ip)
+	if len(hsnames) > 0 {
+		errStr, resp := jm.KillMaster(hsnames[0])
 		if resp == false {
-			failedToStop[fmt.Sprintf("SLAVE-%s", ip)] = err
+			failedToStop["master"] = errStr
 		}
-	}
+		slaveIps := cnt.KubeOps.GetPodIpsForSlaves(ugcLoadRequest.StopContext)
+		for _, ip := range slaveIps {
+			err, resp := jm.KillSlave(ip)
+			if resp == false {
+				failedToStop[fmt.Sprintf("SLAVE-%s", ip)] = err
+			}
+		}
 
-	if len(failedToStop) > 1 {
+		if len(failedToStop) > 1 {
+			log.WithFields(log.Fields{
+				"Context": ugcLoadRequest.StopContext,
+				"err":     errStr,
+			}).Info("Unable to stop the test")
+			failed, _ := json.Marshal(failedToStop)
+			ugcLoadRequest.TennantNotStopped =
+				fmt.Sprintf("Following did not stop: %s: maybe try again or delete the tenant", failed)
+			session.Set("ugcLoadRequest", ugcLoadRequest)
+			session.Save()
+			c.Redirect(http.StatusMovedPermanently, "/update")
+			c.Abort()
+			return
+		}
+	} else {
 		log.WithFields(log.Fields{
-			"Context": ugcLoadRequest.StopContext,
-			"err":     errStr,
-		}).Info("Unable to stop the test")
-		failed, _ := json.Marshal(failedToStop)
+			"Context":   ugcLoadRequest.StopContext,
+			"hostnames": strings.Join(hsnames, ","),
+		}).Info("No master nodes found")
 		ugcLoadRequest.TennantNotStopped =
-			fmt.Sprintf("Following did not stop: %s: maybe try again or delete the tenant", failed)
+			fmt.Sprintf("Master was not found: %s", strings.Join(hsnames, ","))
 		session.Set("ugcLoadRequest", ugcLoadRequest)
 		session.Save()
 		c.Redirect(http.StatusMovedPermanently, "/update")
@@ -840,6 +856,43 @@ func (cnt *Controller) StartTest(c *gin.Context) {
 	session.Set("ugcLoadRequest", responseContext)
 	session.Save()
 	c.Redirect(http.StatusMovedPermanently, "/update")
+	c.Abort()
+	return
+}
+
+func (cnt *Controller) JmeterSlaves(c *gin.Context) {
+	tenant := c.Query("tenant")
+	items, _, _ := cnt.KubeOps.GetallJmeterSlavesStatus(tenant)
+	c.PureJSON(http.StatusOK, items)
+}
+
+func (cnt *Controller) Testoutput(c *gin.Context) {
+
+	ip := c.Query("ip")
+	target := fmt.Sprintf("http://%s:1007/test-output", ip)
+	jm := jmeter.Jmeter{}
+	resp, err := jm.MakeRequest(target)
+	if err == nil {
+
+		cp := strings.TrimLeft(resp.Header["Content-Disposition"][0], "'")
+		cp = strings.TrimRight(cp, "'")
+		_, i := utf8.DecodeRuneInString(cp)
+		cptrim := cp[i:]
+		c.Writer.Header().Set("Content-type", "application/octet-stream")
+		c.Writer.Header().Set("Content-Disposition", cptrim)
+		_, e := io.Copy(c.Writer, resp.Body)
+		if e != nil {
+			log.WithFields(log.Fields{
+				"err": e.Error(),
+				"ip":  ip,
+			}).Error("Problems getting jmeter log files")
+		}
+		return
+	}
+	log.WithFields(log.Fields{
+		"err": err.Error(),
+		"ip":  ip,
+	}).Error("Problems making request to get jmeter log files")
 	c.Abort()
 	return
 }

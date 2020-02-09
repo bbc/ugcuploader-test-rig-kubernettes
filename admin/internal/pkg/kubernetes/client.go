@@ -266,7 +266,7 @@ func (kop *Operations) GetallJmeterSlavesStatus(tenant string) (slvs []types.Sla
 		return
 	} else {
 		for _, item := range res.Items {
-			slaves = append(slaves, types.SlaveStatus{Name: item.Name, Phase: string(item.Status.Phase)})
+			slaves = append(slaves, types.SlaveStatus{Name: item.Name, Phase: string(item.Status.Phase), PodIP: string(item.Status.PodIP)})
 		}
 
 		if len(slaves) < 1 {
