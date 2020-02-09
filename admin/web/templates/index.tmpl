@@ -51,7 +51,7 @@
       <div class="col-md-5">
          <div class="card">
             <div class="card-title">
-               <h3 class="text-center"><strong>Test Report</strong></h3>
+               <h3 class="text-center"><strong>JMETER Test Report</strong></h3>
             </div>
             <div class="card-header">
                <ul class="nav nav-tabs card-header-tabs" id="report-navigation" role="tablist">
@@ -133,7 +133,7 @@
       <div class="col-md-4">
          <div class="card">
             <div class="card-title">
-               <h3 class="text-center"><strong>Test Creation</strong></h3>
+               <h3 class="text-center"><strong>JMETER Test Creation</strong></h3>
             </div>
             <div class="card-body">
                <fieldset>
@@ -151,12 +151,17 @@
                      <div id="MissingTenant"></div>
                      <div id="InvalidTenantName"></div>
                      <div class="form-group">
-                        <label for="numberOfNodes">Number of Nodes</label>
+                        <label for="numberOfNodes">JMETER slaves</label>
                         <input {{if .NumberOfNodes}} value={{ .NumberOfNodes }} {{ end}} type="text"
                         class="form-control" name="numberOfNodes" id="numberOfNodes"
-                        placeholder="Number of Nodes">
+                        placeholder="Number of jmeter slaves">
+                        <div id="MissingNumberOfNodes"></div>
                      </div>
-                     <div id="MissingNumberOfNodes"></div>
+                     <div class="form-group file-upload-wrapper">
+                        <label for="data-file-upload">Slave Configuration</label>
+                        <button type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#jvmSettingsModal">Configure Slaves</button>
+                        <small id="jvmsettingsHelp" class="form-text text-muted">Settings for configuring the Jmeter slaves</small>
+                     </div>
                      <div class="form-group">
                         <label for="bandWidthSelection">Select the bandwidth</label>
                         <select class="form-control" name="bandWidthSelection" id="bandWidthSelection">
@@ -193,11 +198,6 @@
                         <small id="jmeterHelp" class="form-text text-muted">This is the data file used
                         by
                         the test</small>
-                     </div>
-                     <div class="form-group file-upload-wrapper">
-                        <label for="data-file-upload">Slave Configuration</label>
-                        <button type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#jvmSettingsModal">Configure Slaves</button>
-                        <small id="jvmsettingsHelp" class="form-text text-muted">Settings for configuring the Jmeter slaves</small>
                      </div>
                      <!-- Trigger the modal with a button -->
                      <div id="MissingData"></div>
@@ -407,7 +407,7 @@
          <div class="modal-dialog modal-dialog-centered" role="document">
             <div class="modal-content">
                <div class="modal-header">
-                  <h5 class="modal-title" id="jvmSettingsModalLongTitle">Jmeter Slaves: Configuration</h5>
+                  <h5 class="modal-title" id="jvmSettingsModalLongTitle">Slave: Configuration</h5>
                   <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                   <span aria-hidden="true">&times;</span>
                   </button>

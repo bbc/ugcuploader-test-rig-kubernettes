@@ -1,19 +1,20 @@
 package ugcupload
 
 import (
+	"bytes"
 	"fmt"
+	"github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/helper"
 	"io"
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
 	"os"
 	"time"
-	"bytes"
 
 	"github.com/gin-gonic/gin"
 	"github.com/magiconair/properties"
-	log "github.com/sirupsen/logrus"
 	uuid "github.com/satori/go.uuid"
+	log "github.com/sirupsen/logrus"
 )
 
 var props = properties.MustLoadFile("/etc/ugcupload/loadtest.conf", properties.UTF8)
@@ -95,14 +96,14 @@ func (fop FileUploadOperations) ProcessData(uri string, filename string, data *m
 //UploadJmeterProps use to upload the jmeter property file
 func (fop FileUploadOperations) UploadJmeterProps(uri string, bw string) (error string, upload bool) {
 
-	home := os.Getenv("HOME")
-	bwLock := fmt.Sprintf("%s/config/bandwidth/%s/bandwidth.csv", home, bw)
+	jmp := helper.JmeterProperties{}
+	tempFile := jmp.Create(bw)
 
-	r, err := os.Open(bwLock)
+	r, err := os.Open(tempFile)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"err":      err.Error(),
-			"filename": bwLock,
+			"filename": tempFile,
 			"ur":       uri,
 		}).Error("Could not open bandwidth file")
 		upload = false
@@ -110,7 +111,6 @@ func (fop FileUploadOperations) UploadJmeterProps(uri string, bw string) (error 
 	}
 	error, upload = fop.uploadFile(r, uri, "jmeter.properties")
 	upload = true
-	r.Close()
 	return
 }
 

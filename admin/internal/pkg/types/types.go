@@ -95,3 +95,9 @@ type NodePhase struct {
 	InstanceID     string
 	NodeConditions []NodeCondition
 }
+
+type BandwidthSelection struct {
+	HTTPSCPS int
+ 	HTTPCPS  int
+	TIMEOUT  int
+}

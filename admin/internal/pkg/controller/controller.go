@@ -675,7 +675,6 @@ func (cnt *Controller) startTest(ugcLoadRequest types.UgcLoadRequest, jm jmeter.
 					redisTenant.Errors = e
 				} else {
 					redisTenant.Started = "Running"
-
 				}
 
 				mess, created := cnt.KubeOps.CreatePodDisruptionBudget(ugcLoadRequest)

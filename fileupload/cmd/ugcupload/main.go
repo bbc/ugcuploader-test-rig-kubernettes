@@ -111,7 +111,7 @@ func Kill(c *gin.Context) {
 	if found {
 		pid, _ := strconv.Atoi(pidStr)
 		syscall.Kill(pid, 9)
-		if err := os.RemoveAll("/tmp/hsperfdata_jmeter"); err != nil {
+		if err := os.RemoveAll("/tmp/hsperfdata_root"); err != nil {
 			log.WithFields(log.Fields{
 				"err": err.Error(),
 			}).Error("Removing hsperfdata_jmeter")
@@ -258,7 +258,7 @@ func router01() http.Handler {
 
 	r.POST("/data", Upload)
 	r.POST("/jmeter-props", JmeterProps)
-	r.POST("/user-propes", UserProps)
+	r.POST("/user-props", UserProps)
 	r.POST("/start-server", StartServer)
 	r.GET("/is-running", IsRunning)
 	r.GET("/kill", Kill)

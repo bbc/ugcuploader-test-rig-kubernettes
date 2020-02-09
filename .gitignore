@@ -9,3 +9,12 @@
 
 # Ignore DevSpace cache and log folder
 .devspace/
+/docker/control/test-scripts/
+/docker/control/test/
+/docker/control/tenant/
+/docker/control/config/
+/docker/control/data/
+/docker/control/admin/
+/docker/master/src/
+/docker/master/jmeter-master/
+/docker/slave/fileupload/
