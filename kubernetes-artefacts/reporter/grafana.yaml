@@ -50,6 +50,10 @@ spec:
           volumeMounts:
           - name: grafana-jmeter
             mountPath: /var/lib/grafana
+          - mountPath: /etc/grafana/grafana.ini
+            name: grafana-config
+            subPath: grafana.ini
+            readOnly: true
           ports:
           - containerPort: 3000
             protocol: TCP
@@ -74,3 +78,6 @@ spec:
        - name: grafana-jmeter
          persistentVolumeClaim:
           claimName: grafana-jmeter
+       - name: grafana-config
+         configMap:
+           name: grafana-config
