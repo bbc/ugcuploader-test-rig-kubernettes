@@ -379,7 +379,12 @@ func (kop *Operations) CreateTelegrafConfigMap(ns string) (created bool, err str
 	files = ["cpuacct.usage", "cpu.cfs_period_us", "cpu.cfs_quota_us"]
 	
 	[[inputs.filecount]]
-		directory = "/test-output/**"
+		directories = ["/test-output"]
+		name = "*"
+
+	[[inputs.filecount]]
+		directory = "/test-output"
+		name = "*.plain"
 	
 	[[inputs.mem]]
 

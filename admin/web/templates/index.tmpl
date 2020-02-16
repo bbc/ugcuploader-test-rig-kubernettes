@@ -1,531 +1,644 @@
 <!doctype html>
 <html lang="en">
-   <head>
-      <!-- Required meta tags -->
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-      <!-- Bootstrap CSS -->
-      <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
-         integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
-      <link rel="stylesheet" type="text/css"
-         href="https://cdn.datatables.net/v/bs4/dt-1.10.20/b-1.6.1/b-colvis-1.6.1/r-2.2.3/rr-1.2.6/sc-2.0.1/sl-1.3.1/datatables.min.css" />
-      <title>UGCLoad Test Rig</title>
-   </head>
-   <body>
-      <div class="jumbotron text-center">
-         <h1>UgcUpLoad Test Rig</h1>
-         <p> <a href="/">This is used to perform load Tests on a kubernetes cluster.</a></p>
-      </div>
-      <div class="container-fluid">
-      <div class="row">
-         <div class="col-md-12">
-            <hr style="width: 100%; color: black; height: 1px; background-color:black;" />
-         </div>
-      </div>
-      <div class="row">
-         <div class="col-md-4 text-center">
-               <a href=" {{ .MonitorURL }}" target="_blank">View Cluster</a>
-         </div>
-         <div class="col-md-4 text-center">
-            <a href=" {{ .DashboardURL }}" target="_blank">Grafana Dashboaard</a>
-         </div>
-         <div class="col-md-4 text-center">
-            <a href=" {{ .ChronografURL }}" target="_blank">Chronograf Dashboaard</a>
-         </div>
-      </div>
-      <div class="row">
-         <div class="col-md-12">
-            <hr style="width: 100%; color: black; height: 1px; background-color:black;" />
-         </div>
-      </div>
-      {{if .ProblemsBinding}}
-      <div class="row">
-         <div class="col-md-12 text-center">
-            <div class="alert alert-primary" role="alert">
-               Problems binding form data: {{ .ProblemsBinding}}
-            </div>
-         </div>
-      </div>
-      {{end}}
-      <div class="row">
-      <div class="col-md-5">
-         <div class="card">
-            <div class="card-title">
-               <h3 class="text-center"><strong>JMETER Test Report</strong></h3>
-            </div>
-            <div class="card-header">
-               <ul class="nav nav-tabs card-header-tabs" id="report-navigation" role="tablist">
-                  <li class="nav-item">
-                     <a class="nav-link active" href="#graph-nav" role="tab" aria-controls="graph-nav" aria-selected="true">Generate Graphs</a>
-                  </li>
-                  <li class="nav-item">
-                     <a class="nav-link"  href="#testtoutput-nav" role="tab" aria-controls="testtoutput-nav" aria-selected="false">JMETER Log files</a>
-                  </li>
-               </ul>
-            </div>
-            <div class="card-body">
-               <div class="tab-content mt-3">
-                  <div class="tab-pane active" id="graph-nav" role="tabpanel">
-                     <div class="btn-group">
-                        <button type="button" class="btn btn-primary">Select Tenant</button>
-                        <button type="button" class="btn btn-primary btn-lg dropdown-toggle dropdown-toggle-split"
-                                data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                           <span class="sr-only">Toggle Dropdown</span>
-                        </button>
-                        <div class="dropdown-menu">
-                           {{range $element := .TenantList}}
-                           <a id="fetchReport" class="dropdown-item" href="#">{{$element}}</a>
-                           <div class="dropdown-divider"></div>
-                           {{end}}
-                        </div>
-                     </div>
-                     <div>
-                        <div class="text-center">
-                           <a href=" {{ .ReportURL }}" target="_blank">View Reports</a>
-                        </div>
-                     </div>
-                     <div>
-                        <br></br>
-                        <table id="tenantReport">
-                           <thead>
-                           <tr>
-                              <th></th>
-                              <th>Date</th>
-                           </tr>
-                           </thead>
-                        </table>
-                     </div>
-                  </div>
-                  <div class="tab-pane" id="testtoutput-nav" role="tabpanel">
-                     <div class="btn-group">
-                        <button type="button" class="btn btn-primary">Select Tenant</button>
-                        <button type="button" class="btn btn-primary btn-lg dropdown-toggle dropdown-toggle-split"
-                                data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                           <span class="sr-only">Toggle Dropdown</span>
-                        </button>
-                        <div class="dropdown-menu" id="logFilesDropDownMenu">
-                           {{range $element := .AllTenants}}
-                           <a id="jmeterSlaves" class="dropdown-item jmeter-slaves-drop-down" href="#">{{$element.Namespace}}</a>
-                           <div class="dropdown-divider"></div>
-                           {{end}}
-                        </div>
-                     </div>
-                     <br></br>
-                     <table id="testOutputReport">
-                        <thead>
-                        <tr>
-                           <th></th>
-                           <th>Name</th>
-                           <th>Phase</th>
-                           <th>PodIP</th>
-                        </tr>
-                        </thead>
-                     </table>
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+          integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+    <link rel="stylesheet" type="text/css"
+          href="https://cdn.datatables.net/v/bs4/dt-1.10.20/b-1.6.1/b-colvis-1.6.1/r-2.2.3/rr-1.2.6/sc-2.0.1/sl-1.3.1/datatables.min.css"/>
+    <title>UGCLoad Test Rig</title>
+</head>
+<style>
+    .map {
+        width: 100%;
+        height: 100%;
+        min-height: 100%;
+        display: block;
 
-                  </div>
+    }
 
-               </div>
+    html, body {
+        height: 100%;
+    }
 
-            </div>
-         </div>
+    .fill {
+        min-height: 100%;
+        height: 100%;
+        padding-top:40px;
+        box-sizing:border-box;
+    }
+    .panel-wrapper{
+        height: inherit;
+    }
 
-      </div>
-      <div class="col-md-4">
-         <div class="card">
-            <div class="card-title">
-               <h3 class="text-center"><strong>JMETER Test Creation</strong></h3>
-            </div>
-            <div class="card-body">
-               <fieldset>
-                  <form method="post" id="startTestFrm" action="/start-test" enctype="multipart/form-data">
-                     <div class="form-group">
-                        <label for="context">Tennant</label>
-                        <input type="text" class="form-control" name="context" id="context"
-                        aria-describedby="tenantHelp" {{if .Context}} value={{ .Context }} {{ end}}
-                        placeholder="Enter Tennant">
-                        <small id="tenantHelp" class="form-text text-muted">This is the tenant in which
-                        you
-                        want to run
-                        the tests</small>
-                     </div>
-                     <div id="MissingTenant"></div>
-                     <div id="InvalidTenantName"></div>
-                     <div class="form-group">
-                        <label for="numberOfNodes">JMETER slaves</label>
-                        <input {{if .NumberOfNodes}} value={{ .NumberOfNodes }} {{ end}} type="text"
-                        class="form-control" name="numberOfNodes" id="numberOfNodes"
-                        placeholder="Number of jmeter slaves">
-                        <div id="MissingNumberOfNodes"></div>
-                     </div>
-                     <div class="form-group file-upload-wrapper">
-                        <label for="data-file-upload">Slave Configuration</label>
-                        <button type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#jvmSettingsModal">Configure Slaves</button>
-                        <small id="jvmsettingsHelp" class="form-text text-muted">Settings for configuring the Jmeter slaves</small>
-                     </div>
-                     <div class="form-group">
-                        <label for="bandWidthSelection">Select the bandwidth</label>
-                        <select class="form-control" name="bandWidthSelection" id="bandWidthSelection">
-                           <option value="adsl">ADSL : 8 Mbit/s</option>
-                           <option value="adsl2">ADSL2 : 12 Mbit/s</option>
-                           <option value="adsl2Plus">ADSL2+ : 24 Mbit/s</option>
-                           <option value="ethernetLan">Ethernet LAN ; 10 Mbit/s</option>
-                           <option value="fastEthernet">Fast Ethernet : 100 Mbit/s</option>
-                           <option value="gigabitEthernet">Gigabit Ethernet : 1 Gbit/s</option>
-                           <option value="10gigabitEthernet">10 Gigabit Ethernet : 10 Gbit/s</option>
-                           <option value="100gigabitEthernet">100 Gigabit Ethernet : 100 Gbit/s
-                           </option>
-                           <option value="mobileDataEdge">Mobile data EDGE : 384 kbit/s</option>
-                           <option value="mobileDataHspa">Mobile data HSPA : 14,4 Mbp/s</option>
-                           <option value="mobileDatacHspaPlus">Mobile data HSPA+ : 21 Mbp/s</option>
-                           <option value="mobileDataDcHspaPlus">Mobile data DC-HSPA+ : 42 Mbps</option>
-                           <option value="mobileDataLte">Mobile data LTE : 150 Mbp/s</option>
-                           <option value="mobileDataGprs">Mobile data GPRS : 171 kbit/s</option>
-                           <option value="wifi80211a">WIFI 802.11a/g : 54 Mbit/s</option>
-                           <option value="wifi80211n">WIFI 802.11n : 600 Mbit/s</option>
-                        </select>
-                     </div>
-                     <div class="form-group file-upload-wrapper">
-                        <label for="script-file-upload">Jmeter Script</label>
-                        <input name="jmeter" id="script-file-upload" type="file" class="file-upload" />
-                        <small id="dataHelp" class="form-text text-muted">This is the Jmeter script to
-                        upload</small>
-                     </div>
-                     <div id="MissingJmeter"></div>
-                     <div class="form-group file-upload-wrapper">
-                        <label for="data-file-upload">Data</label>
-                        <input name="data" id="data-file-upload" type="file" class="file-upload"
-                           aria-describedby="jmeterHelp" />
-                        <small id="jmeterHelp" class="form-text text-muted">This is the data file used
-                        by
-                        the test</small>
-                     </div>
-                     <!-- Trigger the modal with a button -->
-                     <div id="MissingData"></div>
-                     <div id="GenericCreateTestMsg"></div>
-                     <button type="submit" id="startTestBtn" class="btn btn-primary">Run Test</button>
-                  </form>
-               </fieldset>
-            </div>
-            <div id="Success"></div>
-         </div>
-      </div>
-      <div class="col-md-3">
-         <div class="card">
-            <div class="card-title">
-               <h3 class="text-center"><strong>Stop Test</strong></h3>
-            </div>
-            <div class="card-header">
-             <ul class="nav nav-tabs card-header-tabs" id="termination-navigation" role="tablist">
-                <li class="nav-item">
-                   <a class="nav-link active" href="#safe" role="tab" aria-controls="safe" aria-selected="true">Safely</a>
-                </li>
-                <li class="nav-item">
-                   <a class="nav-link"  href="#force" role="tab" aria-controls="force" aria-selected="false">Force</a>
-                </li>
-             </ul>
-            </div>
-            <div class="card-body">
-               <div class="tab-content mt-3">
-                 <div class="tab-pane active" id="safe" role="tabpanel">
-                    <fieldset>
-                       <form method="post" id="stopTestFrm" action="/stop-test" enctype="multipart/form-data">
-                          <div class="form-group">
-                             <div id="StopRunningTests">
-                                {{ $length := len .RunningTests }}
-                                {{ if gt $length 0 }}
-                                <div>
-                                   <select aria-label="Running Tests" class="form-control" name="stopcontext" id="stopcontext">
-                                      {{range $tenant := .RunningTests}}
-                                      {{if $tenant.Running}}
-                                      <option value="{{$tenant.Namespace}}">{{$tenant.Namespace}}</option>
-                                      {{end}}
-                                      {{end}}
-                                   </select>
-                                   <small id="tenantHelp" class="form-text text-muted">This is the tenant in which
-                                      you
-                                      want to stop
-                                      the test for </small>
-                                </div>
-                                {{ end }}
-                             </div>
-                          </div>
-                          {{ $length := len .RunningTests }}
-                          {{ if gt $length 0 }}
-                          <button type="submit" id="stopTestBtn" class="btn btn-primary">Stop Test</button>
-                          {{ else }}
-                          <div class="alert alert-warning" role="alert">No Tests are running</div>
-                          {{ end }}
-                          {{if .StopTenantMissing}}
-                          <div class="alert alert-primary" role="alert">
-                             <strong>You must supply the tenant name</strong>
-                          </div>
-                          {{end}}
-                          {{if .InvalidTenantStop}}
-                          <div class="alert alert-primary" role="alert">
-                             <strong>These names are not valid: {{ .InvalidTenantStop}}</strong>
-                          </div>
-                          {{end}}
-                          {{if .TennantNotStopped}}
-                          <div class="alert alert-primary" role="alert">
-                             <strong>Was not able to stop the test {{ .TennantNotStopped}}</strong>
-                          </div>
-                          {{end}}
-                          {{if .TenantStopped}}
-                          <div class="alert alert-success" role="alert">
-                             <strong>Test were stopped for: {{ .TenantStopped}}</strong>
-                          </div>
-                          {{end}}
-                       </form>
-                    </fieldset>
 
-                 </div>
-                <!-- Begin of force delete -->
-                 <div class="tab-pane" id="force" role="tabpanel">
-                    <fieldset>
-                       <form method="post" id="forceStopTestFrm" action="/force-stop-test" enctype="multipart/form-data">
-                          <div class="form-group">
-                             <div id="RunningTests">
-                                {{ $length := len .RunningTests }}
-                                {{ if gt $length 0 }}
-                                <div>
-                                   <select aria-label="Running Tests" class="form-control" name="forcestopcontext" id="forcestopcontext">
-                                      {{range $tenant := .RunningTests}}
-                                      {{if $tenant.Running}}
-                                      <option value="{{$tenant.Namespace}}">{{$tenant.Namespace}}</option>
-                                      {{end}}
-                                      {{end}}
-                                   </select>
-                                   <small id="tenantHelp" class="form-text text-muted">This is the tenant in which
-                                      you
-                                      want to force all test to stop</small>
-                                </div>
-                                {{ end }}
-                             </div>
-                          </div>
-                          {{ $length := len .RunningTests }}
-                          {{ if gt $length 0 }}
-                          <button type="submit" id="forceStopTestBtn" class="btn btn-primary">Force Stop Test</button>
-                          {{ else }}
-                          <div class="alert alert-warning" role="alert">No Tests are running</div>
-                          {{ end }}
-                          {{if .StopTenantMissing}}
-                          <div class="alert alert-primary" role="alert">
-                             <strong>You must supply the tenant name</strong>
-                          </div>
-                          {{end}}
-                          {{if .InvalidTenantStop}}
-                          <div class="alert alert-primary" role="alert">
-                             <strong>These names are not valid: {{ .InvalidTenantStop}}</strong>
-                          </div>
-                          {{end}}
-                          {{if .TennantNotStopped}}
-                          <div class="alert alert-primary" role="alert">
-                             <strong>Was not able to stop the test {{ .TennantNotStopped}}</strong>
-                          </div>
-                          {{end}}
-                          {{if .TenantStopped}}
-                          <div class="alert alert-success" role="alert">
-                             <strong>Test were stopped for: {{ .TenantStopped}}</strong>
-                          </div>
-                          {{end}}
-                       </form>
-                    </fieldset>
+</style>
+<body>
+<div class="container-fluid fill map">
+            <div class="card map">
+                <div class="card-title">
+                    <h3 class="text-center">Kubernetes Load Test Rig</h3>
+                    <div class="alert alert-warning" role="alert">
+                        Embedding grafana triggers firefox security :
+                        https://stackoverflow.com/questions/11768221/firefox-websocket-security-issue/12042843#12042843
+                        It works fine in chrome.
+                    </div>
+
                 </div>
-              </div>
-            </div>
-         </div>
-         <br></br>
-         <div class="card">
-            <div class="card-title">
-               <h3 class="text-center"><strong>Test Status</strong></h3>
-            </div>
-            <div class="card-body">
-               <a class="btn btn-primary" id="PendingTests" href="#" role="button">Click to fetch all Status</a>
-               <div id="PendingList"></div>
-            </div>
-         </div>
-         <br></br>
-         <div class="card">
-               <div class="card-title">
-                  <h3 class="text-center"><strong>Node Information</strong></h3>
-               </div>
-               <div class="card-body">
-                  <a class="btn btn-primary" id="FailingNodes" href="#" role="button">Click to see if any nodes have failed</a>
-                  <div id="FailingNodesList"></div>
-               </div>
-         </div>
-         <br></br>
-         <div class="card">
-                  <div class="card-title">
-                     <h3 class="text-center"><strong>Tenant Deletion</strong></h3>
-                  </div>
-                  <div class="card-body">
-                     <fieldset>
-                        <form method="post" name="delete" id="deleteTenantFrm" action="/delete-tenant"
-                           enctype="multipart/form-data">
-                           <div class="form-group">
-                              <label for="context">Tennant</label>
-                              <div id="AllTenants">
-                                 {{ $length := len .AllTenants }} 
-                                 {{ if gt $length 0 }}
-                                 <div>
-                                    <select aria-label="Running Tests" class="form-control" name="TenantContext" id="TenantContext">
-                                       {{range $tenant := .AllTenants}}
-                                       <option value="{{$tenant.Namespace}}">{{$tenant.Namespace}}</option>
-                                       {{end}}
-                                    </select>
-                                    <small id="tenantHelp" class="form-text text-muted">Select a tenant to delete</small>
-                                 </div>
-                                 {{ end }}
-                              </div>
-                              {{if .TennantNotDeleted}}
-                              <div class="alert alert-primary" role="alert">
-                                 Tenant not deleted : {{ .TennantNotDeleted}}
-                              </div>
-                              {{end}}
-                              {{if .TenantDeleted}}
-                              <div class="alert alert-success" role="alert">
-                                 Tenant {{ .TennantNotDeleted}} has been deleted
-                              </div>
-                              {{end}}
-                              {{ $length := len .AllTenants }} 
-                              {{ if gt $length 0 }}
-                              <button type="submit" id="deleteTenantBtn" class="btn btn-primary">Delete Tenant</button>
-                              {{ else }}
-                              <div class="alert alert-warning" role="alert">No Tenants have been added</div>
-                              {{ end }}
-                           </div>
-                        </form>
-                     </fieldset>
-                  </div>
-         </div>
-         </div>
-      </div>
-     <div class="row">
-      <!-- VM Settings modal Modal -->
-      <div class="modal fade" id="jvmSettingsModal" tabindex="-1" role="dialog" aria-labelledby="jvmSettingsModalCenterTitle" aria-hidden="true">
-         <div class="modal-dialog modal-dialog-centered" role="document">
-            <div class="modal-content">
-               <div class="modal-header">
-                  <h5 class="modal-title" id="jvmSettingsModalLongTitle">Slave: Configuration</h5>
-                  <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                  <span aria-hidden="true">&times;</span>
-                  </button>
-               </div>
-               <!-- Modal content-->
-               <div class="modal-body">
-                  <div class="container">
-                     <div class="row">        
-                                 
-                       <div class="col-sm">
-                           <div class="card">
-                              <div class="card-title">
-                               <h3 class="text-center"><strong>JVM Settings</strong></h3>
-                              </div>
-               
-                              <div class="card-body">
-                                 <div>
-                                    <label for="xms">Initial memory allocation pool(Xms)</label>
-                                    <select class="form-control" name="xmx" id="xms">
-                                       <option value="1">1 Gigabyte</option>
-                                       <option value="2">2 Gigabyte</option>
-                                       <option value="3">3 Gigabyte</option>
-                                       <option value="4">4 Gigabyte</option>
-                                       <option value="5">5 Gigabyte</option>
-                                       <option value="6">6 Gigabyte</option>
-                                    </select>
-                                 </div>
-                                 
-                                 <div>
-                                    <label for="xmx">Maximum memory allocation poolI(Xmx)</label>
-                                    <select class="form-control" name="xmx" id="xmx">
-                                       <option value="1">1 Gigabyte</option>
-                                       <option value="2">2 Gigabyte</option>
-                                       <option value="3">3 Gigabyte</option>
-                                       <option value="4">4 Gigabyte</option>
-                                       <option value="5">5 Gigabyte</option>
-                                       <option value="6">6 Gigabyte</option>
-                                    </select>
-                                 </div>
-                                 <div>
-                                    <label for="xms">Control Garbage Collection (MaxMetaspaceSize)</label>
-                                    <select class="form-control" name="MaxMetaspaceSize" id="maxMetaspaceSize">
-                                       <option value="256">256mb</option>
-                                       <option value="512">512mb</option>
-                                       <option value="768">768mb</option>
-                                       <option value="1024">1024mb</option>
-                                       <option value="1280">1280mb</option>
-                                       <option value="1536">1536mb</option>
-                                    </select>
-                                 </div>
-                              </div>
-                           </div>
-                        </div>
-                     
-                        <div class="col-sm">
-                        
-                           <div class="card">
-                              <div class="card-title">
-                                 <h3 class="text-center"><strong>Node Settings</strong></h3>
-                              </div>
-                  
-                              <div class="card-body">
-                                     <div>
-                                       <label for="cpu">Number of CPUS (Concurrent Users)</label>
-                                       <select class="form-control" name="cpu" id="cpu">
-                                          <option value="1">1 CPU</option>
-                                          <option value="2">2 CPU</option>
-                                          <option value="3">3 CPU</option>
-                                          <option value="4">4 CPU</option>
-                                       </select>
+                <div class="card-header">
+                    <ul class="nav nav-tabs card-header-tabs" id="main-termination-navigation" role="tablist">
+                        <li class="nav-item">
+                            <a class="nav-link active" href="#jmeter" role="tab" aria-controls="jmeter"
+                               aria-selected="true">Jmeter</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#chronograf" role="tab" aria-controls="chronograf"
+                               aria-selected="false">Chronograf</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#grafana" role="tab" aria-controls="grafana"
+                               aria-selected="false">Grafana</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#weavscope" role="tab" aria-controls="weavscope"
+                               aria-selected="false">Weavscope</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#graphs" role="tab" aria-controls="graphs"
+                               aria-selected="false">Reports</a>
+                        </li>
+                    </ul>
+                </div>
+                <div class="card-body map">
+                    <div class="tab-content mt-3 map">
+                            <div class="tab-pane active map " id="jmeter" role="tabpanel">
+                                {{if .ProblemsBinding}}
+                                <div class="row">
+                                    <div class="col-md-12 text-center">
+                                        <div class="alert alert-primary" role="alert">
+                                            Problems binding form data: {{ .ProblemsBinding}}
+                                        </div>
                                     </div>
-                                    
-                                    <div>
-                                       <label for="ram">Ram</label>
-                                       <select class="form-control" name="ram" id="ram">
-                                          <option value="1">1 Gigabyte</option>
-                                          <option value="2">2 Gigabyte</option>
-                                          <option value="3">3 Gigabyte</option>
-                                          <option value="4">4 Gigabyte</option>
-                                          <option value="5">5 Gigabyte</option>
-                                          <option value="6">6 Gigabyte</option>
-                                          <option value="7">7 Gigabyte</option>
-                                          <option value="8">8 Gigabyte</option>
-                                          <option value="9">9 Gigabyte</option>
-                                          <option value="10">10 Gigabyte</option>
-                                          <option value="11">11 Gigabyte</option>
-                                          <option value="12">12 Gigabyte</option>
-                                          <option value="13">13 Gigabyte</option>
-                                          <option value="14">14 Gigabyte</option>
-                                       </select>
-                                    </div>                                 
-                              </div>
-                           </div>
-                        </div>
+                                </div>
+                                {{end}}
+                                <div class="row">
+                                    <div class="col-md-5">
+                                        <div class="card">
+                                            <div class="card-title">
+                                                <h3 class="text-center"><strong>JMETER Test Report</strong></h3>
+                                            </div>
+                                            <div class="card-header">
+                                                <ul class="nav nav-tabs card-header-tabs" id="report-navigation" role="tablist">
+                                                    <li class="nav-item">
+                                                        <a class="nav-link active" href="#graph-nav" role="tab"
+                                                           aria-controls="graph-nav"
+                                                           aria-selected="true">Generate Graphs</a>
+                                                    </li>
+                                                    <li class="nav-item">
+                                                        <a class="nav-link" href="#testtoutput-nav" role="tab"
+                                                           aria-controls="testtoutput-nav"
+                                                           aria-selected="false">JMETER Log files</a>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                            <div class="card-body">
+                                                <div class="tab-content mt-3">
+                                                    <div class="tab-pane active" id="graph-nav" role="tabpanel">
+                                                        <div class="btn-group">
+                                                            <button type="button" class="btn btn-primary">Select Tenant</button>
+                                                            <button type="button"
+                                                                    class="btn btn-primary btn-lg dropdown-toggle dropdown-toggle-split"
+                                                                    data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                                                <span class="sr-only">Toggle Dropdown</span>
+                                                            </button>
+                                                            <div class="dropdown-menu">
+                                                                {{range $element := .TenantList}}
+                                                                <a id="fetchReport" class="dropdown-item" href="#">{{$element}}</a>
+                                                                <div class="dropdown-divider"></div>
+                                                                {{end}}
+                                                            </div>
+                                                        </div>
+                                                        <div>
+                                                            <br></br>
+                                                            <table id="tenantReport">
+                                                                <thead>
+                                                                <tr>
+                                                                    <th></th>
+                                                                    <th>Date</th>
+                                                                </tr>
+                                                                </thead>
+                                                            </table>
+                                                        </div>
+                                                    </div>
+                                                    <div class="tab-pane" id="testtoutput-nav" role="tabpanel">
+                                                        <div class="btn-group">
+                                                            <button type="button" class="btn btn-primary">Select Tenant</button>
+                                                            <button type="button"
+                                                                    class="btn btn-primary btn-lg dropdown-toggle dropdown-toggle-split"
+                                                                    data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                                                <span class="sr-only">Toggle Dropdown</span>
+                                                            </button>
+                                                            <div class="dropdown-menu" id="logFilesDropDownMenu">
+                                                                {{range $element := .AllTenants}}
+                                                                <a id="jmeterSlaves" class="dropdown-item jmeter-slaves-drop-down"
+                                                                   href="#">{{$element.Namespace}}</a>
+                                                                <div class="dropdown-divider"></div>
+                                                                {{end}}
+                                                            </div>
+                                                        </div>
+                                                        <br></br>
+                                                        <table id="testOutputReport">
+                                                            <thead>
+                                                            <tr>
+                                                                <th></th>
+                                                                <th>Name</th>
+                                                                <th>Phase</th>
+                                                                <th>PodIP</th>
+                                                            </tr>
+                                                            </thead>
+                                                        </table>
 
-                     </div>
-                  </div>
-               </div>
-               <div class="modal-footer">
-                     <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-               </div>
-            </div>
-         </div>
+                                                    </div>
+
+                                                </div>
+
+                                            </div>
+                                        </div>
+
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="card">
+                                            <div class="card-title">
+                                                <h3 class="text-center"><strong>JMETER Test Creation</strong></h3>
+                                            </div>
+                                            <div class="card-body">
+                                                <fieldset>
+                                                    <form method="post" id="startTestFrm" action="/start-test"
+                                                          enctype="multipart/form-data">
+                                                        <div class="form-group">
+                                                            <label for="context">Tennant</label>
+                                                            <input type="text" class="form-control" name="context" id="context"
+                                                                   aria-describedby="tenantHelp" {{if .Context}} value="{{ .Context }}" {{ end}}
+                                                            placeholder="Enter Tennant">
+                                                            <small id="tenantHelp" class="form-text text-muted">This is the tenant in
+                                                                which
+                                                                you
+                                                                want to run
+                                                                the tests</small>
+                                                        </div>
+                                                        <div id="MissingTenant"></div>
+                                                        <div id="InvalidTenantName"></div>
+                                                        <div class="form-group">
+                                                            <label for="numberOfNodes">JMETER slaves</label>
+                                                            <input {{if .NumberOfNodes}} value={{ .NumberOfNodes }} {{ end}} type="text"
+                                                            class="form-control" name="numberOfNodes" id="numberOfNodes"
+                                                            placeholder="Number of jmeter slaves">
+                                                            <div id="MissingNumberOfNodes"></div>
+                                                        </div>
+                                                        <div class="form-group file-upload-wrapper">
+                                                            <label for="data-file-upload">Slave Configuration</label>
+                                                            <button type="button" class="btn btn-primary btn-sm" data-toggle="modal"
+                                                                    data-target="#jvmSettingsModal">Configure Slaves
+                                                            </button>
+                                                            <small id="jvmsettingsHelp" class="form-text text-muted">Settings for
+                                                                configuring the
+                                                                Jmeter
+                                                                slaves</small>
+                                                        </div>
+                                                        <div class="form-group">
+                                                            <label for="bandWidthSelection">Select the bandwidth</label>
+                                                            <select class="form-control" name="bandWidthSelection"
+                                                                    id="bandWidthSelection">
+                                                                <option value="adsl">ADSL : 8 Mbit/s</option>
+                                                                <option value="adsl2">ADSL2 : 12 Mbit/s</option>
+                                                                <option value="adsl2Plus">ADSL2+ : 24 Mbit/s</option>
+                                                                <option value="ethernetLan">Ethernet LAN ; 10 Mbit/s</option>
+                                                                <option value="fastEthernet">Fast Ethernet : 100 Mbit/s</option>
+                                                                <option value="gigabitEthernet">Gigabit Ethernet : 1 Gbit/s</option>
+                                                                <option value="10gigabitEthernet">10 Gigabit Ethernet : 10 Gbit/s
+                                                                </option>
+                                                                <option value="100gigabitEthernet">100 Gigabit Ethernet : 100 Gbit/s
+                                                                </option>
+                                                                <option value="mobileDataEdge">Mobile data EDGE : 384 kbit/s</option>
+                                                                <option value="mobileDataHspa">Mobile data HSPA : 14,4 Mbp/s</option>
+                                                                <option value="mobileDatacHspaPlus">Mobile data HSPA+ : 21 Mbp/s
+                                                                </option>
+                                                                <option value="mobileDataDcHspaPlus">Mobile data DC-HSPA+ : 42 Mbps
+                                                                </option>
+                                                                <option value="mobileDataLte">Mobile data LTE : 150 Mbp/s</option>
+                                                                <option value="mobileDataGprs">Mobile data GPRS : 171 kbit/s</option>
+                                                                <option value="wifi80211a">WIFI 802.11a/g : 54 Mbit/s</option>
+                                                                <option value="wifi80211n">WIFI 802.11n : 600 Mbit/s</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="form-group file-upload-wrapper">
+                                                            <label for="script-file-upload">Jmeter Script</label>
+                                                            <input name="jmeter" id="script-file-upload" type="file"
+                                                                   class="file-upload"/>
+                                                            <small id="dataHelp" class="form-text text-muted">This is the Jmeter script
+                                                                to
+                                                                upload</small>
+                                                        </div>
+                                                        <div id="MissingJmeter"></div>
+                                                        <div class="form-group file-upload-wrapper">
+                                                            <label for="data-file-upload">Data</label>
+                                                            <input name="data" id="data-file-upload" type="file" class="file-upload"
+                                                                   aria-describedby="jmeterHelp"/>
+                                                            <small id="jmeterHelp" class="form-text text-muted">This is the data file
+                                                                used
+                                                                by
+                                                                the test</small>
+                                                        </div>
+                                                        <!-- Trigger the modal with a button -->
+                                                        <div id="MissingData"></div>
+                                                        <div id="GenericCreateTestMsg"></div>
+                                                        <button type="submit" id="startTestBtn" class="btn btn-primary">Run Test
+                                                        </button>
+                                                    </form>
+                                                </fieldset>
+                                            </div>
+                                            <div id="Success"></div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="card">
+                                            <div class="card-title">
+                                                <h3 class="text-center"><strong>Stop Test</strong></h3>
+                                            </div>
+                                            <div class="card-header">
+                                                <ul class="nav nav-tabs card-header-tabs" id="termination-navigation" role="tablist">
+                                                    <li class="nav-item">
+                                                        <a class="nav-link active" href="#safe" role="tab" aria-controls="safe"
+                                                           aria-selected="true">Safely</a>
+                                                    </li>
+                                                    <li class="nav-item">
+                                                        <a class="nav-link" href="#force" role="tab" aria-controls="force"
+                                                           aria-selected="false">Force</a>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                            <div class="card-body">
+                                                <div class="tab-content mt-3">
+                                                    <div class="tab-pane active" id="safe" role="tabpanel">
+                                                        <fieldset>
+                                                            <form method="post" id="stopTestFrm" action="/stop-test"
+                                                                  enctype="multipart/form-data">
+                                                                <div class="form-group">
+                                                                    <div id="StopRunningTests">
+                                                                        {{ $length := len .RunningTests }}
+                                                                        {{ if gt $length 0 }}
+                                                                        <div>
+                                                                            <select aria-label="Running Tests" class="form-control"
+                                                                                    name="stopcontext"
+                                                                                    id="stopcontext">
+                                                                                {{range $tenant := .RunningTests}}
+                                                                                {{if $tenant.Running}}
+                                                                                <option value="{{$tenant.Namespace}}">
+                                                                                    {{$tenant.Namespace}}
+                                                                                </option>
+                                                                                {{end}}
+                                                                                {{end}}
+                                                                            </select>
+                                                                            <small id="tenantHelp" class="form-text text-muted">This is
+                                                                                the tenant
+                                                                                in
+                                                                                which
+                                                                                you
+                                                                                want to stop
+                                                                                the test for </small>
+                                                                        </div>
+                                                                        {{ end }}
+                                                                    </div>
+                                                                </div>
+                                                                {{ $length := len .RunningTests }}
+                                                                {{ if gt $length 0 }}
+                                                                <button type="submit" id="stopTestBtn" class="btn btn-primary">Stop
+                                                                    Test
+                                                                </button>
+                                                                {{ else }}
+                                                                <div class="alert alert-warning" role="alert">No Tests are running</div>
+                                                                {{ end }}
+                                                                {{if .StopTenantMissing}}
+                                                                <div class="alert alert-primary" role="alert">
+                                                                    <strong>You must supply the tenant name</strong>
+                                                                </div>
+                                                                {{end}}
+                                                                {{if .InvalidTenantStop}}
+                                                                <div class="alert alert-primary" role="alert">
+                                                                    <strong>These names are not valid: {{ .InvalidTenantStop}}</strong>
+                                                                </div>
+                                                                {{end}}
+                                                                {{if .TennantNotStopped}}
+                                                                <div class="alert alert-primary" role="alert">
+                                                                    <strong>Was not able to stop the test {{ .TennantNotStopped}}</strong>
+                                                                </div>
+                                                                {{end}}
+                                                                {{if .TenantStopped}}
+                                                                <div class="alert alert-success" role="alert">
+                                                                    <strong>Test were stopped for: {{ .TenantStopped}}</strong>
+                                                                </div>
+                                                                {{end}}
+                                                            </form>
+                                                        </fieldset>
+
+                                                    </div>
+                                                    <!-- Begin of force delete -->
+                                                    <div class="tab-pane" id="force" role="tabpanel">
+                                                        <fieldset>
+                                                            <form method="post" id="forceStopTestFrm" action="/force-stop-test"
+                                                                  enctype="multipart/form-data">
+                                                                <div class="form-group">
+                                                                    <div id="RunningTests">
+                                                                        {{ $length := len .RunningTests }}
+                                                                        {{ if gt $length 0 }}
+                                                                        <div>
+                                                                            <select aria-label="Running Tests" class="form-control"
+                                                                                    name="forcestopcontext" id="forcestopcontext">
+                                                                                {{range $tenant := .RunningTests}}
+                                                                                {{if $tenant.Running}}
+                                                                                <option value="{{$tenant.Namespace}}">
+                                                                                    {{$tenant.Namespace}}
+                                                                                </option>
+                                                                                {{end}}
+                                                                                {{end}}
+                                                                            </select>
+                                                                            <small id="tenantHelp" class="form-text text-muted">This is
+                                                                                the tenant
+                                                                                in
+                                                                                which
+                                                                                you
+                                                                                want to force all test to stop</small>
+                                                                        </div>
+                                                                        {{ end }}
+                                                                    </div>
+                                                                </div>
+                                                                {{ $length := len .RunningTests }}
+                                                                {{ if gt $length 0 }}
+                                                                <button type="submit" id="forceStopTestBtn" class="btn btn-primary">
+                                                                    Force Stop Test
+                                                                </button>
+                                                                {{ else }}
+                                                                <div class="alert alert-warning" role="alert">No Tests are running</div>
+                                                                {{ end }}
+                                                                {{if .StopTenantMissing}}
+                                                                <div class="alert alert-primary" role="alert">
+                                                                    <strong>You must supply the tenant name</strong>
+                                                                </div>
+                                                                {{end}}
+                                                                {{if .InvalidTenantStop}}
+                                                                <div class="alert alert-primary" role="alert">
+                                                                    <strong>These names are not valid: {{ .InvalidTenantStop}}</strong>
+                                                                </div>
+                                                                {{end}}
+                                                                {{if .TennantNotStopped}}
+                                                                <div class="alert alert-primary" role="alert">
+                                                                    <strong>Was not able to stop the test {{ .TennantNotStopped}}</strong>
+                                                                </div>
+                                                                {{end}}
+                                                                {{if .TenantStopped}}
+                                                                <div class="alert alert-success" role="alert">
+                                                                    <strong>Test were stopped for: {{ .TenantStopped}}</strong>
+                                                                </div>
+                                                                {{end}}
+                                                            </form>
+                                                        </fieldset>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <br></br>
+                                        <div class="card">
+                                            <div class="card-title">
+                                                <h3 class="text-center"><strong>Test Status</strong></h3>
+                                            </div>
+                                            <div class="card-body">
+                                                <a class="btn btn-primary" id="PendingTests" href="#" role="button">Click to fetch all
+                                                    Status</a>
+                                                <div id="PendingList"></div>
+                                            </div>
+                                        </div>
+                                        <br></br>
+                                        <div class="card">
+                                            <div class="card-title">
+                                                <h3 class="text-center"><strong>Node Information</strong></h3>
+                                            </div>
+                                            <div class="card-body">
+                                                <a class="btn btn-primary" id="FailingNodes" href="#" role="button">Click to see if any
+                                                    nodes have
+                                                    failed</a>
+                                                <div id="FailingNodesList"></div>
+                                            </div>
+                                        </div>
+                                        <br></br>
+                                        <div class="card">
+                                            <div class="card-title">
+                                                <h3 class="text-center"><strong>Tenant Deletion</strong></h3>
+                                            </div>
+                                            <div class="card-body">
+                                                <fieldset>
+                                                    <form method="post" name="delete" id="deleteTenantFrm" action="/delete-tenant"
+                                                          enctype="multipart/form-data">
+                                                        <div class="form-group">
+                                                            <label for="context">Tennant</label>
+                                                            <div id="AllTenants">
+                                                                {{ $length := len .AllTenants }}
+                                                                {{ if gt $length 0 }}
+                                                                <div>
+                                                                    <select aria-label="Running Tests" class="form-control"
+                                                                            name="TenantContext"
+                                                                            id="TenantContext">
+                                                                        {{range $tenant := .AllTenants}}
+                                                                        <option value="{{$tenant.Namespace}}">{{$tenant.Namespace}}
+                                                                        </option>
+                                                                        {{end}}
+                                                                    </select>
+                                                                    <small id="tenantHelp" class="form-text text-muted">Select a tenant
+                                                                        to
+                                                                        delete</small>
+                                                                </div>
+                                                                {{ end }}
+                                                            </div>
+                                                            {{if .TennantNotDeleted}}
+                                                            <div class="alert alert-primary" role="alert">
+                                                                Tenant not deleted : {{ .TennantNotDeleted}}
+                                                            </div>
+                                                            {{end}}
+                                                            {{if .TenantDeleted}}
+                                                            <div class="alert alert-success" role="alert">
+                                                                Tenant {{ .TennantNotDeleted}} has been deleted
+                                                            </div>
+                                                            {{end}}
+                                                            {{ $length := len .AllTenants }}
+                                                            {{ if gt $length 0 }}
+                                                            <button type="submit" id="deleteTenantBtn" class="btn btn-primary">Delete
+                                                                Tenant
+                                                            </button>
+                                                            {{ else }}
+                                                            <div class="alert alert-warning" role="alert">No Tenants have been added
+                                                            </div>
+                                                            {{ end }}
+                                                        </div>
+                                                    </form>
+                                                </fieldset>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <!-- VM Settings modal Modal -->
+                                    <div class="modal fade" id="jvmSettingsModal" tabindex="-1" role="dialog"
+                                         aria-labelledby="jvmSettingsModalCenterTitle" aria-hidden="true">
+                                        <div class="modal-dialog modal-dialog-centered" role="document">
+                                            <div class="modal-content">
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title" id="jvmSettingsModalLongTitle">Slave: Configuration</h5>
+                                                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                                        <span aria-hidden="true">&times;</span>
+                                                    </button>
+                                                </div>
+                                                <!-- Modal content-->
+                                                <div class="modal-body">
+                                                    <div class="container">
+                                                        <div class="row">
+
+                                                            <div class="col-sm">
+                                                                <div class="card">
+                                                                    <div class="card-title">
+                                                                        <h3 class="text-center"><strong>JVM Settings</strong></h3>
+                                                                    </div>
+
+                                                                    <div class="card-body">
+                                                                        <div>
+                                                                            <label for="xms">Initial memory allocation pool(Xms)</label>
+                                                                            <select class="form-control" name="xmx" id="xms">
+                                                                                <option value="1">1 Gigabyte</option>
+                                                                                <option value="2">2 Gigabyte</option>
+                                                                                <option value="3">3 Gigabyte</option>
+                                                                                <option value="4">4 Gigabyte</option>
+                                                                                <option value="5">5 Gigabyte</option>
+                                                                                <option value="6">6 Gigabyte</option>
+                                                                            </select>
+                                                                        </div>
+
+                                                                        <div>
+                                                                            <label for="xmx">Maximum memory allocation
+                                                                                poolI(Xmx)</label>
+                                                                            <select class="form-control" name="xmx" id="xmx">
+                                                                                <option value="1">1 Gigabyte</option>
+                                                                                <option value="2">2 Gigabyte</option>
+                                                                                <option value="3">3 Gigabyte</option>
+                                                                                <option value="4">4 Gigabyte</option>
+                                                                                <option value="5">5 Gigabyte</option>
+                                                                                <option value="6">6 Gigabyte</option>
+                                                                            </select>
+                                                                        </div>
+                                                                        <div>
+                                                                            <label for="xms">Control Garbage Collection
+                                                                                (MaxMetaspaceSize)</label>
+                                                                            <select class="form-control" name="MaxMetaspaceSize"
+                                                                                    id="maxMetaspaceSize">
+                                                                                <option value="256">256mb</option>
+                                                                                <option value="512">512mb</option>
+                                                                                <option value="768">768mb</option>
+                                                                                <option value="1024">1024mb</option>
+                                                                                <option value="1280">1280mb</option>
+                                                                                <option value="1536">1536mb</option>
+                                                                            </select>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <div class="col-sm">
+
+                                                                <div class="card">
+                                                                    <div class="card-title">
+                                                                        <h3 class="text-center"><strong>Node Settings</strong></h3>
+                                                                    </div>
+
+                                                                    <div class="card-body">
+                                                                        <div>
+                                                                            <label for="cpu">Number of CPUS (Concurrent Users)</label>
+                                                                            <select class="form-control" name="cpu" id="cpu">
+                                                                                <option value="1">1 CPU</option>
+                                                                                <option value="2">2 CPU</option>
+                                                                                <option value="3">3 CPU</option>
+                                                                                <option value="4">4 CPU</option>
+                                                                            </select>
+                                                                        </div>
+
+                                                                        <div>
+                                                                            <label for="ram">Ram</label>
+                                                                            <select class="form-control" name="ram" id="ram">
+                                                                                <option value="1">1 Gigabyte</option>
+                                                                                <option value="2">2 Gigabyte</option>
+                                                                                <option value="3">3 Gigabyte</option>
+                                                                                <option value="4">4 Gigabyte</option>
+                                                                                <option value="5">5 Gigabyte</option>
+                                                                                <option value="6">6 Gigabyte</option>
+                                                                                <option value="7">7 Gigabyte</option>
+                                                                                <option value="8">8 Gigabyte</option>
+                                                                                <option value="9">9 Gigabyte</option>
+                                                                                <option value="10">10 Gigabyte</option>
+                                                                                <option value="11">11 Gigabyte</option>
+                                                                                <option value="12">12 Gigabyte</option>
+                                                                                <option value="13">13 Gigabyte</option>
+                                                                                <option value="14">14 Gigabyte</option>
+                                                                            </select>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                            <div class="tab-pane  map" id="chronograf" role="tabpanel">
+                                <object data="{{ .ChronografURL }}" width="100%" height="100%" >
+                                </object>
+                            </div>
+                            <div class="tab-pane map" id="grafana" role="tabpanel">
+                                <object data="{{ .DashboardURL }}" width="100%" height="100%" >
+                                </object>
+                            </div>
+                            <div class="tab-pane map" id="weavscope" role="tabpanel">
+                                <object data="{{ .MonitorURL }}" width="100%" height="100%" >
+                                    Error: Embedded data could not be displayed.
+                                </object>
+                            </div>
+                            <div class="tab-pane map" id="graphs" role="graphs">
+                                <object data="{{ .ReportURL }}" width="100%" height="100%" >
+                                    Error: Embedded data could not be displayed.
+                                </object>
+                            </div>
+                    </div>
+                </div>
+
     </div>
-    </div>
-      
-      <!-- Optional JavaScript -->
-      <!-- jQuery first, then Popper.js, then Bootstrap JS -->
-      <script src="https://code.jquery.com/jquery-3.4.1.js"></script>
-      <script type="text/javascript"
-         src="https://cdn.datatables.net/v/bs4/dt-1.10.20/b-1.6.1/b-colvis-1.6.1/r-2.2.3/rr-1.2.6/sc-2.0.1/sl-1.3.1/datatables.min.js"></script>
-      <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"
-         integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q"
-         crossorigin="anonymous"></script>
-      <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"
-         integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl"
-         crossorigin="anonymous"></script>
-      <script src="/script/js/lodash.min.js?v=1"></script>
-      <script src="/script/js/upload.js?v=16"></script>
-   </body>
+</div><!-- Optional JavaScript -->
+<!-- jQuery first, then Popper.js, then Bootstrap JS -->
+<script src="https://code.jquery.com/jquery-3.4.1.js"></script>
+<script type="text/javascript"
+        src="https://cdn.datatables.net/v/bs4/dt-1.10.20/b-1.6.1/b-colvis-1.6.1/r-2.2.3/rr-1.2.6/sc-2.0.1/sl-1.3.1/datatables.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"
+        integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q"
+        crossorigin="anonymous"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"
+        integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl"
+        crossorigin="anonymous"></script>
+<script src="/script/js/lodash.min.js?v=1"></script>
+<script src="/script/js/upload.js?v=16"></script>
+</body>
 </html>

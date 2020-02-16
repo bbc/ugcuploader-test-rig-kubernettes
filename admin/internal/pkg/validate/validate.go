@@ -92,11 +92,15 @@ func (v Validator) ValidateUpload(ugcLoadRequest *types.UgcLoadRequest) (result 
 		return
 	}
 
-	_, e := v.Context.FormFile("data")
-	if e != nil {
-		ugcLoadRequest.MissingData = true
-		return
-	}
+	/*
+		 * Making this optional
+		 *
+		*_, e := v.Context.FormFile("data")
+		*if e != nil {
+		*	ugcLoadRequest.MissingData = true
+		*	return
+		*}
+	*/
 	result = true
 	return
 }

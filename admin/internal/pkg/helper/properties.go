@@ -1,18 +1,16 @@
 package helper
 
 import (
-	"encoding/json"
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"os"
 	"text/template"
-	)
+)
 
+type JmeterProperties struct{}
 
-type JmeterProperties struct {}
-
-func (jp *JmeterProperties) Create(bandwidth string) (string) {
+func (jp *JmeterProperties) Create(bandwidth string) string {
 
 	bw := Bandwidth{}
 	bw.Init()

@@ -829,13 +829,18 @@ func (cnt *Controller) StartTest(c *gin.Context) {
 		return
 	}
 
-	fileName, dataFile, errData, fndData := getFileFromContext("data", c)
+	fileName, dataFile, _, fndData := getFileFromContext("data", c)
 	if fndData == false {
-		redisTenant.Started = "failed"
-		redisTenant.Errors = errData
-		redisUtils.AddTenant(redisTenant)
-		return
+		fileName = ""
 	}
+	/*
+		if fndData == false {
+			redisTenant.Started = "failed"
+			redisTenant.Errors = errData
+			redisUtils.AddTenant(redisTenant)
+			return
+		}
+	*/
 
 	_, fileJmeter, errJmeter, fndJmeter := getFileFromContext("jmeter", c)
 	if fndJmeter == false {

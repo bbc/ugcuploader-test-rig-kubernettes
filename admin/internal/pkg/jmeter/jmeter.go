@@ -67,10 +67,13 @@ func (jmeter Jmeter) IsSlaveRunning(podIP string) (res bool) {
 func (jmeter Jmeter) sendToDataSlave(hn string, wg sync.WaitGroup, message sync.Map) {
 	wg.Add(1)
 	defer wg.Done()
-	dataURI := fmt.Sprintf("http://%s:1007/data", hn)
-	e, uploaded := jmeter.Fop.ProcessData(dataURI, jmeter.DataFilename, jmeter.Data)
-	if uploaded == false {
-		message.Store(fmt.Sprintf("ProblesmUploadingData", hn), e)
+
+	if jmeter.DataFilename != "" {
+		dataURI := fmt.Sprintf("http://%s:1007/data", hn)
+		e, uploaded := jmeter.Fop.ProcessData(dataURI, jmeter.DataFilename, jmeter.Data)
+		if uploaded == false {
+			message.Store(fmt.Sprintf("ProblesmUploadingData", hn), e)
+		}
 	}
 }
 
