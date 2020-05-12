@@ -1,0 +1,1 @@
+export const reportFetchTenantsSelector = state => state.reportFetchTenants
