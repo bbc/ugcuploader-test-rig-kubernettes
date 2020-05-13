@@ -10,7 +10,12 @@ class Monitor extends Component {
   state = {};
   render() {
     return (
-      <Grid celled='internally' columns={1}>
+      <Grid celled="internally" columns={1}>
+        <Grid.Row>
+          <Grid.Column>
+            <TenantDeleton />
+          </Grid.Column>
+        </Grid.Row>
         <Grid.Row>
           <Grid.Column>
             <StopTest />
@@ -18,14 +23,13 @@ class Monitor extends Component {
         </Grid.Row>
         <Grid.Row>
           <Grid.Column>
-              <TestStatus/>
+            <TestStatus />
           </Grid.Column>
         </Grid.Row>
         <Grid.Row>
-          <Grid.Column><NodeInformation/></Grid.Column>
-        </Grid.Row>
-        <Grid.Row>
-          <Grid.Column><TenantDeleton/></Grid.Column>
+          <Grid.Column style={{ overflow: "auto" }}>
+            <NodeInformation />
+          </Grid.Column>
         </Grid.Row>
       </Grid>
     );

@@ -56,7 +56,7 @@ class Safely extends Component {
           />
         </Segment>
         <Segment>
-          <Button color="blue" onClick={this.stopTest}> Stop Test</Button>
+          <Button color="blue" onClick={this.stopTest}> Stop Test Safely</Button>
         </Segment>
       </Container>
     );

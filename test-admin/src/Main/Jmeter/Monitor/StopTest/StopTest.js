@@ -5,12 +5,13 @@ import {
   Tab 
 } from 'semantic-ui-react';
 import Safely from './Safely/Safely';
+import ForceStop from './ForceStop/ForceStop';
 import './StopTest.css';
 
 
 const panes = [
   { menuItem: 'Safely', render: () => <Tab.Pane><Safely/></Tab.Pane> },
-  { menuItem: 'Force', render: () => <Tab.Pane>Force</Tab.Pane> }
+  { menuItem: 'Force', render: () => <Tab.Pane><ForceStop/></Tab.Pane> }
 ]
 
 class StopTest extends Component {
