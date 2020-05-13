@@ -9,7 +9,7 @@ class Jmeter extends Component {
   state = {};
   render() {
     return (
-      <Container className="Jmeter-Wrapper">
+      <Container style={{width: 'fit-content'}} className="Jmeter-Wrapper">
         <Grid divided>
           <Grid.Row columns={3}>
             <Grid.Column>

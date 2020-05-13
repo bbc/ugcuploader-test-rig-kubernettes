@@ -25,7 +25,7 @@ class Main extends Component {
   state = {}
     render() {
       return (
-        <Container className="Main-Wrapper">
+        <Container style={{ width: 'auto'}}className="Main-Wrapper">
           <Container textAlign='center'><Header as="h1">Kubernetes Load Test Rig</Header></Container>
           <Container className="Message-wrapper" textAlign='center'>
           <Message warning>

@@ -243,7 +243,7 @@ class CreateTest extends Component {
               content="Please make sure you have supplied all data"
             />
           ) : null}
-          <Form.Field>
+          <Form.Field required>
             <label>Tennant</label>
             <input
               name="tenant"
@@ -252,7 +252,7 @@ class CreateTest extends Component {
             />
             <small>This is the tenant in which you want to run the tests</small>
           </Form.Field>
-          <Form.Field>
+          <Form.Field required>
             <label>Number of jmeter Slaves</label>
             <input
               name="slaves"
@@ -260,7 +260,7 @@ class CreateTest extends Component {
               placeholder="Slaves"
             />
           </Form.Field>
-          <Form.Group>
+          <Form.Field required>
             <label>Settings for Jmeter slaves</label>
             <Button color="blue" onClick={this.configureModal(true, false)}>
               Configure Slaves
@@ -280,16 +280,18 @@ class CreateTest extends Component {
                 />
               </Modal.Actions>
             </Modal>
-          </Form.Group>
+          </Form.Field>
+          <Form.Field required>
           <label>Select Bandwidth</label>
-          <br />
+          
           <Form.Select
             name="bandwidth"
             placeholder="select bandwidth"
             onChange={this.handleChange}
             options={bandwidthOptions}
           />
-          <Form.Field>
+          </Form.Field>
+          <Form.Field required>
             <label>Jmeter Test Script</label>
             <input
               name="jmeterscript"
