@@ -10,7 +10,7 @@ class Monitor extends Component {
   state = {};
   render() {
     return (
-      <Grid columns={1}>
+      <Grid celled='internally' columns={1}>
         <Grid.Row>
           <Grid.Column>
             <StopTest />
