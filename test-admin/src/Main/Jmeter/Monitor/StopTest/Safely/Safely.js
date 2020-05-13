@@ -4,7 +4,6 @@ import {
   Container,
   Button,
   Dropdown,
-  Header,
   Segment,
 } from "semantic-ui-react";
 import "./Safely.css";
@@ -57,7 +56,7 @@ class Safely extends Component {
           />
         </Segment>
         <Segment>
-          <Button onClick={this.stopTest}> Stop Test</Button>
+          <Button color="blue" onClick={this.stopTest}> Stop Test</Button>
         </Segment>
       </Container>
     );

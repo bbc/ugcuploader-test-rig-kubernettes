@@ -14,7 +14,9 @@ export class Report extends Component {
       <MyConsumer>
         {({ graphsUrl }) => (
           <Segment className="Report">
-            <object data={graphsUrl} width="100%" height="100%"></object>
+            <object data={graphsUrl} width="100%" height="100%">
+              Generated Reports
+            </object>
           </Segment>
         )}
       </MyConsumer>

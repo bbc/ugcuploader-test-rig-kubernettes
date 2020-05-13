@@ -10,7 +10,7 @@ class Jmeter extends Component {
   render() {
     return (
       <Container className="Jmeter-Wrapper">
-        <Grid divided="vertically">
+        <Grid divided>
           <Grid.Row columns={3}>
             <Grid.Column>
             <JmeterTestReports/>

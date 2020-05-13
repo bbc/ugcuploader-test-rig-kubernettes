@@ -1,8 +1,6 @@
 import React, { Component } from "react";
 import BootstrapTable from "react-bootstrap-table-next";
 import { get } from "axios";
-import _ from "lodash";
-import fetch from "isomorphic-fetch";
 import { Container, Button, Header } from "semantic-ui-react";
 import "./TestStatus.css";
 
@@ -26,13 +24,8 @@ class TestStatus extends Component {
 
   fetchTestStatus = () => {
     get("/test-status").then((response) => {
-      console.log("data", response.data);
-
       let deleted = response.data.BeingDeleted;
       let started = response.data.Started;
-      console.log("started", started);
-      console.log("deleted", deleted);
-
       if (started && deleted) {
         this.setState({ teststatus: started.concat(deleted) });
       } else if (started) {
@@ -56,7 +49,7 @@ class TestStatus extends Component {
           data={this.state.teststatus}
           columns={columns}
         />
-        <Button onClick={this.fetchTestStatus}> Fetch Test Status</Button>
+        <Button color="blue" onClick={this.fetchTestStatus}> Fetch Test Status</Button>
       </Container>
     );
   }

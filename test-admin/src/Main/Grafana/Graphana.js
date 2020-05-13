@@ -13,7 +13,9 @@ export class Graphana extends Component {
       <MyConsumer>
         {({ graphanaUrl }) => (
           <Segment className="Graphana">
-            <object data={graphanaUrl} width="100%" height="100%"></object>
+            <object data={graphanaUrl} width="100%" height="100%">
+              Grafana Dashboard
+            </object>
           </Segment>
         )}
       </MyConsumer>

@@ -65,7 +65,7 @@ class TenantDeletion extends Component {
           />
         </Segment>
         <Segment>
-          <Button onClick={this.deleteTenant}> Delete Selected Tenant</Button>
+          <Button color="blue" onClick={this.deleteTenant}> Delete Selected Tenant</Button>
         </Segment>
       </Container>
     );

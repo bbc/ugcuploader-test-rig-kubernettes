@@ -26,7 +26,7 @@ class Main extends Component {
     render() {
       return (
         <Container className="Main-Wrapper">
-          <Container textalign='center'><Header as="h1">Kubernetes Load Test Rig</Header></Container>
+          <Container textAlign='center'><Header as="h1">Kubernetes Load Test Rig</Header></Container>
           <Container className="Message-wrapper" textAlign='center'>
           <Message warning>
             <Message.Header textalign="center"> Embedding grafana triggers firefox security!</Message.Header>

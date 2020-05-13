@@ -1,5 +1,5 @@
 import React, { Component } from "react";
-import { post, get } from 'axios';
+import { post } from "axios";
 
 import {
   Button,
@@ -191,9 +191,9 @@ class CreateTest extends Component {
     } else {
       this.setState({ formError: false });
       console.log("upload");
-      this.fileUpload().then((response)=>{
+      this.fileUpload().then((response) => {
         console.log(response.data);
-        this.setState({teststart: true});
+        this.setState({ teststart: true });
       });
     }
   };
@@ -220,7 +220,7 @@ class CreateTest extends Component {
 
   closeModal = () => {
     this.setState({ open: false });
-    this.setState({formError: false });
+    this.setState({ formError: false });
   };
 
   configureModal = (closeOnEscape, closeOnDimmerClick) => () => {
@@ -262,10 +262,10 @@ class CreateTest extends Component {
           </Form.Field>
           <Form.Group>
             <label>Settings for Jmeter slaves</label>
-            <Button onClick={this.configureModal(true, false)}>
+            <Button color="blue" onClick={this.configureModal(true, false)}>
               Configure Slaves
             </Button>
-            <Modal style={{height: 'fit-content'}} open={open}>
+            <Modal style={{ height: "fit-content" }} open={open}>
               <Modal.Header>SlaveConfiguration</Modal.Header>
               <Modal.Content>
                 <SlaveConfig create={this} />
@@ -303,15 +303,13 @@ class CreateTest extends Component {
             <input name="testdata" onChange={this.handleChange} type="file" />
             <small>This is the data file used by the test</small>
           </Form.Field>
-          <Button type="submit">Run Tests</Button>
+          <Button color="blue" type="submit">
+            Run Tests
+          </Button>
         </Form>
         {this.state.teststart ? (
-            <Message
-              info
-              header={this.state.tenant}
-              content="Started Test"
-            />
-          ) : null}
+          <Message info header={this.state.tenant} content="Started Test" />
+        ) : null}
       </Container>
     );
   }

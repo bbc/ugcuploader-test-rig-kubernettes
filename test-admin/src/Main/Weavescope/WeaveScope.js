@@ -14,7 +14,9 @@ export class WeaveScope extends Component {
       <MyConsumer>
         {({ weaveScopeUrl }) => (
           <Segment className="Weavescope">
-            <object data={weaveScopeUrl} width="100%" height="100%"></object>
+            <object data={weaveScopeUrl} width="100%" height="100%">
+                Kubernetes Monitor
+            </object>
           </Segment>
         )}
       </MyConsumer>
