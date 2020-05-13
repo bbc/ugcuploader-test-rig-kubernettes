@@ -3,7 +3,7 @@ kind: ClusterConfig
 
 metadata:
   name: ugctestgrid
-  region: eu-west-2
+  region: eu-west-1
 
 iam:
   withOIDC: true
@@ -112,7 +112,7 @@ nodeGroups:
         externalDNS: true
         ebs: true
     instanceType: t2.micro
-    availabilityZones: ["eu-west-2a"]
+    availabilityZones: ["eu-west-1a"]
 
   - name: influxdb-v2
     labels: { report : influxdb }
@@ -132,7 +132,7 @@ nodeGroups:
         externalDNS: true
         ebs: true
     instanceType: t2.micro
-    availabilityZones: ["eu-west-2a"]
+    availabilityZones: ["eu-west-1a"]
 
   - name: admin-controller-v4
     labels: { control : admin }

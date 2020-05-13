@@ -1,7 +1,7 @@
 # Base build image
 FROM python:3.7-alpine
 
-USER root
+USER 0
 # Install some dependencies needed to build the project
 RUN apk update && apk --no-cache add curl git jq bash openssh openrc rsyslog rsync gcc g++ libc-dev bash go bzr git mercurial subversion openssh-client ca-certificates lighttpd redis
 
@@ -55,7 +55,7 @@ COPY etc /etc
 RUN mkdir /home/control/admin
 
 COPY admin admin
-USER root
+USER 0
 RUN chown -R control:control admin
 USER 1000
 # add credentials on build
@@ -82,7 +82,7 @@ RUN go mod download
 
 RUN go build -o ./bin/admin  ./cmd/ugcupload/main.go
 WORKDIR /home/control
-USER ROOT
+USER 0
 RUN curl --silent --location "https://github.com/weaveworks/eksctl/releases/download/latest_release/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
 RUN mv /tmp/eksctl /usr/local/bin
 RUN rc-update add sshd
@@ -117,7 +117,7 @@ COPY entry.sh /usr/local/bin
 COPY lighttpd.conf /etc/lighttpd/lighttpd.conf
 RUN mkdir graphs
 
-USER root
+USER 0
 RUN chmod 0777 /usr/local/bin/gen-env.py
 RUN chown -R control:control tenant
 RUN chown -R control:control src
