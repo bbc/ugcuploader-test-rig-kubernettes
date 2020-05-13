@@ -41,7 +41,7 @@ class Safely extends Component {
       console.log(tennants);
 
       let AllTenants = _.map(tennants, function (item) {
-        return { key: item.Name, value: item.Name, text: item.Name };
+        return { key: item.Namespace, value: item.Namespace, text: item.Namespace };
       });
       this.setState({ tennants: AllTenants });
     });

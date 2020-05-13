@@ -9,13 +9,13 @@ import Jmeter from './Jmeter/Jmeter';
 import WeaveScope from './Weavescope/WeaveScope';
 import Report from './Report/Report';
 import Graphana from './Grafana/Graphana';
-import Chronograf from './Chronograf/Chronograf';
+import ChronografContainer from './Chronograf/ChronografContainer';
 import './Main.css';
 
 
 const panes = [
   { menuItem: 'Jmeter', render: () => <Tab.Pane><Jmeter/></Tab.Pane> },
-  { menuItem: 'Chronograf', render: () => <Tab.Pane><Chronograf/></Tab.Pane> },
+  { menuItem: 'Chronograf', render: () => <Tab.Pane><ChronografContainer/></Tab.Pane> },
   { menuItem: 'Grafana', render: () => <Tab.Pane><Graphana/></Tab.Pane> },
   { menuItem: 'Weavscope', render: () => <Tab.Pane><WeaveScope/></Tab.Pane> },
   { menuItem: 'Report', render: () => <Tab.Pane><Report/></Tab.Pane> },

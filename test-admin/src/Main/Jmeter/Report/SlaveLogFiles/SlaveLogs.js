@@ -4,6 +4,7 @@ import { get } from "axios";
 import "./SlaveLogs.css";
 import _ from 'lodash';
 import MyConsumer from "../../../../MyConsumer";
+import SlaveList from "./SlaveList/SlaveList";
 
 class SlaveLogs extends Component {
 
@@ -22,7 +23,7 @@ class SlaveLogs extends Component {
       console.log(tennants);
 
       let AllTenants = _.map(tennants, function (item) {
-        return { key: item.Name, value: item.Name, text: item.Name };
+        return { key: item.Namespace, value: item.Namespace, text: item.Name+"@"+item.Namespace };
       });
       this.setState({ tennants: AllTenants });
       //  this.setState({teststatus: status});
@@ -36,15 +37,18 @@ class SlaveLogs extends Component {
   render() {
     return (
       <MyConsumer>
-        {({ fetchReportsForTenant }) => (
+        {({ fetchSlaves }) => (
             <div>
               <Segment>
                 <Dropdown
                   placeholder="Select tennet"
                   options={this.state.tennants}
-                  //onChange ={(event, data) => {fetchReportsForTenant(data.value)}}
+                  onChange ={(event, data) => {fetchSlaves(data.value)}}
                   //onChange = {this.onChange}
                 />
+              </Segment>
+              <Segment>
+               <SlaveList/>
               </Segment>
               </div>
         )}

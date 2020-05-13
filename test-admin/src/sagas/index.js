@@ -5,7 +5,6 @@ import { reportFetchTenantsSelector } from '../redux/selectors'
 
 export function fetchPostsApi() {
   let data = fetch('/tenants').then(function(response) {
-    console.log(JSON.stringify(response));
     return response.json();
   });
   
@@ -17,7 +16,6 @@ export function fetchPostsApi() {
 export function* reportFetchTenants() {
   yield put(actions.reportFetchTenants());
   const tenants = yield call(fetchPostsApi);
-  console.log("---->", tenants);
   yield put(actions.receiveReportTenants(tenants))
 }
 

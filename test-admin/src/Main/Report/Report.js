@@ -2,18 +2,20 @@ import React, { Component } from "react";
 
 import MyConsumer from "../../MyConsumer";
 import "./Report.css";
+import { Segment } from "semantic-ui-react";
 
 export class Report extends Component {
   state = {
-    items: {}
+    items: {},
   };
 
   render() {
     return (
       <MyConsumer>
         {({ graphsUrl }) => (
-    <object data={ graphsUrl} width="100%" height="100%" >
-    </object>
+          <Segment className="Report">
+            <object data={graphsUrl} width="100%" height="100%"></object>
+          </Segment>
         )}
       </MyConsumer>
     );

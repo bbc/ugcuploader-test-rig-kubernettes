@@ -2,7 +2,7 @@ import MyContext from "./MyContext";
 
 import React, { Component } from "react";
 
-import { fetchReportByTenant, fetchDashboardUrl } from './provider/report';
+import { fetchReportByTenant, fetchDashboardUrl, fetchSlavesForTenant } from './provider/report';
 import _ from 'lodash';
 
 class MyProvider extends Component {
@@ -10,6 +10,7 @@ class MyProvider extends Component {
     super(props);
     this.state = {
       reports: [],
+      slaves: [],
       graphanaUrl: '',
       chronographUrl: '',
       graphsUrl: '',
@@ -18,9 +19,13 @@ class MyProvider extends Component {
   }
 
   async componentDidMount() {
+    this.updateFunctions();
     this.fetchDashboardURLS();
   }
 
+  updateFunctions = () => {
+     this.setState({fetchSlaves: this.fetchSlaves});
+  }
   fetchReportsForTenant = async (id) => {
     const report = await fetchReportByTenant(id);
     let reports = _.map(report, (item)=> {
@@ -36,6 +41,11 @@ class MyProvider extends Component {
     });
     this.setState({ reports: reports });
   };
+
+  fetchSlaves = async(tenant) => {
+    const slaves = await fetchSlavesForTenant(tenant);
+    this.setState({ slaves: slaves });
+  }
 
   fetchDashboardURLS = async () => {
     const dashboard = await fetchDashboardUrl();
