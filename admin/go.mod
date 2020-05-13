@@ -28,25 +28,57 @@ replace (
 )
 
 require (
+	github.com/0xAX/notificator v0.0.0-20191016112426-3962a5ea8da1 // indirect
 	github.com/antchfx/xmlquery v1.2.3
 	github.com/antchfx/xpath v1.1.4 // indirect
 	github.com/aws/aws-sdk-go v1.27.4
 	github.com/aws/aws-sdk-go-v2 v0.18.0
+	github.com/boj/redistore v0.0.0-20180917114910-cd5dcc76aeff
+	github.com/bradfitz/gomemcache v0.0.0-20190329173943-551aad21a668
+	github.com/certifi/gocertifi v0.0.0-20200211180108-c7c1fbc02894 // indirect
+	github.com/codegangsta/envy v0.0.0-20141216192214-4b78388c8ce4 // indirect
+	github.com/codegangsta/gin v0.0.0-20171026143024-cafe2ce98974 // indirect
+	github.com/davecgh/go-spew v1.1.1
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible
+	github.com/elazarl/go-bindata-assetfs v1.0.0
+	github.com/garyburd/redigo v1.6.0
+	github.com/getsentry/raven-go v0.2.0
 	github.com/gin-contrib/location v0.0.1
 	github.com/gin-contrib/sessions v0.0.3
+	github.com/gin-contrib/static v0.0.0-20191128031702-f81c604d8ac2
+	github.com/gin-gonic/contrib v0.0.0-20191209060500-d6e26eeaa607
 	github.com/gin-gonic/gin v1.5.0
+	github.com/globalsign/mgo v0.0.0-20181015135952-eeefdecb41b8
+	github.com/go-logr/logr v0.1.0
 	github.com/go-playground/validator/v10 v10.1.0
 	github.com/gomodule/redigo v2.0.0+incompatible
 	github.com/google/go-cmp v0.3.2-0.20191028172631-481baca67f93 // indirect
+	github.com/gorilla/context v1.1.1
+	github.com/gorilla/securecookie v1.1.1
+	github.com/gorilla/sessions v1.1.3
 	github.com/imdario/mergo v0.3.8 // indirect
+	github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af
 	github.com/labstack/echo/v4 v4.1.13
 	github.com/magiconair/properties v1.8.1
+	github.com/memcachier/mc v2.0.1+incompatible
+	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
 	github.com/patrickmn/go-cache v2.1.0+incompatible
+	github.com/pkg/errors v0.8.0
+	github.com/quasoft/memstore v0.0.0-20180925164028-84a050167438
+	github.com/robfig/go-cache v0.0.0-20130306151617-9fc39e0dbf62
 	github.com/satori/go.uuid v1.2.0
 	github.com/sirupsen/logrus v1.4.2
+	github.com/stretchr/testify v1.4.0
+	github.com/yvasiyarov/go-metrics v0.0.0-20150112132944-c25f46c4b940
+	github.com/yvasiyarov/gorelic v0.0.7
+	github.com/yvasiyarov/newrelic_platform_go v0.0.0-20160601141957-9c099fbc30e9 // indirect
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d // indirect
 	golang.org/x/sync v0.0.0-20190227155943-e225da77a7e6
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect
+	gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405
+	gopkg.in/inf.v0 v0.9.0
+	gopkg.in/tomb.v2 v2.0.0-20161208151619-d5d1b5820637
+	gopkg.in/urfave/cli.v1 v1.20.0 // indirect
 	k8s.io/api v0.17.0
 	k8s.io/apimachinery v0.17.0
 	k8s.io/client-go v0.0.0

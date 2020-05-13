@@ -57,6 +57,7 @@ func (kop *Operations) Init() (success bool) {
 	} else {
 		if kop.Config == nil {
 			var kubeconfig *string
+
 			if home := homeDir(); home != "" {
 				kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
 			} else {
@@ -980,10 +981,11 @@ func (kop Operations) CreateServiceaccount(ns string, policyarn string) (created
 	args := []string{ns, policyarn}
 	se := shellExec.Exec{}
 	_, err = se.ExecuteCommand(cmd, args)
-	if err != "" {
+	if err != "" && strings.Contains(err, "exit status 1") == false {
 		log.WithFields(log.Fields{
 			"err": err,
 		}).Errorf("unable to create the service account in workspace: %v", ns)
+		err = fmt.Sprintf("failed calling script 'create-serviceaccount.sh': error:%s", err)
 		created = false
 	} else {
 		created = true
@@ -1002,6 +1004,7 @@ func (kop Operations) DeleteServiceAccount(ns string) (deleted bool, err string)
 		log.WithFields(log.Fields{
 			"err": err,
 		}).Errorf("unabme able to delete the service account in workspace: %v", ns)
+		err = fmt.Sprintf("failed calling script 'delete-serviceaccount.sh': error:%s", err)
 		deleted = false
 	} else {
 		deleted = true
@@ -1019,6 +1022,7 @@ func (kop Operations) StopTest(ns string) (started bool, err string) {
 		log.WithFields(log.Fields{
 			"err": err,
 		}).Errorf("unable to stop the test %v", strings.Join(args, ","))
+		err = fmt.Sprintf("failed calling script 'stop_test.sh': error:%s", err)
 		started = false
 	} else {
 		started = true

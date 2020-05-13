@@ -11,6 +11,7 @@ import (
 	types "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/types"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/redis"
+	"github.com/gin-gonic/contrib/static"
 	"github.com/gin-gonic/gin"
 	"github.com/magiconair/properties"
 	log "github.com/sirupsen/logrus"
@@ -82,28 +83,38 @@ func router01() http.Handler {
 	r.Use(sessions.Sessions("mysession", store))
 	r.Use(SetNoCacheHeader())
 
-	r.LoadHTMLGlob(props.MustGet("web") + "/templates/*")
+	r.Use(static.Serve("/", static.LocalFile(props.MustGet("web")+"/build", true)))
 	r.GET("/", func(c *gin.Context) {
-		ugcLoadRequest := types.UgcLoadRequest{}
-		session := sessions.Default(c)
-		if session != nil {
-			ulr := session.Get("ugcLoadRequest")
-			if ulr != nil {
-				ugcLoadRequest = ulr.(types.UgcLoadRequest)
-			}
-		}
-		control.AddMonitorAndDashboard(&ugcLoadRequest)
-		control.AddTenants(&ugcLoadRequest)
-		c.HTML(http.StatusOK, "index.tmpl", ugcLoadRequest)
-		session.Clear()
-		if err := session.Save(); err != nil {
-			log.WithFields(log.Fields{
-				"err": err,
-			}).Error("Unable to save the session")
-		}
-
+		c.JSON(http.StatusOK, gin.H{
+			"message": "pong",
+		})
 	})
 
+	/*
+		r.LoadHTMLGlob(props.MustGet("web") + "/templates/*")
+		r.GET("/", func(c *gin.Context) {
+			ugcLoadRequest := types.UgcLoadRequest{}
+			session := sessions.Default(c)
+			if session != nil {
+				ulr := session.Get("ugcLoadRequest")
+				if ulr != nil {
+					ugcLoadRequest = ulr.(types.UgcLoadRequest)
+				}
+			}
+			control.AddMonitorAndDashboard(&ugcLoadRequest)
+			control.AddTenants(&ugcLoadRequest)
+			c.HTML(http.StatusOK, "index.tmpl", ugcLoadRequest)
+			session.Clear()
+			if err := session.Save(); err != nil {
+				log.WithFields(log.Fields{
+					"err": err,
+				}).Error("Unable to save the session")
+			}
+
+		})
+	*/
+
+	//r.Use(static.Serve("/", static.LocalFile(fmt.Sprintf("%s/admin-frontend/dist/admin-frontend", props.MustGet("web")), true)))
 	r.GET("/update", func(c *gin.Context) {
 
 		session := sessions.Default(c)
@@ -124,7 +135,7 @@ func router01() http.Handler {
 		}
 
 	})
-	r.Static("/script", props.MustGet("web"))
+	//r.Static("/script", props.MustGet("web"))
 	r.POST("/start-test", control.StartTest)
 	r.POST("/stop-test", control.StopTest)
 	r.POST("/force-stop-test", control.ForceStopTest)
@@ -135,6 +146,7 @@ func router01() http.Handler {
 	r.POST("/genReport", control.GenerateReport)
 	r.GET("/slaves", control.JmeterSlaves)
 	r.GET("/test-output", control.Testoutput)
+	r.GET("/dashboardUrl", control.DashboardURL)
 
 	r.GET("/tenants", control.AllTenants)
 	return r

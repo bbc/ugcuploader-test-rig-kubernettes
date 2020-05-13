@@ -24,12 +24,12 @@ func (s3ops *S3Operations) GetBucketItems(bucket string, prefix string, index in
 		eksCreds := awscredentials.Credentials{}
 		creds := *eksCreds.GetWebIdentityCredentials()
 		config = &aws.Config{
-			Region:      aws.String("eu-west-2"),
+			Region:      aws.String("eu-west-1"),
 			Credentials: credentials.NewStaticCredentials(*creds.AccessKeyId, *creds.SecretAccessKey, *creds.SessionToken),
 		}
 	} else {
 		config = &aws.Config{
-			Region: aws.String("eu-west-2"),
+			Region: aws.String("eu-west-1"),
 		}
 	}
 

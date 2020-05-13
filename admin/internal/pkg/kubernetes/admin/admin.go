@@ -87,7 +87,11 @@ func (admin *Admin) CreateTenantInfrastructure(ugcLoadRequest types.UgcLoadReque
 
 	admin.KubeOps.RegisterClient()
 	clusterops := cluster.Operations{}
-	awsRegion, awsAcntNumber := clusterops.DescribeCluster("ugctestgrid")
+	awsRegion, awsAcntNumber, problems := clusterops.DescribeCluster("ugctestgrid")
+	if problems != "" {
+		error = problems
+		return
+	}
 	log.WithFields(log.Fields{
 		"awsAcntNumber": awsAcntNumber,
 		"awsRegion":     awsRegion,

@@ -87,6 +87,24 @@ func (cnt *Controller) AddTenants(ur *types.UgcLoadRequest) {
 			filtered = append(filtered, ten)
 		}
 	}
+
+	tenants, _, _ := redisUtils.FetchWaitingTests()
+	for _, tenant := range tenants {
+		rt, _, found := redisUtils.GetTenant(tenant)
+		if found {
+			if len(rt.Tenant) > 0 {
+				if strings.EqualFold(rt.Started, "failed") {
+					var t = types.Tenant{}
+					t.Name = rt.Tenant
+					t.Namespace = rt.Tenant
+					t.Running = false
+					filtered = append(filtered, t)
+
+				}
+			}
+		}
+	}
+
 	ur.AllTenants = filtered
 }
 
@@ -146,7 +164,7 @@ func (cnt *Controller) S3Tenants(c *gin.Context) {
 	tenant, _ := c.GetQuery("tenant")
 
 	var my []Items
-	items, _ := cnt.S3.GetBucketItems("ugcupload-jmeter", fmt.Sprintf("%s/", tenant), 1)
+	items, _ := cnt.S3.GetBucketItems("ugcupload-jmeter-eu-west-1", fmt.Sprintf("%s/", tenant), 1)
 	for _, item := range items {
 		it := Items{Date: item}
 		my = append(my, it)
@@ -378,6 +396,8 @@ func (cnt *Controller) DeleteTenant(c *gin.Context) {
 
 	go cnt.removeTenant(ugcLoadRequest.TenantContext)
 
+	redisUtils.RemoveTenant(ugcLoadRequest.TenantContext)
+	redisUtils.RemoveFromWaitingTests(ugcLoadRequest.TenantContext)
 	redisTenant := types.RedisTenant{Tenant: ugcLoadRequest.TenantContext, Started: "Started Deleting"}
 	redisUtils.AddToWaitingForDelete(redisTenant)
 	redisUtils.BeingDeleted(ugcLoadRequest.TenantContext)
@@ -899,4 +919,13 @@ func (cnt *Controller) Testoutput(c *gin.Context) {
 	}).Error("Problems making request to get jmeter log files")
 	c.Abort()
 	return
+}
+
+//DashboardURL used to get the urls for the dashboards
+func (cnt *Controller) DashboardURL(c *gin.Context) {
+
+	request := types.UgcLoadRequest{}
+	cnt.AddMonitorAndDashboard(&request)
+	c.PureJSON(http.StatusOK, request)
+
 }

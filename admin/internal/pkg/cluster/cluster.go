@@ -2,33 +2,28 @@ package cluster
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
-
-	log "github.com/sirupsen/logrus"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/external"
 	"github.com/aws/aws-sdk-go-v2/service/eks"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	awscredentials "github.com/bbc/ugcuploader-test-rig-kubernettes/admin/internal/pkg/awscredential"
+	log "github.com/sirupsen/logrus"
 )
 
 //Operations performed on the cluster
 type Operations struct{}
 
 //DescribeCluster returns a description of the cluster
-func (ops Operations) DescribeCluster(clusterName string) (awsRegion string, awsActNmbr string) {
+func (ops Operations) DescribeCluster(clusterName string) (awsRegion string, awsActNmbr string, problems string) {
 
 	webTokenFile := os.Getenv("AWS_WEB_IDENTITY_TOKEN_FILE")
 
 	var cfg aws.Config
 	var err error
-	if err != nil {
-		log.WithFields(log.Fields{
-			"err": err.Error(),
-		}).Error("Problems Loading Credentials")
-	}
 	if webTokenFile != "" {
 		eksCreds := awscredentials.Credentials{}
 		creds := eksCreds.GetWebIdentityCredentials()
@@ -50,7 +45,7 @@ func (ops Operations) DescribeCluster(clusterName string) (awsRegion string, aws
 			"err": err.Error(),
 		}).Error("Problems Loading Credentials")
 	}
-	cfg.Region = "eu-west-2"
+	cfg.Region = "eu-west-1"
 	svc := eks.New(cfg)
 	input := &eks.DescribeClusterInput{
 		Name: aws.String(clusterName),
@@ -59,6 +54,7 @@ func (ops Operations) DescribeCluster(clusterName string) (awsRegion string, aws
 	req := svc.DescribeClusterRequest(input)
 	result, err := req.Send(context.Background())
 	if err != nil {
+		problems = err.Error()
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case eks.ErrCodeResourceNotFoundException:
@@ -92,6 +88,7 @@ func (ops Operations) DescribeCluster(clusterName string) (awsRegion string, aws
 
 	clsArn := *result.Cluster.Arn
 
+	fmt.Println(clsArn)
 	arns := strings.Split(clsArn, ":")
 	awsRegion = arns[3]
 	awsActNmbr = arns[4]
