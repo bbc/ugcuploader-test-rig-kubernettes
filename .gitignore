@@ -18,3 +18,4 @@
 /docker/master/src/
 /docker/master/jmeter-master/
 /docker/slave/fileupload/
+setup-aws-env.sh
