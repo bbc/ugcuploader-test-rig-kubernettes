@@ -1,1 +1,1 @@
-aws ecr get-login --no-include-email --region eu-west-2 | sed 's|https://||'
+aws ecr get-login --no-include-email --region eu-west-1 | sed 's|https://||'
