@@ -19,3 +19,4 @@
 /docker/master/jmeter-master/
 /docker/slave/fileupload/
 setup-aws-env.sh
+kubernetes-util/setup-aws-env.sh
